@@ -2,6 +2,41 @@
 
 A charting library for [Typst](https://typst.app) built entirely with native primitives (`rect`, `circle`, `line`, `polygon`, `place`). No external dependencies required.
 
+## Gallery
+
+### Bar Charts
+![Bar Charts](screenshots/page-01.png)
+
+### Grouped & Stacked Bars
+![Grouped and Stacked Bar Charts](screenshots/page-02.png)
+
+### Line Charts
+![Line Charts](screenshots/page-03.png)
+
+### Area Charts
+![Area Charts](screenshots/page-04.png)
+
+### Pie & Donut Charts
+![Pie Charts](screenshots/page-05.png)
+
+### Radar Charts
+![Radar Charts](screenshots/page-06.png)
+
+### Scatter Plots
+![Scatter Plots](screenshots/page-07.png)
+
+### Bubble Chart
+![Bubble Chart](screenshots/page-08.png)
+
+### Gauges & Progress Indicators
+![Gauges and Progress](screenshots/page-09.png)
+
+### Heatmaps
+![Heatmaps](screenshots/page-10.png)
+
+### Calendar Heatmap
+![Calendar Heatmap](screenshots/page-11.png)
+
 ## Features
 
 - **15+ chart types** for data visualization
