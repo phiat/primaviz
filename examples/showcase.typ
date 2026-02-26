@@ -1,9 +1,11 @@
-// Compact showcase — All chart types on 2 pages
+// Compact showcase — All chart types on 2 pages (dark theme)
 // Data themed around Linux kernel subsystems
 #import "../src/lib.typ": *
 
-#set page(margin: (x: 0.6cm, y: 0.6cm), paper: "a4")
-#set text(size: 7pt)
+#set page(margin: (x: 0.6cm, y: 0.6cm), paper: "a4", fill: rgb("#1a1a2e"))
+#set text(size: 7pt, fill: rgb("#e0e0e0"))
+
+#let dk = themes.dark
 
 // ── Page 1: Core chart types ──────────────────────────────────────────────────
 
@@ -18,6 +20,7 @@
      values: (4820, 3150, 8930, 2710, 2340, 1890)),
     width: 250pt, height: 110pt,
     title: "Commits by Subsystem (v6.x)",
+    theme: dk,
   ),
 
   // Horizontal bar — maintainer count
@@ -26,6 +29,7 @@
      values: (312, 187, 145, 98, 67, 42)),
     width: 250pt, height: 110pt,
     title: "Active Maintainers",
+    theme: dk,
   ),
 
   // Grouped bar — patch activity by quarter
@@ -38,6 +42,7 @@
      )),
     width: 250pt, height: 110pt,
     title: "Quarterly Patch Volume",
+    theme: dk,
   ),
 
   // Stacked bar — bug categories
@@ -50,6 +55,7 @@
      )),
     width: 250pt, height: 110pt,
     title: "Bug Reports by Type",
+    theme: dk,
   ),
 
   // Line chart — kernel binary size over releases
@@ -59,6 +65,7 @@
     width: 250pt, height: 105pt,
     title: "vmlinux Size (MB)",
     show-points: true,
+    theme: dk,
   ),
 
   // Multi-line — build time by config
@@ -71,6 +78,7 @@
      )),
     width: 250pt, height: 105pt,
     title: "Build Time (sec)",
+    theme: dk,
   ),
 
   // Area chart — LoC growth
@@ -80,6 +88,7 @@
     width: 250pt, height: 105pt,
     title: "Lines of Code (millions)",
     fill-opacity: 40%,
+    theme: dk,
   ),
 
   // Stacked area — contributor types
@@ -92,12 +101,13 @@
      )),
     width: 250pt, height: 105pt,
     title: "Contributors by Type",
+    theme: dk,
   ),
 )
 
 #pagebreak()
 
-// ── Page 2: Specialized charts + themes ───────────────────────────────────────
+// ── Page 2: Specialized charts ────────────────────────────────────────────────
 
 #grid(
   columns: (1fr, 1fr),
@@ -110,6 +120,7 @@
      values: (42, 16, 12, 10, 5, 15)),
     size: 95pt,
     title: "Code Share by Subsystem (%)",
+    theme: dk,
   ),
 
   // Radar — subsystem health scores
@@ -122,6 +133,7 @@
     size: 130pt,
     title: "Subsystem Health",
     fill-opacity: 25%,
+    theme: dk,
   ),
 
   // Scatter — complexity vs bugs
@@ -133,22 +145,23 @@
     x-label: "Avg Complexity",
     y-label: "Bug Count",
     annotations: (
-      (type: "h-line", value: 15, label: "Threshold", color: rgb("#e15759"), dash: "dashed"),
+      (type: "h-line", value: 15, label: "Threshold", color: rgb("#ff6b6b"), dash: "dashed"),
     ),
+    theme: dk,
   ),
 
   // Gauge + progress — kernel health dashboard
   [
-    #text(size: 8pt, weight: "bold")[Kernel CI Dashboard]
+    #text(size: 8pt, weight: "bold", fill: rgb("#e0e0e0"))[Kernel CI Dashboard]
     #v(2pt)
     #grid(
       columns: (1fr, 1fr, 1fr),
-      gauge-chart(78, size: 60pt, title: "Build", label: "pass"),
-      gauge-chart(94, size: 60pt, title: "Boot", label: "pass"),
-      gauge-chart(61, size: 60pt, title: "Perf", label: "score"),
+      gauge-chart(78, size: 60pt, title: "Build", label: "pass", theme: dk),
+      gauge-chart(94, size: 60pt, title: "Boot", label: "pass", theme: dk),
+      gauge-chart(61, size: 60pt, title: "Perf", label: "score", theme: dk),
     )
     #v(2pt)
-    #progress-bar(87, width: 250pt, title: "Test Suite Coverage")
+    #progress-bar(87, width: 250pt, title: "Test Suite Coverage", theme: dk)
   ],
 
   // Waterfall — patch lifecycle
@@ -157,6 +170,7 @@
      values: (1200, 350, 180, -280, -150, 1300)),
     width: 250pt, height: 115pt,
     title: "Patch Lifecycle (v6.8-rc1)",
+    theme: dk,
   ),
 
   // Funnel — patch review pipeline
@@ -165,6 +179,7 @@
      values: (5000, 3200, 2100, 1800, 1650)),
     width: 250pt, height: 130pt,
     title: "Patch Review Pipeline",
+    theme: dk,
   ),
 
   // Box plot — latency by scheduler
@@ -179,6 +194,7 @@
     width: 250pt, height: 115pt,
     title: "Schedule Latency (μs)",
     show-grid: true,
+    theme: dk,
   ),
 
   // Heatmap — subsystem activity by day
@@ -194,6 +210,7 @@
     cell-size: 22pt,
     title: "Commit Activity by Day",
     palette: "viridis",
+    theme: dk,
   ),
 )
 
@@ -203,8 +220,10 @@
   columns: (auto, auto, auto, auto, auto),
   align: (left, center, center, center, right),
   inset: 3pt,
+  stroke: rgb("#333355"),
+  fill: rgb("#1a1a2e"),
   [*Subsystem*], [*Commits*], [*Churn*], [*Bugs*], [*Trend*],
-  [networking], [#sparkline((45, 52, 48, 61, 58, 72, 68), color: rgb("#4e79a7"), width: 50pt, height: 12pt)], [#sparkbar((8, 12, 9, 15, 11, 18, 14), color: rgb("#f28e2b"), width: 50pt, height: 12pt)], [#sparkdot((5, 3, 4, 2, 3, 1, 2), color: rgb("#e15759"), width: 50pt, height: 12pt)], [↑ 12%],
-  [memory], [#sparkline((32, 28, 35, 31, 38, 42, 40), color: rgb("#4e79a7"), width: 50pt, height: 12pt)], [#sparkbar((6, 8, 5, 10, 7, 12, 9), color: rgb("#f28e2b"), width: 50pt, height: 12pt)], [#sparkdot((8, 6, 7, 5, 4, 3, 2), color: rgb("#59a14f"), width: 50pt, height: 12pt)], [↑ 8%],
-  [filesystems], [#sparkline((22, 25, 19, 28, 24, 30, 27), color: rgb("#4e79a7"), width: 50pt, height: 12pt)], [#sparkbar((4, 6, 3, 8, 5, 9, 7), color: rgb("#f28e2b"), width: 50pt, height: 12pt)], [#sparkdot((3, 4, 2, 3, 2, 1, 1), color: rgb("#59a14f"), width: 50pt, height: 12pt)], [↑ 5%],
+  [networking], [#sparkline((45, 52, 48, 61, 58, 72, 68), color: rgb("#00d2ff"), width: 50pt, height: 12pt)], [#sparkbar((8, 12, 9, 15, 11, 18, 14), color: rgb("#ff9f43"), width: 50pt, height: 12pt)], [#sparkdot((5, 3, 4, 2, 3, 1, 2), color: rgb("#ff6b6b"), width: 50pt, height: 12pt)], [↑ 12%],
+  [memory], [#sparkline((32, 28, 35, 31, 38, 42, 40), color: rgb("#00d2ff"), width: 50pt, height: 12pt)], [#sparkbar((6, 8, 5, 10, 7, 12, 9), color: rgb("#ff9f43"), width: 50pt, height: 12pt)], [#sparkdot((8, 6, 7, 5, 4, 3, 2), color: rgb("#0be881"), width: 50pt, height: 12pt)], [↑ 8%],
+  [filesystems], [#sparkline((22, 25, 19, 28, 24, 30, 27), color: rgb("#00d2ff"), width: 50pt, height: 12pt)], [#sparkbar((4, 6, 3, 8, 5, 9, 7), color: rgb("#ff9f43"), width: 50pt, height: 12pt)], [#sparkdot((3, 4, 2, 3, 2, 1, 1), color: rgb("#0be881"), width: 50pt, height: 12pt)], [↑ 5%],
 )

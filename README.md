@@ -9,63 +9,10 @@ A charting library for [Typst](https://typst.app) built entirely with native pri
 
 ## Showcase
 
-All 25+ chart types on 2 pages (Linux kernel subsystem data):
+All 25+ chart types on 2 pages (Linux kernel subsystem data, dark theme):
 
 ![Showcase Page 1](screenshots/showcase-1.png)
 ![Showcase Page 2](screenshots/showcase-2.png)
-
-## Gallery
-
-### Bar Charts
-![Bar Charts](screenshots/page-01.png)
-
-### Grouped & Stacked Bars
-![Grouped and Stacked Bar Charts](screenshots/page-02.png)
-
-### Line Charts
-![Line Charts](screenshots/page-03.png)
-
-### Area Charts
-![Area Charts](screenshots/page-04.png)
-
-### Pie & Donut Charts
-![Pie Charts](screenshots/page-05.png)
-
-### Radar Charts
-![Radar Charts](screenshots/page-06.png)
-
-### Scatter Plots
-![Scatter Plots](screenshots/page-07.png)
-
-### Bubble Chart
-![Bubble Chart](screenshots/page-08.png)
-
-### Gauges & Progress Indicators
-![Gauges and Progress](screenshots/page-09.png)
-
-### Heatmaps
-![Heatmaps](screenshots/page-10.png)
-
-### Calendar Heatmap
-![Calendar Heatmap](screenshots/page-11.png)
-
-### Sparklines
-![Sparklines](screenshots/page-12.png)
-
-### Waterfall & Funnel Charts
-![Waterfall and Funnel](screenshots/page-13.png)
-
-### Box Plot
-![Box Plot](screenshots/page-14.png)
-
-### Annotations
-![Annotations](screenshots/page-15.png)
-
-### Scatter with Annotations
-![Scatter Annotations](screenshots/page-16.png)
-
-### Theme Showcase
-![Themes](screenshots/page-17.png)
 
 ## Features
 
@@ -261,14 +208,20 @@ Pass a dictionary with only the keys you want to change. Unspecified keys fall b
 
 ## Examples
 
-See `examples/demo.typ` for comprehensive examples using the included sample data files in `data/`:
+- `examples/showcase.typ` - Compact 2-page showcase of all chart types (dark theme, Linux kernel data)
+- `examples/demo.typ` - Comprehensive 18-page demo with all features
+
+Sample data files in `data/`:
 - `data/characters.json` - RPG character data
 - `data/events.json` - Conference/event data
 - `data/analytics.json` - Dashboard analytics data
 
-Compile the demo:
 ```bash
-typst compile --root . examples/demo.typ
+just demo       # Compile the full demo
+just showcase   # Compile the 2-page showcase
+just watch      # Live-reload during development
+just check      # Run all compilation tests
+just screenshots # Regenerate gallery images
 ```
 
 ## Color Palette
@@ -316,7 +269,8 @@ typst-charts/
       title.typ
     validate.typ       # Input validation helpers
   examples/
-    demo.typ           # Comprehensive demo of all chart types
+    showcase.typ       # 2-page compact showcase (dark theme)
+    demo.typ           # Comprehensive 18-page demo
   data/                # Sample JSON data files
   screenshots/         # Gallery images
   justfile             # Common dev commands
