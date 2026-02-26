@@ -287,10 +287,15 @@ Dev commands via [just](https://github.com/casey/just):
 
 ```bash
 just demo         # Compile the full demo
-just showcase     # Compile the 2-page showcase
+just showcase     # Compile the 3-page showcase
 just watch        # Live-reload during development
-just check        # Run all compilation tests
+just test         # Run all compilation tests
+just check        # Full CI check (demo + showcase + tests)
 just screenshots  # Regenerate gallery images
+just open         # Compile and open the demo PDF
+just dev          # Watch with live-reload and open PDF
+just clean        # Clean generated artifacts
+just release      # Full release prep (check + screenshots)
 just stats        # Show project stats
 ```
 

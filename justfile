@@ -8,7 +8,7 @@ default:
 demo:
     typst compile --root . examples/demo.typ
 
-# Compile the compact 2-page showcase
+# Compile the compact 3-page showcase
 showcase:
     typst compile --root . examples/showcase.typ
 
