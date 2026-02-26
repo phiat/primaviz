@@ -80,7 +80,7 @@
             line(
               start: (cx, cx),
               end: (x-end, y-end),
-              stroke: luma(180) + 0.5pt
+              stroke: t.grid-stroke
             )
           )
 

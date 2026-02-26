@@ -71,13 +71,14 @@
   } else if mode == "comma" {
     // Add comma separators - Typst doesn't have built-in number formatting
     // so we'll build the string manually
-    let s = str(calc.round(val, digits: 0))
+    let s = str(calc.round(val, digits: digits))
     let negative = s.starts-with("-")
-    let digits-str = if negative { s.slice(1) } else { s }
+    let abs-str = if negative { s.slice(1) } else { s }
+    let parts = abs-str.split(".")
+    let int-str = parts.at(0)
     let result = ""
     let count = 0
-    // Process from right to left
-    let chars = digits-str.clusters()
+    let chars = int-str.clusters()
     let n = chars.len()
     for i in array.range(n) {
       let idx = n - 1 - i
@@ -86,6 +87,9 @@
       }
       result = chars.at(idx) + result
       count = count + 1
+    }
+    if parts.len() > 1 {
+      result = result + "." + parts.at(1)
     }
     if negative { "-" + result } else { result }
   } else if mode == "percent" {

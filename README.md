@@ -216,6 +216,7 @@ Sample data files in `data/`:
 - `data/events.json` - Conference/event data
 - `data/analytics.json` - Dashboard analytics data
 
+Dev commands via [just](https://github.com/casey/just):
 ```bash
 just demo       # Compile the full demo
 just showcase   # Compile the 2-page showcase
@@ -223,6 +224,8 @@ just watch      # Live-reload during development
 just check      # Run all compilation tests
 just screenshots # Regenerate gallery images
 ```
+
+Issue tracking with [beads](https://github.com/steveyegge/beads).
 
 ## Color Palette
 

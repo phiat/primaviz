@@ -24,6 +24,7 @@
   let cy = size / 2 + 10pt
 
   let val-range = max-val - min-val
+  if val-range == 0 { val-range = 1 }
   let normalized = (value - min-val) / val-range
   normalized = calc.max(0, calc.min(1, normalized))  // clamp 0-1
 
@@ -319,6 +320,7 @@
   title: none,
   show-values: true,
   max-val: auto,
+  background: luma(230),
   theme: none,
 ) = {
   validate-simple-data(data, "progress-bars")
@@ -328,6 +330,7 @@
   let n = labels.len()
 
   let actual-max = if max-val == auto { calc.max(..values) } else { max-val }
+  if actual-max == 0 { actual-max = 1 }
 
   box(width: width)[
     #if title != none {
@@ -347,7 +350,7 @@
         text(size: t.axis-label-size, fill: t.text-color)[#lbl],
 
         box(width: 100%, height: bar-height)[
-          #rect(width: 100%, height: 100%, fill: luma(230), radius: 3pt)
+          #rect(width: 100%, height: 100%, fill: background, radius: 3pt)
           #place(left + top, rect(width: 100% * progress, height: 100%, fill: get-color(t, i), radius: 3pt))
         ],
 

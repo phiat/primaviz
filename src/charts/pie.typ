@@ -59,7 +59,7 @@
             left + top,
             polygon(
               fill: get-color(t, i),
-              stroke: white + 1pt,
+              stroke: (if t.background != none { t.background } else { white }) + 1pt,
               ..pts.map(p => (p.at(0), p.at(1)))
             )
           )

@@ -26,6 +26,7 @@
   let values = norm.values
 
   let max-val = calc.max(..values)
+  if max-val == 0 { max-val = 1 }
   let n = values.len()
 
   let label-area = 80pt
@@ -109,7 +110,6 @@
   bar-width: 0.6,
   title: none,
   show-values: true,
-  horizontal: false,
   x-label: none,
   y-label: none,
   annotations: none,
@@ -122,6 +122,7 @@
   let values = norm.values
 
   let max-val = calc.max(..values)
+  if max-val == 0 { max-val = 1 }
   let n = values.len()
 
   chart-container(width, height, title, t, extra-height: 30pt)[
@@ -211,6 +212,7 @@
 
   let all-values = series.map(s => s.values).flatten()
   let max-val = calc.max(..all-values)
+  if max-val == 0 { max-val = 1 }
 
   chart-container(width, height, title, t, extra-height: 50pt)[
     #let chart-height = height - 20pt
@@ -302,6 +304,7 @@
     totals.push(total)
   }
   let max-val = calc.max(..totals)
+  if max-val == 0 { max-val = 1 }
 
   chart-container(width, height, title, t, extra-height: 50pt)[
     #let chart-height = height - 20pt
@@ -333,7 +336,7 @@
               width: bw,
               height: bar-h,
               fill: get-color(t, si),
-              stroke: white + 0.5pt,
+              stroke: (if t.background != none { t.background } else { white }) + 0.5pt,
             )
           )
 

@@ -142,7 +142,7 @@
         // Value label
         if show-values {
           let val = values.at(i)
-          let label-y = if val >= 0 { bar-top-px - 12pt } else { bar-bot-px + 2pt }
+          let label-y = bar-top-px - 12pt
           place(left + top, dx: x-pos + actual-bw / 2 - 10pt, dy: label-y,
             text(size: t.value-label-size, fill: t.text-color)[#format-number(val, digits: 0, mode: t.number-format)]
           )

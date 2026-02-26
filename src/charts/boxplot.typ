@@ -87,6 +87,7 @@
         // Helper: map a data value to y-coordinate
         // y = y-start + chart-height - ((val - y-min) / (y-max - y-min)) * chart-height
         let y-range = y-max - y-min
+        if y-range == 0 { y-range = 1 }
         let map-y(val) = {
           y-start + chart-height - ((val - y-min) / y-range) * chart-height
         }

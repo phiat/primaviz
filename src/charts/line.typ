@@ -49,12 +49,12 @@
 
       #let points = ()
       #for (i, val) in values.enumerate() {
-        let x = 45pt + (i / (n - 1)) * (chart-width - 10pt)
+        let x = if n == 1 { 45pt + chart-width / 2 } else { 45pt + (i / (n - 1)) * (chart-width - 10pt) }
         let y = chart-height - ((val - min-val) / val-range) * (chart-height - 20pt) - 10pt
         points.push((x, y))
       }
 
-      #for i in array.range(n - 1) {
+      #for i in array.range(calc.max(n - 1, 0)) {
         let p1 = points.at(i)
         let p2 = points.at(i + 1)
         place(
@@ -88,7 +88,7 @@
       }
 
       #for (i, lbl) in labels.enumerate() {
-        let x = 45pt + (i / (n - 1)) * (chart-width - 10pt)
+        let x = if n == 1 { 45pt + chart-width / 2 } else { 45pt + (i / (n - 1)) * (chart-width - 10pt) }
         place(
           left + bottom,
           dx: x - 15pt,
@@ -113,7 +113,7 @@
       #draw-axis-titles(x-label, y-label, 40pt + chart-width / 2, chart-height / 2, t)
 
       // Annotations
-      #draw-annotations(annotations, 45pt, 10pt, chart-width - 10pt, chart-height - 20pt, 0, n - 1, min-val, max-val, t)
+      #draw-annotations(annotations, 45pt, 10pt, chart-width - 10pt, chart-height - 20pt, 0, calc.max(n - 1, 1), min-val, max-val, t)
     ]
   ]
 }
@@ -160,12 +160,12 @@
 
         let points = ()
         for (i, val) in values.enumerate() {
-          let x = 45pt + (i / (n - 1)) * (chart-width - 10pt)
+          let x = if n == 1 { 45pt + chart-width / 2 } else { 45pt + (i / (n - 1)) * (chart-width - 10pt) }
           let y = chart-height - ((val - min-val) / val-range) * (chart-height - 20pt) - 10pt
           points.push((x, y))
         }
 
-        for i in array.range(n - 1) {
+        for i in array.range(calc.max(n - 1, 0)) {
           let p1 = points.at(i)
           let p2 = points.at(i + 1)
           place(
@@ -191,7 +191,7 @@
       }
 
       #for (i, lbl) in labels.enumerate() {
-        let x = 45pt + (i / (n - 1)) * (chart-width - 10pt)
+        let x = if n == 1 { 45pt + chart-width / 2 } else { 45pt + (i / (n - 1)) * (chart-width - 10pt) }
         place(
           left + bottom,
           dx: x - 15pt,

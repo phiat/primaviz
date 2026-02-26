@@ -49,7 +49,7 @@
       // Calculate points
       #let points = ()
       #for (i, val) in values.enumerate() {
-        let x = x-start + (i / (n - 1)) * (chart-width - 10pt)
+        let x = if n == 1 { x-start + chart-width / 2 } else { x-start + (i / (n - 1)) * (chart-width - 10pt) }
         let y = chart-height - ((val - min-val) / val-range) * (chart-height - 20pt) - 10pt
         points.push((x, y))
       }
@@ -78,7 +78,7 @@
 
       // Draw line on top
       #if show-line {
-        for i in array.range(n - 1) {
+        for i in array.range(calc.max(n - 1, 0)) {
           let p1 = points.at(i)
           let p2 = points.at(i + 1)
           place(
@@ -106,7 +106,7 @@
 
       // X-axis labels
       #for (i, lbl) in labels.enumerate() {
-        let x = x-start + (i / (n - 1)) * (chart-width - 10pt)
+        let x = if n == 1 { x-start + chart-width / 2 } else { x-start + (i / (n - 1)) * (chart-width - 10pt) }
         place(
           left + bottom,
           dx: x - 15pt,
@@ -167,6 +167,7 @@
   }
 
   let max-val = calc.max(..cumulative.map(c => c.at(n-series - 1)))
+  if max-val == 0 { max-val = 1 }
 
   chart-container(width, height, title, t, extra-height: 50pt)[
     #let chart-height = height - 20pt
@@ -190,14 +191,14 @@
 
         // Top edge (current cumulative)
         for i in array.range(n) {
-          let x = x-start + (i / (n - 1)) * (chart-width - 10pt)
+          let x = if n == 1 { x-start + chart-width / 2 } else { x-start + (i / (n - 1)) * (chart-width - 10pt) }
           let y = chart-height - (cumulative.at(i).at(si) / max-val) * (chart-height - 20pt) - 10pt
           area-pts.push((x, y))
         }
 
         // Bottom edge (previous cumulative or baseline)
         for i in array.range(n - 1, -1, step: -1) {
-          let x = x-start + (i / (n - 1)) * (chart-width - 10pt)
+          let x = if n == 1 { x-start + chart-width / 2 } else { x-start + (i / (n - 1)) * (chart-width - 10pt) }
           let y = if si == 0 {
             chart-height - 10pt  // baseline
           } else {
@@ -218,7 +219,7 @@
 
       // X-axis labels
       #for (i, lbl) in labels.enumerate() {
-        let x = x-start + (i / (n - 1)) * (chart-width - 10pt)
+        let x = if n == 1 { x-start + chart-width / 2 } else { x-start + (i / (n - 1)) * (chart-width - 10pt) }
         place(
           left + bottom,
           dx: x - 15pt,

@@ -11,6 +11,9 @@
     assert(data.labels.len() == data.values.len(),
       message: chart-name + ": labels (" + str(data.labels.len()) + ") and values (" + str(data.values.len()) + ") must have same length")
   }
+  if type(data) == array {
+    assert(data.len() > 0, message: chart-name + ": data must not be empty")
+  }
 }
 
 // Validate multi-series data (labels + series array)
@@ -36,6 +39,9 @@
     assert(data.x.len() > 0, message: chart-name + ": x values must not be empty")
     assert(data.x.len() == data.y.len(),
       message: chart-name + ": x (" + str(data.x.len()) + ") and y (" + str(data.y.len()) + ") must have same length")
+  }
+  if type(data) == array {
+    assert(data.len() > 0, message: chart-name + ": data must not be empty")
   }
 }
 
