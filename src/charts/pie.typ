@@ -5,6 +5,17 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/legend.typ": draw-legend-vertical
 
+/// Renders a pie or donut chart from label-value data.
+///
+/// - data (dictionary, array): Label-value pairs as dict or array of tuples
+/// - size (length): Diameter of the pie
+/// - title (none, content): Optional chart title
+/// - show-legend (bool): Show category legend beside the chart
+/// - show-percentages (bool): Display percentage labels on slices
+/// - donut (bool): Cut out the center to create a donut chart
+/// - donut-ratio (float): Inner radius as fraction of outer radius (0 to 1)
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let pie-chart(
   data,
   size: 150pt,

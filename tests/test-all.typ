@@ -71,6 +71,23 @@
 
 #multi-line-chart(multi-data, title: "multi-line-chart")
 
+#let dual-data = (
+  labels: ("Q1", "Q2", "Q3", "Q4"),
+  left: (name: "Revenue", values: (100, 150, 130, 180)),
+  right: (name: "Growth %", values: (10, 15, 12, 18)),
+)
+
+#dual-axis-chart(
+  dual-data,
+  width: 400pt,
+  height: 250pt,
+  title: "dual-axis-chart",
+  left-label: "Revenue ($)",
+  right-label: "Growth (%)",
+  x-label: "Quarter",
+  show-grid: true,
+)
+
 #pagebreak()
 
 // ── Area Charts ────────────────────────────────────────────────────────────
@@ -124,6 +141,23 @@
 #circular-progress(45, title: "circular-progress")
 
 #progress-bars(simple-data, title: "progress-bars")
+
+#ring-progress(
+  (
+    (name: "Move", value: 75, max: 100),
+    (name: "Exercise", value: 45, max: 60),
+    (name: "Stand", value: 10, max: 12),
+  ),
+  title: "ring-progress (fitness rings)",
+)
+
+#ring-progress(
+  (
+    (name: "Overflow", value: 130, max: 100),
+    (name: "Half", value: 50, max: 100),
+  ),
+  title: "ring-progress (overflow)",
+)
 
 #pagebreak()
 

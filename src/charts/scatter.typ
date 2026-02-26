@@ -6,9 +6,22 @@
 #import "../primitives/legend.typ": draw-legend, draw-legend-vertical
 #import "../primitives/annotations.typ": draw-annotations
 
-// Scatter plot
+/// Renders a scatter plot of x-y data points.
+///
+/// - data (array, dictionary): Array of `(x, y)` tuples or dict with `x` and `y` arrays
+/// - width (length): Chart width
+/// - height (length): Chart height
+/// - title (none, content): Optional chart title
+/// - x-label (none, content): X-axis title
+/// - y-label (none, content): Y-axis title
+/// - point-size (length): Diameter of point markers
+/// - show-grid (bool): Draw background grid lines
+/// - color (none, color): Override point color
+/// - annotations (none, array): Optional annotation descriptors
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let scatter-plot(
-  data,  // array of (x, y) points or dict with x, y arrays
+  data,
   width: 300pt,
   height: 250pt,
   title: none,
@@ -147,9 +160,21 @@
   ]
 }
 
-// Multi-series scatter plot
+/// Renders a multi-series scatter plot with color-coded point groups.
+///
+/// - data (dictionary): Dict with `series` array, each containing `name` and `points` (array of `(x, y)`)
+/// - width (length): Chart width
+/// - height (length): Chart height
+/// - title (none, content): Optional chart title
+/// - x-label (none, content): X-axis title
+/// - y-label (none, content): Y-axis title
+/// - point-size (length): Diameter of point markers
+/// - show-grid (bool): Draw background grid lines
+/// - show-legend (bool): Show series legend
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let multi-scatter-plot(
-  data,  // dict with series array of {name, points: [(x,y), ...]}
+  data,
   width: 300pt,
   height: 250pt,
   title: none,
@@ -255,9 +280,24 @@
   ]
 }
 
-// Bubble chart
+/// Renders a bubble chart where each point has an x, y, and size dimension.
+///
+/// - data (array, dictionary): Array of `(x, y, size)` tuples or dict with `x`, `y`, `size` arrays
+/// - width (length): Chart width
+/// - height (length): Chart height
+/// - title (none, content): Optional chart title
+/// - x-label (none, content): X-axis title
+/// - y-label (none, content): Y-axis title
+/// - min-radius (length): Minimum bubble radius
+/// - max-radius (length): Maximum bubble radius
+/// - show-grid (bool): Draw background grid lines
+/// - color (none, color): Override bubble color
+/// - show-labels (bool): Display text labels on bubbles
+/// - labels (none, array): Array of label strings for each bubble
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let bubble-chart(
-  data,  // array of (x, y, size) or dict with x, y, size arrays
+  data,
   width: 300pt,
   height: 250pt,
   title: none,

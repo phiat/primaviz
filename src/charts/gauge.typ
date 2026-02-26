@@ -3,7 +3,19 @@
 #import "../validate.typ": validate-number, validate-simple-data
 #import "../primitives/container.typ": chart-container
 
-// Gauge/dial chart (semicircle)
+/// Renders a semicircular gauge/dial chart with a needle indicator.
+///
+/// - value (int, float): Current value to display on the gauge
+/// - min-val (int, float): Minimum scale value
+/// - max-val (int, float): Maximum scale value
+/// - size (length): Diameter of the gauge
+/// - title (none, content): Optional chart title
+/// - label (none, content): Descriptive label below the value
+/// - show-value (bool): Display the numeric value in the center
+/// - segments (none, array): Array of `(threshold, color)` pairs for colored arc segments
+/// - needle-color (auto, color): Color of the needle and center cap
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let gauge-chart(
   value,
   min-val: 0,
@@ -12,7 +24,7 @@
   title: none,
   label: none,
   show-value: true,
-  segments: none,  // optional: array of (threshold, color) for colored segments
+  segments: none,
   needle-color: auto,
   theme: none,
 ) = {
@@ -152,7 +164,19 @@
   ]
 }
 
-// Progress bar (horizontal)
+/// Renders a horizontal progress bar.
+///
+/// - value (int, float): Current progress value
+/// - max-val (int, float): Maximum value (100% fill)
+/// - width (length): Bar width
+/// - height (length): Bar height
+/// - title (none, content): Optional label above the bar
+/// - show-value (bool): Display percentage text on the bar
+/// - color (none, color): Override fill color
+/// - background (color): Track background color
+/// - rounded (bool): Use rounded ends
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let progress-bar(
   value,
   max-val: 100,
@@ -217,7 +241,18 @@
   ]
 }
 
-// Circular progress
+/// Renders a circular progress ring indicator.
+///
+/// - value (int, float): Current progress value
+/// - max-val (int, float): Maximum value (100% fill)
+/// - size (length): Outer diameter of the ring
+/// - title (none, content): Optional label above the ring
+/// - show-value (bool): Display percentage text in the center
+/// - stroke-width (length): Thickness of the ring stroke
+/// - color (none, color): Override ring color
+/// - background (color): Track background color
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let circular-progress(
   value,
   max-val: 100,
@@ -312,9 +347,19 @@
   ]
 }
 
-// Multiple progress bars (for comparing values)
+/// Renders multiple labeled progress bars for comparing values.
+///
+/// - data (dictionary): Dict with `labels` and `values` arrays
+/// - width (length): Overall width
+/// - bar-height (length): Height of each bar
+/// - title (none, content): Optional title above the bars
+/// - show-values (bool): Display numeric values beside bars
+/// - max-val (auto, int, float): Maximum scale value; `auto` uses the data maximum
+/// - background (color): Track background color
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let progress-bars(
-  data,  // dict with labels and values arrays
+  data,
   width: 250pt,
   bar-height: 16pt,
   title: none,

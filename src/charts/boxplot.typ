@@ -4,6 +4,19 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/axes.typ": draw-axis-lines, draw-y-ticks, draw-x-category-labels, draw-grid, draw-axis-titles
 
+/// Renders a box-and-whisker plot for comparing distributions.
+///
+/// - data (dictionary): Dict with `labels` and `boxes` (each with `min`, `q1`, `median`, `q3`, `max`)
+/// - width (length): Chart width
+/// - height (length): Chart height
+/// - title (none, content): Optional chart title
+/// - box-width (float): Box width as fraction of slot (0 to 1)
+/// - show-values (bool): Display five-number summary labels beside each box
+/// - show-grid (auto, bool): Draw background grid lines; `auto` uses theme default
+/// - x-label (none, content): X-axis title
+/// - y-label (none, content): Y-axis title
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let box-plot(
   data,
   width: 350pt,

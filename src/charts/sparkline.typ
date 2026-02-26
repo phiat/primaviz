@@ -1,7 +1,17 @@
 // sparkline.typ - Tiny inline charts for tables and running text
 #import "../theme.typ": resolve-theme, get-color
 
-// Sparkline: tiny line chart, no axes, no labels
+/// Renders a tiny inline line chart (sparkline) suitable for tables and running text.
+///
+/// - values (array): Array of numeric values
+/// - width (length): Sparkline width
+/// - height (length): Sparkline height
+/// - color (none, color): Override line color
+/// - show-endpoint (bool): Draw a dot at the last data point
+/// - fill-area (bool): Fill the area beneath the line
+/// - stroke-width (length): Line stroke width
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let sparkline(
   values,
   width: 60pt,
@@ -74,7 +84,15 @@
   }
 }
 
-// Sparkbar: tiny bar chart
+/// Renders a tiny inline bar chart suitable for tables and running text.
+///
+/// - values (array): Array of numeric values
+/// - width (length): Sparkbar width
+/// - height (length): Sparkbar height
+/// - color (none, color): Override bar color
+/// - gap (length): Gap between bars
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let sparkbar(
   values,
   width: 60pt,
@@ -106,7 +124,15 @@
   }
 }
 
-// Sparkdot: tiny dot/scatter chart
+/// Renders a tiny inline dot chart suitable for tables and running text.
+///
+/// - values (array): Array of numeric values
+/// - width (length): Chart width
+/// - height (length): Chart height
+/// - color (none, color): Override dot color
+/// - dot-size (length): Radius of each dot
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let sparkdot(
   values,
   width: 60pt,

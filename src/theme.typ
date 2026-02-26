@@ -40,8 +40,10 @@
   border: none,
 )
 
-// Merge a user's partial theme dict onto default-theme.
-// For each key in default-theme, use user value if present, else default.
+/// Merges a user's partial theme dictionary onto the default theme.
+///
+/// - user-theme (none, dictionary): Partial theme overrides; `none` returns the default theme
+/// -> dictionary
 #let resolve-theme(user-theme) = {
   if user-theme == none {
     return default-theme
@@ -57,7 +59,11 @@
   result
 }
 
-// Get a color from theme palette, cycling with calc.rem
+/// Returns a color from the theme palette, cycling if the index exceeds palette length.
+///
+/// - theme (dictionary): Resolved theme dictionary
+/// - index (int): Color index (wraps around via modulo)
+/// -> color
 #let get-color(theme, index) = {
   let pal = theme.palette
   pal.at(calc.rem(index, pal.len()))

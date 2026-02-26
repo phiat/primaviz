@@ -6,7 +6,20 @@
 #import "../primitives/axes.typ": draw-grid, draw-axis-titles
 #import "../primitives/legend.typ": draw-legend, draw-legend-vertical
 
-// Single area chart
+/// Renders a single-series area chart with a filled region below the line.
+///
+/// - data (dictionary, array): Label-value pairs as dict or array of tuples
+/// - width (length): Chart width
+/// - height (length): Chart height
+/// - title (none, content): Optional chart title
+/// - show-line (bool): Draw the line on top of the filled area
+/// - show-points (bool): Draw data point markers
+/// - fill-opacity (ratio): Opacity of the filled area
+/// - line-width (length): Stroke width of the line
+/// - x-label (none, content): X-axis title
+/// - y-label (none, content): Y-axis title
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let area-chart(
   data,
   width: 300pt,
@@ -134,7 +147,19 @@
   ]
 }
 
-// Stacked area chart
+/// Renders a stacked area chart with multiple series layered cumulatively.
+///
+/// - data (dictionary): Dict with `labels` and `series` (each with `name` and `values`)
+/// - width (length): Chart width
+/// - height (length): Chart height
+/// - title (none, content): Optional chart title
+/// - show-lines (bool): Draw boundary lines between series
+/// - fill-opacity (ratio): Opacity of each filled area
+/// - show-legend (bool): Show series legend
+/// - x-label (none, content): X-axis title
+/// - y-label (none, content): Y-axis title
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let stacked-area-chart(
   data,
   width: 350pt,

@@ -4,6 +4,17 @@
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
 
+/// Renders a funnel chart for visualizing process or conversion stages.
+///
+/// - data (dictionary, array): Label-value pairs as dict or array of tuples
+/// - width (length): Chart width
+/// - height (length): Chart height
+/// - title (none, content): Optional chart title
+/// - show-values (bool): Display numeric values on segments
+/// - show-percentages (bool): Display conversion percentages relative to the first stage
+/// - gap (length): Vertical gap between segments
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let funnel-chart(
   data,
   width: 300pt,

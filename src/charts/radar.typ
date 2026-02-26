@@ -4,6 +4,16 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/legend.typ": draw-legend-vertical
 
+/// Renders a radar (spider) chart for comparing series across multiple axes.
+///
+/// - data (dictionary): Dict with `labels` (axis names) and `series` (each with `name` and `values`)
+/// - size (length): Diameter of the radar chart
+/// - title (none, content): Optional chart title
+/// - show-legend (bool): Show series legend
+/// - show-value-labels (bool): Display scale values and data point labels
+/// - fill-opacity (ratio): Opacity of the filled data area
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let radar-chart(
   data,
   size: 200pt,

@@ -1,21 +1,31 @@
 // util.typ - Shared utilities for typst-charts
 
-// Normalize data format — accepts dict with labels/values or array of tuples.
-// Returns (labels: array, values: array).
+/// Normalizes data input to a `(labels: array, values: array)` dictionary.
+///
+/// - data (dictionary, array): Dict with `labels`/`values` keys, or array of `(label, value)` tuples
+/// -> dictionary
 #let normalize-data(data) = {
   let labels = if type(data) == dictionary { data.labels } else { data.map(d => d.at(0)) }
   let values = if type(data) == dictionary { data.values } else { data.map(d => d.at(1)) }
   (labels: labels, values: values)
 }
 
-// Color interpolation: mix c1 and c2 by factor t (0 = c1, 1 = c2).
+/// Linearly interpolates between two colors.
+///
+/// - c1 (color): Start color (at t=0)
+/// - c2 (color): End color (at t=1)
+/// - t (float): Interpolation factor, clamped to 0..1
+/// -> color
 #let lerp-color(c1, c2, t) = {
   let t-clamped = calc.max(0, calc.min(1, t))
   color.mix((c1, (1 - t-clamped) * 100%), (c2, t-clamped * 100%))
 }
 
-// Heatmap color from a 0-1 value using named palette.
-// Palettes: "viridis", "heat", "grayscale", or default blue gradient.
+/// Maps a normalized 0..1 value to a color using a named palette.
+///
+/// - val (float): Value in the range 0 to 1
+/// - palette (str): Palette name (`"viridis"`, `"heat"`, `"grayscale"`, or default blue gradient)
+/// -> color
 #let heat-color(val, palette: "viridis") = {
   let v = calc.max(0, calc.min(1, val))
 
@@ -46,13 +56,22 @@
   }
 }
 
-// Clamp a numeric value to the range [lo, hi].
+/// Clamps a numeric value to the range [lo, hi].
+///
+/// - val (int, float): Value to clamp
+/// - lo (int, float): Lower bound
+/// - hi (int, float): Upper bound
+/// -> int, float
 #let clamp(val, lo, hi) = {
   calc.max(lo, calc.min(hi, val))
 }
 
-// Format a number for display.
-// mode: "auto" (pick best), "comma" (1,000), "si" (1.2k), "plain" (1000), "percent" (75%)
+/// Formats a number for display using the specified mode.
+///
+/// - val (int, float): Number to format
+/// - digits (int): Decimal places to round to
+/// - mode (str): Format mode: `"auto"`, `"comma"`, `"si"`, `"plain"`, or `"percent"`
+/// -> str
 #let format-number(val, digits: 1, mode: "auto") = {
   let abs-val = calc.abs(val)
   let rounded = calc.round(val, digits: digits)
@@ -100,8 +119,11 @@
   }
 }
 
-// Sort a simple data dict (labels + values) by values.
-// Returns a new dict with both labels and values reordered.
+/// Sorts a simple data dictionary by values.
+///
+/// - data (dictionary): Dict with `labels` and `values` arrays
+/// - descending (bool): Sort in descending order
+/// -> dictionary
 #let sort-data(data, descending: false) = {
   let pairs = data.labels.zip(data.values)
   let sorted = pairs.sorted(key: p => p.at(1))
@@ -111,15 +133,22 @@
   (labels: sorted.map(p => p.at(0)), values: sorted.map(p => p.at(1)))
 }
 
-// Return the top N entries by value (descending). Works with simple data dicts.
+/// Returns the top N entries by value (descending) from a simple data dictionary.
+///
+/// - data (dictionary): Dict with `labels` and `values` arrays
+/// - n (int): Number of top entries to return
+/// -> dictionary
 #let top-n(data, n) = {
   let sorted = sort-data(data, descending: true)
   (labels: sorted.labels.slice(0, calc.min(n, sorted.labels.len())),
    values: sorted.values.slice(0, calc.min(n, sorted.values.len())))
 }
 
-// Aggregate multi-series data into simple data.
-// Supports "sum", "mean", "max", "min" across series for each label.
+/// Aggregates multi-series data into a simple label-value dictionary.
+///
+/// - data (dictionary): Dict with `labels` and `series` (each with `values`)
+/// - fn (str): Aggregation function: `"sum"`, `"mean"`, `"max"`, or `"min"`
+/// -> dictionary
 #let aggregate(data, fn: "sum") = {
   let n = data.labels.len()
   let agg-values = ()
@@ -135,7 +164,10 @@
   (labels: data.labels, values: agg-values)
 }
 
-// Convert values to percentages of total. Returns new dict.
+/// Converts values to percentages of total, returning a new data dictionary.
+///
+/// - data (dictionary): Dict with `labels` and `values` arrays
+/// -> dictionary
 #let percent-of-total(data) = {
   let total = data.values.sum()
   if total == 0 { return data }

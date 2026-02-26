@@ -4,9 +4,18 @@
 #import "../validate.typ": validate-heatmap-data, validate-calendar-data, validate-correlation-data
 #import "../primitives/container.typ": chart-container
 
-// Heatmap chart
+/// Renders a heatmap grid with color-coded cells.
+///
+/// - data (dictionary): Dict with `rows` (row labels), `cols` (column labels), and `values` (2D array)
+/// - cell-size (length): Width and height of each cell
+/// - title (none, content): Optional chart title
+/// - show-values (bool): Display numeric values inside cells
+/// - palette (str): Color palette name (`"viridis"`, `"heat"`, `"grayscale"`)
+/// - show-legend (bool): Show color scale legend
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let heatmap(
-  data,  // dict with rows (array of row labels), cols (array of col labels), values (2D array)
+  data,
   cell-size: 30pt,
   title: none,
   show-values: true,
@@ -120,9 +129,18 @@
   ]
 }
 
-// Calendar heatmap (like GitHub contribution graph)
+/// Renders a calendar-style heatmap grid (similar to a GitHub contribution graph).
+///
+/// - data (dictionary): Dict with `dates` (array of `"YYYY-MM-DD"` strings) and `values` (array of numbers)
+/// - cell-size (length): Size of each day cell
+/// - title (none, content): Optional chart title
+/// - palette (str): Color palette name
+/// - show-month-labels (bool): Display month labels above the grid
+/// - show-day-labels (bool): Display day-of-week labels on the left
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let calendar-heatmap(
-  data,  // dict with dates (array of "YYYY-MM-DD") and values (array of numbers)
+  data,
   cell-size: 12pt,
   title: none,
   palette: "heat",
@@ -204,9 +222,16 @@
   ]
 }
 
-// Correlation matrix (symmetric heatmap with diagonal)
+/// Renders a correlation matrix as a symmetric heatmap (blue to red for -1 to +1).
+///
+/// - data (dictionary): Dict with `labels` and `values` (2D symmetric array, -1 to 1 range)
+/// - cell-size (length): Width and height of each cell
+/// - title (none, content): Optional chart title
+/// - show-values (bool): Display correlation values inside cells
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let correlation-matrix(
-  data,  // dict with labels and values (2D symmetric array, -1 to 1 range)
+  data,
   cell-size: 35pt,
   title: none,
   show-values: true,

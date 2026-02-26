@@ -7,7 +7,22 @@
 #import "../primitives/legend.typ": draw-legend, draw-legend-vertical
 #import "../primitives/annotations.typ": draw-annotations
 
-// Single line chart
+/// Renders a single-series line chart.
+///
+/// - data (dictionary, array): Label-value pairs as dict or array of tuples
+/// - width (length): Chart width
+/// - height (length): Chart height
+/// - title (none, content): Optional chart title
+/// - show-points (bool): Draw data point markers
+/// - show-values (bool): Display value labels at data points
+/// - line-width (length): Stroke width of the line
+/// - point-size (length): Diameter of point markers
+/// - fill-area (bool): Fill the area under the line
+/// - x-label (none, content): X-axis title
+/// - y-label (none, content): Y-axis title
+/// - annotations (none, array): Optional annotation descriptors
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let line-chart(
   data,
   width: 300pt,
@@ -118,7 +133,18 @@
   ]
 }
 
-// Multi-series line chart
+/// Renders a multi-series line chart with a shared axis.
+///
+/// - data (dictionary): Dict with `labels` and `series` (each with `name` and `values`)
+/// - width (length): Chart width
+/// - height (length): Chart height
+/// - title (none, content): Optional chart title
+/// - show-points (bool): Draw data point markers
+/// - show-legend (bool): Show series legend
+/// - x-label (none, content): X-axis title
+/// - y-label (none, content): Y-axis title
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let multi-line-chart(
   data,
   width: 300pt,

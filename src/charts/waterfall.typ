@@ -5,6 +5,22 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/axes.typ": draw-axis-lines, draw-grid, draw-axis-titles, draw-y-ticks, draw-x-category-labels
 
+/// Renders a waterfall (bridge) chart showing cumulative effect of positive and negative values.
+///
+/// - data (dictionary, array): Label-value pairs; optionally include a `types` array with `"total"`, `"pos"`, or `"neg"` per bar
+/// - width (length): Chart width
+/// - height (length): Chart height
+/// - title (none, content): Optional chart title
+/// - show-values (bool): Display value labels above bars
+/// - show-connectors (bool): Draw connector lines between bars
+/// - bar-width (float): Bar width as fraction of slot (0 to 1)
+/// - positive-color (none, color): Override color for positive bars
+/// - negative-color (none, color): Override color for negative bars
+/// - total-color (none, color): Override color for total bars
+/// - x-label (none, content): X-axis title
+/// - y-label (none, content): Y-axis title
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let waterfall-chart(
   data,
   width: 400pt,

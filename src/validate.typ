@@ -109,6 +109,42 @@
   }
 }
 
+// Validate dual-axis data (labels + left/right series)
+#let validate-dual-axis-data(data, chart-name) = {
+  assert(type(data) == dictionary, message: chart-name + ": data must be a dictionary")
+  assert("labels" in data, message: chart-name + ": data must have 'labels' key")
+  assert("left" in data, message: chart-name + ": data must have 'left' key")
+  assert("right" in data, message: chart-name + ": data must have 'right' key")
+  assert("name" in data.left, message: chart-name + ": left must have 'name' key")
+  assert("values" in data.left, message: chart-name + ": left must have 'values' key")
+  assert("name" in data.right, message: chart-name + ": right must have 'name' key")
+  assert("values" in data.right, message: chart-name + ": right must have 'values' key")
+  assert(data.left.values.len() == data.labels.len(), message: chart-name + ": left values must match labels length")
+  assert(data.right.values.len() == data.labels.len(), message: chart-name + ": right values must match labels length")
+}
+
+// Validate ring-progress data (array of dicts with name, value, max)
+#let validate-ring-data(entries, chart-name) = {
+  assert(type(entries) == array,
+    message: chart-name + ": entries must be an array")
+  assert(entries.len() > 0,
+    message: chart-name + ": entries must not be empty")
+  for (i, e) in entries.enumerate() {
+    assert(type(e) == dictionary,
+      message: chart-name + ": entries[" + str(i) + "] must be a dictionary")
+    for key in ("name", "value", "max") {
+      assert(key in e,
+        message: chart-name + ": entries[" + str(i) + "] must have '" + key + "' key")
+    }
+    assert(type(e.value) == int or type(e.value) == float,
+      message: chart-name + ": entries[" + str(i) + "].value must be numeric")
+    assert(type(e.max) == int or type(e.max) == float,
+      message: chart-name + ": entries[" + str(i) + "].max must be numeric")
+    assert(e.max > 0,
+      message: chart-name + ": entries[" + str(i) + "].max must be positive")
+  }
+}
+
 // Validate histogram data (raw numeric array)
 #let validate-histogram-data(values, chart-name) = {
   assert(type(values) == array, message: chart-name + ": values must be an array")

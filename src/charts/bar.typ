@@ -7,7 +7,18 @@
 #import "../primitives/legend.typ": draw-legend, draw-legend-vertical
 #import "../primitives/annotations.typ": draw-annotations
 
-// Horizontal bar chart
+/// Renders a horizontal bar chart with category labels on the y-axis.
+///
+/// - data (dictionary, array): Label-value pairs as dict or array of tuples
+/// - width (length): Chart width
+/// - height (length): Chart height
+/// - bar-height (float): Bar thickness as fraction of slot (0 to 1)
+/// - title (none, content): Optional chart title
+/// - show-values (bool): Display value labels beside bars
+/// - x-label (none, content): X-axis title
+/// - y-label (none, content): Y-axis title
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let horizontal-bar-chart(
   data,
   width: 350pt,
@@ -102,7 +113,19 @@
   ]
 }
 
-// Simple vertical bar chart
+/// Renders a vertical bar chart with one bar per category.
+///
+/// - data (dictionary, array): Label-value pairs as dict or array of tuples
+/// - width (length): Chart width
+/// - height (length): Chart height
+/// - bar-width (float): Bar width as fraction of slot (0 to 1)
+/// - title (none, content): Optional chart title
+/// - show-values (bool): Display value labels above bars
+/// - x-label (none, content): X-axis title
+/// - y-label (none, content): Y-axis title
+/// - annotations (none, array): Optional annotation descriptors
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let bar-chart(
   data,
   width: 300pt,
@@ -192,7 +215,17 @@
   ]
 }
 
-// Grouped bar chart
+/// Renders a grouped bar chart with multiple series side by side.
+///
+/// - data (dictionary): Dict with `labels` and `series` (each with `name` and `values`)
+/// - width (length): Chart width
+/// - height (length): Chart height
+/// - title (none, content): Optional chart title
+/// - show-legend (bool): Show series legend
+/// - x-label (none, content): X-axis title
+/// - y-label (none, content): Y-axis title
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let grouped-bar-chart(
   data,
   width: 350pt,
@@ -281,7 +314,17 @@
   ]
 }
 
-// Stacked bar chart
+/// Renders a stacked bar chart with series values stacked vertically.
+///
+/// - data (dictionary): Dict with `labels` and `series` (each with `name` and `values`)
+/// - width (length): Chart width
+/// - height (length): Chart height
+/// - title (none, content): Optional chart title
+/// - show-legend (bool): Show series legend
+/// - x-label (none, content): X-axis title
+/// - y-label (none, content): Y-axis title
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let stacked-bar-chart(
   data,
   width: 300pt,

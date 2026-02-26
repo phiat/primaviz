@@ -4,6 +4,22 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/axes.typ": draw-axis-lines, draw-grid, draw-y-ticks, draw-x-ticks, draw-axis-titles
 
+/// Renders a histogram showing the frequency distribution of numeric data.
+///
+/// - values (array): Array of numeric data values to bin
+/// - width (length): Chart width
+/// - height (length): Chart height
+/// - title (none, content): Optional chart title
+/// - bins (auto, int): Number of bins; `auto` uses Sturges' rule
+/// - min-val (auto, int, float): Minimum bin edge; `auto` uses data minimum
+/// - max-val (auto, int, float): Maximum bin edge; `auto` uses data maximum
+/// - show-values (bool): Display count labels above bars
+/// - color (none, color): Override bar color
+/// - density (bool): Normalize to probability density instead of counts
+/// - x-label (none, content): X-axis title
+/// - y-label (none, content): Y-axis title
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let histogram(
   values,
   width: 350pt,
