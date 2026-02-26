@@ -32,7 +32,7 @@
 // Draw category labels along the X axis.
 #let draw-x-category-labels(labels, x-start, spacing, y-pos, theme, center-offset: 0pt) = {
   let n = labels.len()
-  let rotate-labels = n > 8 or spacing < 30pt
+  let rotate-labels = n > 8
   let skip = if n > 15 { calc.ceil(n / 10) } else { 1 }
 
   for i in array.range(n) {

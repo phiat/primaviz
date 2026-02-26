@@ -109,6 +109,16 @@
   }
 }
 
+// Validate histogram data (raw numeric array)
+#let validate-histogram-data(values, chart-name) = {
+  assert(type(values) == array, message: chart-name + ": values must be an array")
+  assert(values.len() > 0, message: chart-name + ": values must not be empty")
+  for (i, v) in values.enumerate() {
+    assert(type(v) == int or type(v) == float,
+      message: chart-name + ": values[" + str(i) + "] must be numeric, got " + str(type(v)))
+  }
+}
+
 // Validate waterfall data (labels + values, optional types)
 #let validate-waterfall-data(data, chart-name) = {
   validate-simple-data(data, chart-name)

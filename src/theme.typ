@@ -141,10 +141,29 @@
   t
 }
 
+#let accessible-theme = {
+  let t = (:)
+  for (key, val) in default-theme {
+    t.insert(key, val)
+  }
+  t.insert("palette", (
+    rgb("#E69F00"),
+    rgb("#56B4E9"),
+    rgb("#009E73"),
+    rgb("#F0E442"),
+    rgb("#0072B2"),
+    rgb("#D55E00"),
+    rgb("#CC79A7"),
+    rgb("#000000"),
+  ))
+  t
+}
+
 #let themes = (
   default: default-theme,
   minimal: minimal-theme,
   dark: dark-theme,
   presentation: presentation-theme,
   print: print-theme,
+  accessible: accessible-theme,
 )

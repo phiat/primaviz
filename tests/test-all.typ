@@ -158,6 +158,9 @@
 == themes.print
 #bar-chart(simple-data, title: "print theme", theme: themes.print)
 
+== themes.accessible
+#bar-chart(simple-data, title: "accessible theme", theme: themes.accessible)
+
 #pagebreak()
 
 // ── Sparklines ───────────────────────────────────────────────────────────
@@ -265,6 +268,27 @@ Dots: #sparkdot(spark-data)
 
 // ── Box Plot ──────────────────────────────────────────────────────────────
 
+= Data Helpers
+
+#let raw = (labels: ("C", "A", "D", "B"), values: (30, 10, 40, 20))
+
+#bar-chart(sort-data(raw), title: "sort-data (ascending)")
+
+#bar-chart(top-n(raw, 2), title: "top-n(2)")
+
+#bar-chart(percent-of-total(raw), title: "percent-of-total")
+
+#let multi = (
+  labels: ("A", "B", "C"),
+  series: (
+    (name: "X", values: (10, 20, 30)),
+    (name: "Y", values: (5, 15, 25)),
+  ),
+)
+#bar-chart(aggregate(multi, fn: "sum"), title: "aggregate(sum)")
+
+#pagebreak()
+
 = Box Plot
 
 #box-plot(
@@ -281,3 +305,17 @@ Dots: #sparkdot(spark-data)
   height: 200pt,
   title: "Distribution Comparison",
 )
+
+#pagebreak()
+
+// ── Histogram ────────────────────────────────────────────────────────────
+
+= Histogram
+
+#let histogram-data = (2.1, 3.5, 4.2, 4.8, 5.1, 5.3, 5.7, 6.0, 6.2, 6.5, 6.8, 7.1, 7.3, 7.5, 7.8, 8.0, 8.2, 8.5, 9.0, 9.5)
+
+#histogram(histogram-data, title: "Basic Histogram", show-values: true)
+
+#histogram(histogram-data, title: "Histogram (10 bins)", bins: 10)
+
+#histogram(histogram-data, title: "Density Histogram", density: true, color: rgb("#76b7b2"))

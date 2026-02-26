@@ -70,7 +70,8 @@
         )
 
         // Text label on each segment (only if tall enough)
-        if seg-height >= 14pt {
+        // Use count-based heuristic to avoid comparing relative lengths with absolute
+        if n <= 15 {
           let label-text = labels.at(i)
           let value-text = if show-values { format-number(val) } else { "" }
           let pct-text = if show-percentages {
@@ -99,7 +100,7 @@
             ]
           )
 
-          if seg-height >= 24pt and detail != "" {
+          if n <= 9 and detail != "" {
             place(
               left + top,
               dx: center-x - avg-half,

@@ -99,3 +99,45 @@
     str(rounded)
   }
 }
+
+// Sort a simple data dict (labels + values) by values.
+// Returns a new dict with both labels and values reordered.
+#let sort-data(data, descending: false) = {
+  let pairs = data.labels.zip(data.values)
+  let sorted = pairs.sorted(key: p => p.at(1))
+  if descending {
+    sorted = sorted.rev()
+  }
+  (labels: sorted.map(p => p.at(0)), values: sorted.map(p => p.at(1)))
+}
+
+// Return the top N entries by value (descending). Works with simple data dicts.
+#let top-n(data, n) = {
+  let sorted = sort-data(data, descending: true)
+  (labels: sorted.labels.slice(0, calc.min(n, sorted.labels.len())),
+   values: sorted.values.slice(0, calc.min(n, sorted.values.len())))
+}
+
+// Aggregate multi-series data into simple data.
+// Supports "sum", "mean", "max", "min" across series for each label.
+#let aggregate(data, fn: "sum") = {
+  let n = data.labels.len()
+  let agg-values = ()
+  for i in array.range(n) {
+    let vals = data.series.map(s => s.values.at(i))
+    let result = if fn == "sum" { vals.sum() }
+      else if fn == "mean" { vals.sum() / vals.len() }
+      else if fn == "max" { calc.max(..vals) }
+      else if fn == "min" { calc.min(..vals) }
+      else { vals.sum() }
+    agg-values.push(result)
+  }
+  (labels: data.labels, values: agg-values)
+}
+
+// Convert values to percentages of total. Returns new dict.
+#let percent-of-total(data) = {
+  let total = data.values.sum()
+  if total == 0 { return data }
+  (labels: data.labels, values: data.values.map(v => calc.round(v / total * 100, digits: 1)))
+}
