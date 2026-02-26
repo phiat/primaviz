@@ -338,3 +338,130 @@
   [memory], [#sparkline((32, 28, 35, 31, 38, 42, 40), color: rgb("#00d2ff"), width: 50pt, height: 12pt)], [#sparkbar((6, 8, 5, 10, 7, 12, 9), color: rgb("#ff9f43"), width: 50pt, height: 12pt)], [#sparkdot((8, 6, 7, 5, 4, 3, 2), color: rgb("#0be881"), width: 50pt, height: 12pt)],
   [filesystems], [#sparkline((22, 25, 19, 28, 24, 30, 27), color: rgb("#00d2ff"), width: 50pt, height: 12pt)], [#sparkbar((4, 6, 3, 8, 5, 9, 7), color: rgb("#ff9f43"), width: 50pt, height: 12pt)], [#sparkdot((3, 4, 2, 3, 2, 1, 1), color: rgb("#0be881"), width: 50pt, height: 12pt)],
 )
+
+#pagebreak()
+
+// ── Page 4: New Charts — Treemap, Sankey, Lollipop, Bullet, Diverging, Slope, Gantt ──
+
+#grid(
+  columns: (1fr, 1fr),
+  column-gutter: 8pt,
+  row-gutter: 4pt,
+
+  treemap(
+    (labels: ("Rent", "Food", "Transport", "Fun", "Savings", "Health"),
+     values: (1200, 800, 400, 300, 500, 250)),
+    width: 250pt, height: 120pt,
+    title: "treemap",
+    theme: dk,
+  ),
+
+  sankey-chart(
+    (nodes: ("Budget", "Salary", "Invest", "Rent", "Food", "Save", "Stocks", "Bonds"),
+     flows: (
+       (from: 0, to: 1, value: 5000),
+       (from: 0, to: 2, value: 2000),
+       (from: 1, to: 3, value: 2000),
+       (from: 1, to: 4, value: 1500),
+       (from: 1, to: 5, value: 1500),
+       (from: 2, to: 6, value: 1200),
+       (from: 2, to: 7, value: 800),
+     )),
+    width: 250pt, height: 120pt,
+    title: "sankey-chart",
+    show-labels: true,
+    theme: dk,
+  ),
+
+  lollipop-chart(
+    (labels: ("A", "B", "C", "D", "E", "F"),
+     values: (35, 58, 42, 71, 29, 53)),
+    width: 250pt, height: 105pt,
+    title: "lollipop-chart",
+    theme: dk,
+  ),
+
+  horizontal-lollipop-chart(
+    (labels: ("Alpha", "Beta", "Gamma", "Delta"),
+     values: (82, 65, 91, 47)),
+    width: 250pt, height: 105pt,
+    title: "horizontal-lollipop-chart",
+    theme: dk,
+  ),
+
+  diverging-bar-chart(
+    (labels: ("Product A", "Product B", "Product C", "Product D"),
+     left-values: (45, 30, 60, 25),
+     right-values: (55, 70, 40, 75),
+     left-label: "Disagree",
+     right-label: "Agree"),
+    width: 250pt, height: 105pt,
+    title: "diverging-bar-chart",
+    theme: dk,
+  ),
+
+  slope-chart(
+    (labels: ("Company A", "Company B", "Company C", "Company D"),
+     start-values: (85, 70, 60, 45),
+     end-values: (65, 90, 55, 80),
+     start-label: "2023",
+     end-label: "2024"),
+    width: 250pt, height: 120pt,
+    title: "slope-chart",
+    theme: dk,
+  ),
+
+  // Bullet charts
+  [
+    #text(size: 8pt, weight: "bold", fill: rgb("#e0e0e0"))[bullet-chart · bullet-charts]
+    #v(2pt)
+    #bullet-chart(275, 250, (150, 225, 300), width: 230pt, height: 22pt, title: "Revenue", theme: dk)
+    #v(2pt)
+    #bullet-chart(82, 90, (60, 80, 100), width: 230pt, height: 22pt, title: "Satisfaction", theme: dk)
+    #v(2pt)
+    #bullet-chart(45, 50, (25, 40, 60), width: 230pt, height: 22pt, title: "Customers", theme: dk)
+  ],
+
+  // Grouped-stacked + Gantt
+  [
+    #text(size: 8pt, weight: "bold", fill: rgb("#e0e0e0"))[gantt-chart]
+    #v(2pt)
+    #gantt-chart(
+      (tasks: (
+        (name: "Research", start: 0, end: 3, group: "Plan"),
+        (name: "Design", start: 2, end: 5, group: "Plan"),
+        (name: "Backend", start: 4, end: 9, group: "Dev"),
+        (name: "Frontend", start: 5, end: 10, group: "Dev"),
+        (name: "Testing", start: 8, end: 12, group: "QA"),
+        (name: "Launch", start: 12, end: 13, group: "Ship"),
+       ),
+       time-labels: ("W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10", "W11", "W12", "W13")),
+      width: 230pt,
+      bar-height: 10pt,
+      gap: 2pt,
+      today: 7,
+      title: none,
+      theme: dk,
+    )
+  ],
+)
+
+// Grouped-stacked bar at bottom
+#v(4pt)
+#text(size: 8pt, weight: "bold", fill: rgb("#e0e0e0"))[grouped-stacked-bar-chart]
+#v(2pt)
+#grouped-stacked-bar-chart(
+  (labels: ("Q1", "Q2", "Q3", "Q4"),
+   groups: (
+     (name: "Product A", segments: (
+       (name: "Online", values: (40, 50, 60, 70)),
+       (name: "Retail", values: (30, 35, 40, 45)),
+     )),
+     (name: "Product B", segments: (
+       (name: "Online", values: (25, 30, 35, 40)),
+       (name: "Retail", values: (20, 25, 30, 35)),
+     )),
+   )),
+  width: 350pt, height: 100pt,
+  theme: dk,
+)

@@ -2,22 +2,23 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Typst](https://img.shields.io/badge/typst-%3E%3D0.12.0-239dad)](https://typst.app)
-[![Charts](https://img.shields.io/badge/chart_types-29-orange)](screenshots/)
+[![Charts](https://img.shields.io/badge/chart_types-38-orange)](screenshots/)
 [![Pure Typst](https://img.shields.io/badge/dependencies-zero-brightgreen)]()
 
 A charting library for [Typst](https://typst.app) built entirely with native primitives (`rect`, `circle`, `line`, `polygon`, `place`). No external dependencies required.
 
 ## Showcase
 
-All 29 chart types across 3 pages:
+All 38 chart types across 4 pages:
 
 ![Showcase Page 1](screenshots/showcase-1.png)
 ![Showcase Page 2](screenshots/showcase-2.png)
 ![Showcase Page 3](screenshots/showcase-3.png)
+![Showcase Page 4](screenshots/showcase-4.png)
 
 ## Features
 
-- **29 chart types** for data visualization
+- **38 chart types** for data visualization
 - **JSON data input** - load data directly from JSON files
 - **Theme system** - preset themes and custom overrides for consistent styling
 - **Customizable** - colors, sizes, labels, legends
@@ -30,6 +31,10 @@ All 29 chart types across 3 pages:
 - `horizontal-bar-chart` - Horizontal bar chart
 - `grouped-bar-chart` - Side-by-side grouped bars
 - `stacked-bar-chart` - Stacked bar segments
+- `grouped-stacked-bar-chart` - Groups of stacked segments side by side
+- `lollipop-chart` - Vertical stem + dot (cleaner bar alternative)
+- `horizontal-lollipop-chart` - Horizontal stem + dot
+- `diverging-bar-chart` - Left/right bars from center axis
 
 ### Line & Area Charts
 - `line-chart` - Single line with points
@@ -70,6 +75,14 @@ All 29 chart types across 3 pages:
 - `waterfall-chart` - Bridge/waterfall chart with pos/neg/total segments
 - `funnel-chart` - Conversion funnel with percentages
 - `box-plot` - Box-and-whisker distribution plot
+- `treemap` - Nested rectangles for hierarchical data
+- `slope-chart` - Two-period comparison with connecting lines
+- `bullet-chart` - Compact gauge with qualitative ranges and target
+- `bullet-charts` - Multiple bullet charts stacked vertically
+
+### Flow & Timeline
+- `sankey-chart` - Flow diagram with curved bands between nodes
+- `gantt-chart` - Timeline bar chart for project scheduling
 
 ### Annotations
 Overlay reference lines, bands, and labels on bar, line, and scatter charts:
@@ -213,7 +226,7 @@ Pass a dictionary with only the keys you want to change. Unspecified keys fall b
 
 ## Examples
 
-- `examples/showcase.typ` - Compact 3-page showcase of all 29 chart types
+- `examples/showcase.typ` - Compact 4-page showcase of all 38 chart types
 - `examples/demo.typ` - Comprehensive 18-page demo with all features
 
 Sample data files in `data/`:
@@ -251,21 +264,28 @@ typst-charts/
     theme.typ          # Theme system and preset themes
     util.typ           # Shared utilities
     charts/            # One module per chart family
-      bar.typ
-      line.typ
-      dual-axis.typ
-      area.typ
-      pie.typ
+      bar.typ          # bar, horizontal, grouped, stacked, grouped-stacked
+      line.typ         # line, multi-line
+      dual-axis.typ    # dual Y-axis
+      area.typ         # area, stacked-area
+      pie.typ          # pie, donut
       radar.typ
-      scatter.typ
-      gauge.typ
-      rings.typ
-      heatmap.typ
-      sparkline.typ
+      scatter.typ      # scatter, multi-scatter, bubble
+      gauge.typ        # gauge, progress-bar, circular-progress, progress-bars
+      rings.typ        # ring-progress (fitness rings)
+      heatmap.typ      # heatmap, calendar-heatmap, correlation-matrix
+      sparkline.typ    # sparkline, sparkbar, sparkdot
       waterfall.typ
       funnel.typ
       boxplot.typ
       histogram.typ
+      treemap.typ
+      lollipop.typ     # lollipop, horizontal-lollipop
+      sankey.typ
+      bullet.typ       # bullet-chart, bullet-charts
+      slope.typ
+      diverging.typ
+      gantt.typ
     primitives/        # Low-level drawing helpers
       axes.typ
       annotations.typ
