@@ -190,6 +190,84 @@
   }
 }
 
+// Validate sankey data (nodes + flows)
+#let validate-sankey-data(data, chart-name) = {
+  assert(type(data) == dictionary, message: chart-name + ": data must be a dictionary")
+  assert("nodes" in data, message: chart-name + ": data must have 'nodes' key")
+  assert("flows" in data, message: chart-name + ": data must have 'flows' key")
+  assert(data.nodes.len() > 0, message: chart-name + ": nodes must not be empty")
+  assert(data.flows.len() > 0, message: chart-name + ": flows must not be empty")
+  let n = data.nodes.len()
+  for (i, f) in data.flows.enumerate() {
+    assert(type(f) == dictionary,
+      message: chart-name + ": flows[" + str(i) + "] must be a dictionary")
+    for key in ("from", "to", "value") {
+      assert(key in f,
+        message: chart-name + ": flows[" + str(i) + "] must have '" + key + "' key")
+    }
+    assert(f.from >= 0 and f.from < n,
+      message: chart-name + ": flows[" + str(i) + "].from index out of range")
+    assert(f.to >= 0 and f.to < n,
+      message: chart-name + ": flows[" + str(i) + "].to index out of range")
+    assert(f.value > 0,
+      message: chart-name + ": flows[" + str(i) + "].value must be positive")
+  }
+}
+
+// Validate bullet chart data (single)
+#let validate-bullet-data(data, chart-name) = {
+  assert(type(data) == dictionary, message: chart-name + ": data must be a dictionary")
+  assert("value" in data, message: chart-name + ": data must have 'value' key")
+  assert("target" in data, message: chart-name + ": data must have 'target' key")
+  assert("ranges" in data, message: chart-name + ": data must have 'ranges' key")
+  assert(type(data.value) == int or type(data.value) == float,
+    message: chart-name + ": value must be numeric")
+  assert(type(data.target) == int or type(data.target) == float,
+    message: chart-name + ": target must be numeric")
+  assert(type(data.ranges) == array, message: chart-name + ": ranges must be an array")
+  assert(data.ranges.len() == 3, message: chart-name + ": ranges must have exactly 3 thresholds")
+}
+
+// Validate bullet charts data (multiple)
+#let validate-bullet-charts-data(data, chart-name) = {
+  assert(type(data) == dictionary, message: chart-name + ": data must be a dictionary")
+  assert("bullets" in data, message: chart-name + ": data must have 'bullets' key")
+  assert(type(data.bullets) == array, message: chart-name + ": bullets must be an array")
+  assert(data.bullets.len() > 0, message: chart-name + ": bullets must not be empty")
+  for (i, b) in data.bullets.enumerate() {
+    validate-bullet-data(b, chart-name + ".bullets[" + str(i) + "]")
+  }
+}
+
+// Validate slope chart data (labels + start-values + end-values, same length)
+#let validate-slope-data(data, chart-name) = {
+  assert(type(data) == dictionary, message: chart-name + ": data must be a dictionary")
+  assert("labels" in data, message: chart-name + ": data must have 'labels' key")
+  assert("start-values" in data, message: chart-name + ": data must have 'start-values' key")
+  assert("end-values" in data, message: chart-name + ": data must have 'end-values' key")
+  assert(data.labels.len() > 0, message: chart-name + ": labels must not be empty")
+  assert(data.labels.len() == data.start-values.len(),
+    message: chart-name + ": labels (" + str(data.labels.len()) + ") and start-values (" + str(data.start-values.len()) + ") must have same length")
+  assert(data.labels.len() == data.end-values.len(),
+    message: chart-name + ": labels (" + str(data.labels.len()) + ") and end-values (" + str(data.end-values.len()) + ") must have same length")
+}
+
+// Validate diverging bar data (labels + left-values + right-values)
+#let validate-diverging-data(data, chart-name) = {
+  assert(type(data) == dictionary, message: chart-name + ": data must be a dictionary")
+  assert("labels" in data, message: chart-name + ": data must have 'labels' key")
+  assert("left-values" in data, message: chart-name + ": data must have 'left-values' key")
+  assert("right-values" in data, message: chart-name + ": data must have 'right-values' key")
+  assert(type(data.labels) == array, message: chart-name + ": labels must be an array")
+  assert(type(data.left-values) == array, message: chart-name + ": left-values must be an array")
+  assert(type(data.right-values) == array, message: chart-name + ": right-values must be an array")
+  assert(data.labels.len() > 0, message: chart-name + ": labels must not be empty")
+  assert(data.left-values.len() == data.labels.len(),
+    message: chart-name + ": left-values (" + str(data.left-values.len()) + ") must match labels length (" + str(data.labels.len()) + ")")
+  assert(data.right-values.len() == data.labels.len(),
+    message: chart-name + ": right-values (" + str(data.right-values.len()) + ") must match labels length (" + str(data.labels.len()) + ")")
+}
+
 // Validate multi-scatter data
 #let validate-multi-scatter-data(data, chart-name) = {
   assert(type(data) == dictionary, message: chart-name + ": data must be a dictionary")
@@ -199,5 +277,27 @@
     assert("name" in s, message: chart-name + ": series[" + str(i) + "] must have 'name' key")
     assert("points" in s, message: chart-name + ": series[" + str(i) + "] must have 'points' key")
     assert(s.points.len() > 0, message: chart-name + ": series '" + s.name + "' must have at least one point")
+  }
+}
+
+// Validate gantt data (tasks array, each with name/start/end)
+#let validate-gantt-data(data, chart-name) = {
+  assert(type(data) == dictionary, message: chart-name + ": data must be a dictionary")
+  assert("tasks" in data, message: chart-name + ": data must have 'tasks' key")
+  assert(type(data.tasks) == array, message: chart-name + ": tasks must be an array")
+  assert(data.tasks.len() > 0, message: chart-name + ": tasks must not be empty")
+  for (i, task) in data.tasks.enumerate() {
+    assert(type(task) == dictionary,
+      message: chart-name + ": tasks[" + str(i) + "] must be a dictionary")
+    for key in ("name", "start", "end") {
+      assert(key in task,
+        message: chart-name + ": tasks[" + str(i) + "] must have '" + key + "' key")
+    }
+    assert(type(task.start) == int or type(task.start) == float,
+      message: chart-name + ": tasks[" + str(i) + "].start must be numeric")
+    assert(type(task.end) == int or type(task.end) == float,
+      message: chart-name + ": tasks[" + str(i) + "].end must be numeric")
+    assert(task.start < task.end,
+      message: chart-name + ": tasks[" + str(i) + "] start (" + str(task.start) + ") must be less than end (" + str(task.end) + ")")
   }
 }

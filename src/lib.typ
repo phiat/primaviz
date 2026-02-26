@@ -17,4 +17,11 @@
 #import "charts/waterfall.typ": waterfall-chart
 #import "charts/boxplot.typ": box-plot
 #import "charts/histogram.typ": histogram
+#import "charts/treemap.typ": treemap
+#import "charts/lollipop.typ": lollipop-chart, horizontal-lollipop-chart
+#import "charts/sankey.typ": sankey-chart
+#import "charts/bullet.typ": bullet-chart, bullet-charts
+#import "charts/slope.typ": slope-chart
+#import "charts/diverging.typ": diverging-bar-chart
+#import "charts/gantt.typ": gantt-chart
 #import "util.typ": sort-data, top-n, aggregate, percent-of-total
