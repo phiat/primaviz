@@ -1,4 +1,4 @@
-# typst-charts development commands
+# chartypst development commands
 
 # Default: show available recipes
 default:

@@ -1,4 +1,4 @@
-# Typst Charts
+# Chartypst
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Typst](https://img.shields.io/badge/typst-%3E%3D0.12.0-239dad)](https://typst.app)
@@ -258,7 +258,7 @@ The default theme uses Tableau 10 colors. You can access colors from any theme v
 ## Project Structure
 
 ```
-typst-charts/
+chartypst/
   src/
     lib.typ            # Public entrypoint - re-exports everything
     theme.typ          # Theme system and preset themes

@@ -1,4 +1,4 @@
-// util.typ - Shared utilities for typst-charts
+// util.typ - Shared utilities for chartypst
 
 /// Normalizes data input to a `(labels: array, values: array)` dictionary.
 ///

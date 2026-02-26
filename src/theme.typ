@@ -1,4 +1,4 @@
-// theme.typ - Theme system for typst-charts
+// theme.typ - Theme system for chartypst
 
 // Default theme — flat keys, no nesting
 #let default-theme = (
