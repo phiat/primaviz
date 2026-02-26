@@ -1,4 +1,4 @@
-# Chartypst
+# Primaviz
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Typst](https://img.shields.io/badge/typst-%3E%3D0.12.0-239dad)](https://typst.app)
@@ -96,7 +96,7 @@ Overlay reference lines, bands, and labels on bar, line, and scatter charts:
 ### Package
 
 ```typst
-#import "@preview/chartypst:0.1.0": *
+#import "@preview/primaviz:0.1.0": *
 ```
 
 ### Local
@@ -258,7 +258,7 @@ The default theme uses Tableau 10 colors. You can access colors from any theme v
 ## Project Structure
 
 ```
-chartypst/
+primaviz/
   src/
     lib.typ            # Public entrypoint - re-exports everything
     theme.typ          # Theme system and preset themes

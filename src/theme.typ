@@ -1,4 +1,4 @@
-// theme.typ - Theme system for chartypst
+// theme.typ - Theme system for primaviz
 
 // Default theme — flat keys, no nesting
 #let default-theme = (

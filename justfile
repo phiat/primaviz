@@ -1,4 +1,4 @@
-# chartypst development commands
+# primaviz development commands
 
 # Default: show available recipes
 default:

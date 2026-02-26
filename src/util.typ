@@ -1,4 +1,4 @@
-// util.typ - Shared utilities for chartypst
+// util.typ - Shared utilities for primaviz
 
 /// Normalizes data input to a `(labels: array, values: array)` dictionary.
 ///
