@@ -31,6 +31,9 @@
   legend-swatch-size: 10pt,
   legend-gap: 10pt,
   title-gap: 5pt,
+  text-color: black,
+  text-color-light: gray,
+  text-color-inverse: white,
   background: none,
   border: none,
 )
@@ -94,6 +97,9 @@
   ))
   t.insert("axis-stroke", 0.5pt + rgb("#cccccc"))
   t.insert("grid-stroke", 0.5pt + rgb("#333355"))
+  t.insert("text-color", rgb("#e0e0e0"))
+  t.insert("text-color-light", rgb("#888899"))
+  t.insert("text-color-inverse", rgb("#1a1a2e"))
   t
 }
 

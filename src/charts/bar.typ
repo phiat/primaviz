@@ -1,6 +1,7 @@
 // bar.typ - Bar charts (simple, horizontal, grouped, stacked)
 #import "../theme.typ": resolve-theme, get-color
 #import "../util.typ": normalize-data
+#import "../validate.typ": validate-simple-data, validate-series-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/axes.typ": draw-axis-lines, draw-grid, draw-axis-titles
 #import "../primitives/legend.typ": draw-legend
@@ -17,6 +18,7 @@
   y-label: none,
   theme: none,
 ) = {
+  validate-simple-data(data, "horizontal-bar-chart")
   let t = resolve-theme(theme)
   let norm = normalize-data(data)
   let labels = norm.labels
@@ -66,7 +68,7 @@
             left + top,
             dx: label-area + bar-w + 5pt,
             dy: y-pos + actual-bar-height / 2 - 5pt,
-            text(size: t.value-label-size)[#val]
+            text(size: t.value-label-size, fill: t.text-color)[#val]
           )
         }
 
@@ -75,7 +77,7 @@
           left + top,
           dx: 5pt,
           dy: y-pos + actual-bar-height / 2 - 5pt,
-          text(size: t.axis-label-size)[#labels.at(i)]
+          text(size: t.axis-label-size, fill: t.text-color)[#labels.at(i)]
         )
       }
 
@@ -88,7 +90,7 @@
           left + bottom,
           dx: x-pos - 10pt,
           dy: 8pt,
-          text(size: t.axis-label-size)[#x-val]
+          text(size: t.axis-label-size, fill: t.text-color)[#x-val]
         )
       }
 
@@ -111,6 +113,7 @@
   y-label: none,
   theme: none,
 ) = {
+  validate-simple-data(data, "bar-chart")
   let t = resolve-theme(theme)
   let norm = normalize-data(data)
   let labels = norm.labels
@@ -153,7 +156,7 @@
             left + bottom,
             dx: x-pos + actual-bar-width / 2 - 8pt,
             dy: -bar-h - 12pt,
-            text(size: t.value-label-size)[#val]
+            text(size: t.value-label-size, fill: t.text-color)[#val]
           )
         }
 
@@ -161,7 +164,7 @@
           left + bottom,
           dx: x-pos + actual-bar-width / 2 - 15pt,
           dy: 12pt,
-          text(size: t.axis-label-size)[#labels.at(i)]
+          text(size: t.axis-label-size, fill: t.text-color)[#labels.at(i)]
         )
       }
 
@@ -173,7 +176,7 @@
           left + top,
           dx: 0pt,
           dy: y-pos - 5pt,
-          text(size: t.axis-label-size)[#y-val]
+          text(size: t.axis-label-size, fill: t.text-color)[#y-val]
         )
       }
 
@@ -194,6 +197,7 @@
   y-label: none,
   theme: none,
 ) = {
+  validate-series-data(data, "grouped-bar-chart")
   let t = resolve-theme(theme)
   let labels = data.labels
   let series = data.series
@@ -240,7 +244,7 @@
           left + bottom,
           dx: x-center,
           dy: 12pt,
-          text(size: t.axis-label-size)[#labels.at(gi)]
+          text(size: t.axis-label-size, fill: t.text-color)[#labels.at(gi)]
         )
       }
 
@@ -252,7 +256,7 @@
           left + top,
           dx: 5pt,
           dy: y-pos - 5pt,
-          text(size: t.axis-label-size)[#y-val]
+          text(size: t.axis-label-size, fill: t.text-color)[#y-val]
         )
       }
 
@@ -277,6 +281,7 @@
   y-label: none,
   theme: none,
 ) = {
+  validate-series-data(data, "stacked-bar-chart")
   let t = resolve-theme(theme)
   let labels = data.labels
   let series = data.series
@@ -330,7 +335,7 @@
           left + bottom,
           dx: x-pos + bw / 2 - 15pt,
           dy: 12pt,
-          text(size: t.axis-label-size)[#labels.at(i)]
+          text(size: t.axis-label-size, fill: t.text-color)[#labels.at(i)]
         )
       }
 
@@ -342,7 +347,7 @@
           left + top,
           dx: 5pt,
           dy: y-pos - 5pt,
-          text(size: t.axis-label-size)[#y-val]
+          text(size: t.axis-label-size, fill: t.text-color)[#y-val]
         )
       }
 

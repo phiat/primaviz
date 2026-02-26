@@ -10,3 +10,4 @@
 #import "charts/scatter.typ": scatter-plot, multi-scatter-plot, bubble-chart
 #import "charts/gauge.typ": gauge-chart, progress-bar, circular-progress, progress-bars
 #import "charts/heatmap.typ": heatmap, calendar-heatmap, correlation-matrix
+#import "charts/sparkline.typ": sparkline, sparkbar, sparkdot

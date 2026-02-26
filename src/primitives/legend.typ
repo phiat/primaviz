@@ -23,7 +23,7 @@
         box(width: swatch-size, height: swatch-size, fill: color, baseline: 2pt, radius: 2pt)
       }
       h(3pt)
-      text(size: theme.legend-size)[#name]
+      text(size: theme.legend-size, fill: theme.text-color)[#name]
       h(theme.legend-gap)
     }
   ]
@@ -43,7 +43,7 @@
 
       box(width: swatch-size, height: swatch-size, fill: color, baseline: 2pt, radius: 2pt)
       h(3pt)
-      text(size: theme.legend-size)[#name]
+      text(size: theme.legend-size, fill: theme.text-color)[#name]
       if i < entries.len() - 1 {
         linebreak()
         v(2pt)

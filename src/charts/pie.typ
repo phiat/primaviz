@@ -1,6 +1,7 @@
 // pie.typ - Pie and donut charts
 #import "../theme.typ": resolve-theme, get-color
 #import "../util.typ": normalize-data
+#import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/legend.typ": draw-legend-vertical
 
@@ -14,6 +15,7 @@
   donut-ratio: 0.5,
   theme: none,
 ) = {
+  validate-simple-data(data, "pie-chart")
   let t = resolve-theme(theme)
   let norm = normalize-data(data)
   let labels = norm.labels
@@ -75,7 +77,7 @@
                 left + top,
                 dx: lx,
                 dy: ly,
-                text(size: t.value-label-size, fill: white, weight: "bold")[#pct%]
+                text(size: t.value-label-size, fill: t.text-color-inverse, weight: "bold")[#pct%]
               )
             }
           }
@@ -89,7 +91,7 @@
             left + top,
             dx: center-x - radius * donut-ratio,
             dy: center-y - radius * donut-ratio,
-            circle(radius: radius * donut-ratio, fill: white, stroke: none)
+            circle(radius: radius * donut-ratio, fill: if t.background != none { t.background } else { white }, stroke: none)
           )
         }
       ],
@@ -103,7 +105,7 @@
             box(inset: (x: 0pt, y: 2pt))[
               #box(width: t.legend-swatch-size, height: t.legend-swatch-size, fill: get-color(t, i), baseline: 2pt, radius: 2pt)
               #h(6pt)
-              #text(size: t.legend-size)[#lbl (#pct%)]
+              #text(size: t.legend-size, fill: t.text-color)[#lbl (#pct%)]
             ]
             linebreak()
           }

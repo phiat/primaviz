@@ -1,6 +1,7 @@
 // heatmap.typ - Heatmap/matrix charts
 #import "../theme.typ": resolve-theme, get-color
 #import "../util.typ": lerp-color, heat-color
+#import "../validate.typ": validate-heatmap-data, validate-calendar-data, validate-correlation-data
 #import "../primitives/container.typ": chart-container
 
 // Heatmap chart
@@ -13,6 +14,7 @@
   show-legend: true,
   theme: none,
 ) = {
+  validate-heatmap-data(data, "heatmap")
   let t = resolve-theme(theme)
   let rows = data.rows
   let cols = data.cols
@@ -43,7 +45,7 @@
           left + top,
           dx: row-label-width + j * cell-size + cell-size / 2 - 5pt,
           dy: 5pt,
-          rotate(-45deg, origin: bottom + left, text(size: t.axis-label-size)[#col])
+          rotate(-45deg, origin: bottom + left, text(size: t.axis-label-size, fill: t.text-color)[#col])
         )
       }
 
@@ -54,7 +56,7 @@
           left + top,
           dx: 5pt,
           dy: col-label-height + i * cell-size + cell-size / 2 - 5pt,
-          text(size: t.axis-label-size)[#row]
+          text(size: t.axis-label-size, fill: t.text-color)[#row]
         )
 
         // Cells for this row
@@ -76,7 +78,7 @@
 
           // Value label
           if show-values {
-            let text-color = if normalized > 0.5 { white } else { black }
+            let text-color = if normalized > 0.5 { t.text-color-inverse } else { t.text-color }
             place(
               left + top,
               dx: row-label-width + j * cell-size + cell-size / 2 - 8pt,
@@ -111,8 +113,8 @@
         }
 
         // Legend labels
-        place(left + top, dx: legend-x + 20pt, dy: legend-y - 5pt, text(size: t.axis-label-size)[#calc.round(max-val, digits: 1)])
-        place(left + top, dx: legend-x + 20pt, dy: legend-y + legend-height - 5pt, text(size: t.axis-label-size)[#calc.round(min-val, digits: 1)])
+        place(left + top, dx: legend-x + 20pt, dy: legend-y - 5pt, text(size: t.axis-label-size, fill: t.text-color)[#calc.round(max-val, digits: 1)])
+        place(left + top, dx: legend-x + 20pt, dy: legend-y + legend-height - 5pt, text(size: t.axis-label-size, fill: t.text-color)[#calc.round(min-val, digits: 1)])
       }
     ]
   ]
@@ -128,6 +130,7 @@
   show-day-labels: true,
   theme: none,
 ) = {
+  validate-calendar-data(data, "calendar-heatmap")
   let t = resolve-theme(theme)
   let dates = data.dates
   let values = data.values
@@ -157,7 +160,7 @@
               left + top,
               dx: 0pt,
               dy: month-label-height + i * cell-size + cell-size / 2 - 4pt,
-              text(size: 6pt)[#day]
+              text(size: 6pt, fill: t.text-color)[#day]
             )
           }
         }
@@ -185,7 +188,7 @@
 
       // Legend
       #let legend-y = month-label-height + 7 * cell-size + 10pt
-      #place(left + top, dx: day-label-width, dy: legend-y, text(size: 6pt)[Less])
+      #place(left + top, dx: day-label-width, dy: legend-y, text(size: 6pt, fill: t.text-color)[Less])
       #for i in array.range(5) {
         let normalized = i / 4
         let cell-color = heat-color(normalized, palette: palette)
@@ -196,7 +199,7 @@
           rect(width: cell-size, height: cell-size, fill: cell-color, radius: 2pt)
         )
       }
-      #place(left + top, dx: day-label-width + 25pt + 5 * (cell-size + 2pt) + 5pt, dy: legend-y, text(size: 6pt)[More])
+      #place(left + top, dx: day-label-width + 25pt + 5 * (cell-size + 2pt) + 5pt, dy: legend-y, text(size: 6pt, fill: t.text-color)[More])
     ]
   ]
 }
@@ -209,6 +212,7 @@
   show-values: true,
   theme: none,
 ) = {
+  validate-correlation-data(data, "correlation-matrix")
   let t = resolve-theme(theme)
   let labels = data.labels
   let values = data.values
@@ -234,7 +238,7 @@
           left + top,
           dx: label-area + j * cell-size + cell-size / 2 - 10pt,
           dy: 5pt,
-          rotate(-45deg, origin: bottom + left, text(size: t.axis-label-size)[#lbl])
+          rotate(-45deg, origin: bottom + left, text(size: t.axis-label-size, fill: t.text-color)[#lbl])
         )
       }
 
@@ -245,7 +249,7 @@
           left + top,
           dx: 5pt,
           dy: label-area + i * cell-size + cell-size / 2 - 5pt,
-          text(size: t.axis-label-size)[#row-lbl]
+          text(size: t.axis-label-size, fill: t.text-color)[#row-lbl]
         )
 
         // Cells
@@ -265,7 +269,7 @@
           )
 
           if show-values {
-            let text-color = if calc.abs(val) > 0.5 { white } else { black }
+            let text-color = if calc.abs(val) > 0.5 { t.text-color-inverse } else { t.text-color }
             place(
               left + top,
               dx: label-area + j * cell-size + cell-size / 2 - 10pt,

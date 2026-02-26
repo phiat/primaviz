@@ -1,6 +1,7 @@
 // line.typ - Line charts (single and multi-series)
 #import "../theme.typ": resolve-theme, get-color
 #import "../util.typ": normalize-data
+#import "../validate.typ": validate-simple-data, validate-series-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/axes.typ": draw-grid, draw-axis-titles
 #import "../primitives/legend.typ": draw-legend
@@ -20,6 +21,7 @@
   y-label: none,
   theme: none,
 ) = {
+  validate-simple-data(data, "line-chart")
   let t = resolve-theme(theme)
   let norm = normalize-data(data)
   let labels = norm.labels
@@ -77,7 +79,7 @@
               left + top,
               dx: pt.at(0) - 10pt,
               dy: pt.at(1) - 15pt,
-              text(size: t.axis-label-size)[#values.at(i)]
+              text(size: t.axis-label-size, fill: t.text-color)[#values.at(i)]
             )
           }
         }
@@ -89,7 +91,7 @@
           left + bottom,
           dx: x - 15pt,
           dy: 10pt,
-          text(size: t.axis-label-size)[#lbl]
+          text(size: t.axis-label-size, fill: t.text-color)[#lbl]
         )
       }
 
@@ -101,7 +103,7 @@
           left + top,
           dx: 5pt,
           dy: y-pos - 5pt,
-          text(size: t.axis-label-size)[#y-val]
+          text(size: t.axis-label-size, fill: t.text-color)[#y-val]
         )
       }
 
@@ -123,6 +125,7 @@
   y-label: none,
   theme: none,
 ) = {
+  validate-series-data(data, "multi-line-chart")
   let t = resolve-theme(theme)
   let labels = data.labels
   let series = data.series
@@ -188,7 +191,7 @@
           left + bottom,
           dx: x - 15pt,
           dy: 10pt,
-          text(size: t.axis-label-size)[#lbl]
+          text(size: t.axis-label-size, fill: t.text-color)[#lbl]
         )
       }
 
@@ -200,7 +203,7 @@
           left + top,
           dx: 5pt,
           dy: y-pos - 5pt,
-          text(size: t.axis-label-size)[#y-val]
+          text(size: t.axis-label-size, fill: t.text-color)[#y-val]
         )
       }
 

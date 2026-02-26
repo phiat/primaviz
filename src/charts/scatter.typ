@@ -1,5 +1,6 @@
 // scatter.typ - Scatter plot and bubble chart
 #import "../theme.typ": resolve-theme, get-color
+#import "../validate.typ": validate-scatter-data, validate-multi-scatter-data, validate-bubble-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/axes.typ": draw-grid, draw-axis-titles
 #import "../primitives/legend.typ": draw-legend
@@ -17,6 +18,7 @@
   color: none,
   theme: none,
 ) = {
+  validate-scatter-data(data, "scatter-plot")
   let t = resolve-theme(theme)
   // Normalize data format
   let points = if type(data) == dictionary {
@@ -101,7 +103,7 @@
           left + top,
           dx: x-pos - 12pt,
           dy: y-start + chart-height + 8pt,
-          text(size: t.axis-label-size)[#x-val]
+          text(size: t.axis-label-size, fill: t.text-color)[#x-val]
         )
       }
 
@@ -114,7 +116,7 @@
           left + top,
           dx: 5pt,
           dy: y-pos - 5pt,
-          text(size: t.axis-label-size)[#y-val]
+          text(size: t.axis-label-size, fill: t.text-color)[#y-val]
         )
       }
 
@@ -124,7 +126,7 @@
           left + bottom,
           dx: x-start + chart-width / 2 - 20pt,
           dy: -5pt,
-          text(size: t.axis-title-size)[#x-label]
+          text(size: t.axis-title-size, fill: t.text-color)[#x-label]
         )
       }
 
@@ -133,7 +135,7 @@
           left + top,
           dx: -5pt,
           dy: y-start + chart-height / 2,
-          rotate(-90deg, text(size: t.axis-title-size)[#y-label])
+          rotate(-90deg, text(size: t.axis-title-size, fill: t.text-color)[#y-label])
         )
       }
     ]
@@ -153,6 +155,7 @@
   show-legend: true,
   theme: none,
 ) = {
+  validate-multi-scatter-data(data, "multi-scatter-plot")
   let t = resolve-theme(theme)
   let series = data.series
 
@@ -220,7 +223,7 @@
         let fraction = if t.tick-count > 1 { i / (t.tick-count - 1) } else { 0 }
         let x-val = calc.round(x-min + x-range * fraction, digits: 1)
         let x-pos = x-start + fraction * chart-width
-        place(left + top, dx: x-pos - 12pt, dy: y-start + chart-height + 8pt, text(size: t.axis-label-size)[#x-val])
+        place(left + top, dx: x-pos - 12pt, dy: y-start + chart-height + 8pt, text(size: t.axis-label-size, fill: t.text-color)[#x-val])
       }
 
       // Y-axis labels
@@ -228,7 +231,7 @@
         let fraction = if t.tick-count > 1 { i / (t.tick-count - 1) } else { 0 }
         let y-val = calc.round(y-min + y-range * fraction, digits: 1)
         let y-pos = y-start + chart-height - fraction * chart-height
-        place(left + top, dx: 5pt, dy: y-pos - 5pt, text(size: t.axis-label-size)[#y-val])
+        place(left + top, dx: 5pt, dy: y-pos - 5pt, text(size: t.axis-label-size, fill: t.text-color)[#y-val])
       }
     ]
 
@@ -259,6 +262,7 @@
   labels: none,
   theme: none,
 ) = {
+  validate-bubble-data(data, "bubble-chart")
   let t = resolve-theme(theme)
   // Normalize data format
   let points = if type(data) == dictionary {
@@ -333,7 +337,7 @@
             left + top,
             dx: px - 15pt,
             dy: py - 5pt,
-            text(size: t.axis-label-size, weight: "bold")[#labels.at(i)]
+            text(size: t.axis-label-size, fill: t.text-color, weight: "bold")[#labels.at(i)]
           )
         }
       }
@@ -343,7 +347,7 @@
         let fraction = if t.tick-count > 1 { i / (t.tick-count - 1) } else { 0 }
         let x-val = calc.round(x-min + x-range * fraction, digits: 1)
         let x-pos = x-start + fraction * chart-width
-        place(left + top, dx: x-pos - 12pt, dy: y-start + chart-height + 8pt, text(size: t.axis-label-size)[#x-val])
+        place(left + top, dx: x-pos - 12pt, dy: y-start + chart-height + 8pt, text(size: t.axis-label-size, fill: t.text-color)[#x-val])
       }
 
       // Y-axis labels
@@ -351,12 +355,12 @@
         let fraction = if t.tick-count > 1 { i / (t.tick-count - 1) } else { 0 }
         let y-val = calc.round(y-min + y-range * fraction, digits: 1)
         let y-pos = y-start + chart-height - fraction * chart-height
-        place(left + top, dx: 5pt, dy: y-pos - 5pt, text(size: t.axis-label-size)[#y-val])
+        place(left + top, dx: 5pt, dy: y-pos - 5pt, text(size: t.axis-label-size, fill: t.text-color)[#y-val])
       }
 
       // Axis labels
       #if x-label != none {
-        place(left + bottom, dx: x-start + chart-width / 2 - 20pt, dy: -5pt, text(size: t.axis-title-size)[#x-label])
+        place(left + bottom, dx: x-start + chart-width / 2 - 20pt, dy: -5pt, text(size: t.axis-title-size, fill: t.text-color)[#x-label])
       }
     ]
   ]

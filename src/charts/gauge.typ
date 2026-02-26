@@ -1,5 +1,6 @@
 // gauge.typ - Gauge/dial and progress indicators
 #import "../theme.typ": resolve-theme, get-color
+#import "../validate.typ": validate-number, validate-simple-data
 #import "../primitives/container.typ": chart-container
 
 // Gauge/dial chart (semicircle)
@@ -12,10 +13,12 @@
   label: none,
   show-value: true,
   segments: none,  // optional: array of (threshold, color) for colored segments
-  needle-color: black,
+  needle-color: auto,
   theme: none,
 ) = {
+  validate-number(value, "gauge-chart")
   let t = resolve-theme(theme)
+  let needle-color = if needle-color == auto { t.text-color } else { needle-color }
   let radius = size / 2 - 10pt
   let cx = size / 2
   let cy = size / 2 + 10pt
@@ -96,7 +99,7 @@
         left + top,
         dx: cx - inner-radius,
         dy: cy - inner-radius,
-        circle(radius: inner-radius, fill: white, stroke: none)
+        circle(radius: inner-radius, fill: if t.background != none { t.background } else { white }, stroke: none)
       )
 
       // Needle
@@ -122,8 +125,8 @@
       )
 
       // Min/max labels
-      #place(left + top, dx: cx - radius - 10pt, dy: cy + 5pt, text(size: t.axis-label-size)[#min-val])
-      #place(left + top, dx: cx + radius - 5pt, dy: cy + 5pt, text(size: t.axis-label-size)[#max-val])
+      #place(left + top, dx: cx - radius - 10pt, dy: cy + 5pt, text(size: t.axis-label-size, fill: t.text-color)[#min-val])
+      #place(left + top, dx: cx + radius - 5pt, dy: cy + 5pt, text(size: t.axis-label-size, fill: t.text-color)[#max-val])
 
       // Value display
       #if show-value {
@@ -131,7 +134,7 @@
           left + top,
           dx: cx - 20pt,
           dy: cy - 25pt,
-          text(size: 16pt, weight: "bold")[#calc.round(value, digits: 1)]
+          text(size: 16pt, weight: "bold", fill: t.text-color)[#calc.round(value, digits: 1)]
         )
       }
 
@@ -141,7 +144,7 @@
           left + top,
           dx: cx - 30pt,
           dy: cy + 15pt,
-          text(size: t.value-label-size, fill: gray)[#label]
+          text(size: t.value-label-size, fill: t.text-color-light)[#label]
         )
       }
     ]
@@ -161,6 +164,7 @@
   rounded: true,
   theme: none,
 ) = {
+  validate-number(value, "progress-bar")
   let t = resolve-theme(theme)
   let progress = calc.min(1, calc.max(0, value / max-val))
   let bar-color = if color != none { color } else { get-color(t, 0) }
@@ -168,7 +172,7 @@
 
   box(width: width, height: height + (if title != none { 20pt } else { 0pt }))[
     #if title != none {
-      text(size: t.value-label-size)[#title]
+      text(size: t.value-label-size, fill: t.text-color)[#title]
       v(3pt)
     }
 
@@ -203,7 +207,7 @@
           left + top,
           dx: width / 2 - 15pt,
           dy: height / 2 - 6pt,
-          text(size: 10pt, weight: "bold", fill: if progress > 0.5 { white } else { black })[
+          text(size: 10pt, weight: "bold", fill: if progress > 0.5 { t.text-color-inverse } else { t.text-color })[
             #calc.round(progress * 100, digits: 0)%
           ]
         )
@@ -224,6 +228,7 @@
   background: luma(230),
   theme: none,
 ) = {
+  validate-number(value, "circular-progress")
   let t = resolve-theme(theme)
   let progress = calc.min(1, calc.max(0, value / max-val))
   let bar-color = if color != none { color } else { get-color(t, 0) }
@@ -233,7 +238,7 @@
 
   box(width: size, height: size + (if title != none { 25pt } else { 0pt }))[
     #if title != none {
-      align(center, text(size: t.value-label-size)[#title])
+      align(center, text(size: t.value-label-size, fill: t.text-color)[#title])
       v(3pt)
     }
 
@@ -299,7 +304,7 @@
           left + top,
           dx: cx - 18pt,
           dy: cy - 10pt,
-          text(size: 14pt, weight: "bold")[#calc.round(progress * 100, digits: 0)%]
+          text(size: 14pt, weight: "bold", fill: t.text-color)[#calc.round(progress * 100, digits: 0)%]
         )
       }
     ]
@@ -316,6 +321,7 @@
   max-val: auto,
   theme: none,
 ) = {
+  validate-simple-data(data, "progress-bars")
   let t = resolve-theme(theme)
   let labels = data.labels
   let values = data.values
@@ -338,14 +344,14 @@
         column-gutter: 8pt,
         row-gutter: 6pt,
 
-        text(size: t.axis-label-size)[#lbl],
+        text(size: t.axis-label-size, fill: t.text-color)[#lbl],
 
         box(width: 100%, height: bar-height)[
           #rect(width: 100%, height: 100%, fill: luma(230), radius: 3pt)
           #place(left + top, rect(width: 100% * progress, height: 100%, fill: get-color(t, i), radius: 3pt))
         ],
 
-        if show-values { text(size: t.value-label-size, weight: "bold")[#val] }
+        if show-values { text(size: t.value-label-size, fill: t.text-color, weight: "bold")[#val] }
       )
       v(4pt)
     }

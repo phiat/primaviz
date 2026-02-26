@@ -23,7 +23,7 @@
     let value = min-val + val-range * fraction
     let y = y-offset + chart-height - fraction * chart-height
     place(left + top, dx: x-pos, dy: y - 5pt,
-      text(size: theme.axis-label-size)[#calc.round(value, digits: digits)]
+      text(size: theme.axis-label-size, fill: theme.text-color)[#calc.round(value, digits: digits)]
     )
   }
 }
@@ -32,7 +32,7 @@
 #let draw-x-category-labels(labels, x-start, spacing, y-pos, theme, center-offset: 0pt) = {
   for i in array.range(labels.len()) {
     place(left + top, dx: x-start + i * spacing + center-offset - 15pt, dy: y-pos,
-      text(size: theme.axis-label-size)[#labels.at(i)]
+      text(size: theme.axis-label-size, fill: theme.text-color)[#labels.at(i)]
     )
   }
 }
@@ -46,7 +46,7 @@
     let value = min-val + val-range * fraction
     let x = x-offset + fraction * chart-width
     place(left + top, dx: x - 12pt, dy: y-pos,
-      text(size: theme.axis-label-size)[#calc.round(value, digits: digits)]
+      text(size: theme.axis-label-size, fill: theme.text-color)[#calc.round(value, digits: digits)]
     )
   }
 }
@@ -77,12 +77,12 @@
 #let draw-axis-titles(x-label, y-label, x-center, y-center, theme) = {
   if x-label != none {
     place(left + top, dx: x-center, dy: y-center + 18pt,
-      align(center, text(size: theme.axis-title-size)[#x-label])
+      align(center, text(size: theme.axis-title-size, fill: theme.text-color)[#x-label])
     )
   }
   if y-label != none {
     place(left + top, dx: 2pt, dy: y-center,
-      rotate(-90deg, text(size: theme.axis-title-size)[#y-label])
+      rotate(-90deg, text(size: theme.axis-title-size, fill: theme.text-color)[#y-label])
     )
   }
 }

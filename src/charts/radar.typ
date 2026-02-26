@@ -1,5 +1,6 @@
 // radar.typ - Radar/spider charts
 #import "../theme.typ": resolve-theme, get-color
+#import "../validate.typ": validate-series-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/legend.typ": draw-legend-vertical
 
@@ -12,6 +13,7 @@
   fill-opacity: 30%,
   theme: none,
 ) = {
+  validate-series-data(data, "radar-chart")
   let t = resolve-theme(theme)
   let labels = data.labels
   let series = data.series
@@ -61,7 +63,7 @@
               left + top,
               dx: cx + 3pt,
               dy: cx - r - 4pt,
-              text(size: 6pt, fill: gray)[#val]
+              text(size: 6pt, fill: t.text-color-light)[#val]
             )
           }
         }
@@ -99,7 +101,7 @@
             left + top,
             dx: lx + anchor-x,
             dy: ly + anchor-y,
-            text(size: t.value-label-size, weight: "medium")[#lbl]
+            text(size: t.value-label-size, fill: t.text-color, weight: "medium")[#lbl]
           )
         }
 
@@ -160,7 +162,7 @@
             box(inset: (x: 5pt, y: 3pt))[
               #box(width: t.legend-swatch-size, height: t.legend-swatch-size, fill: get-color(t, i), baseline: 2pt, radius: 2pt)
               #h(6pt)
-              #text(size: t.legend-size)[#s.name]
+              #text(size: t.legend-size, fill: t.text-color)[#s.name]
             ]
             linebreak()
           }
