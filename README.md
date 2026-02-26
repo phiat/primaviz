@@ -2,21 +2,22 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Typst](https://img.shields.io/badge/typst-%3E%3D0.12.0-239dad)](https://typst.app)
-[![Charts](https://img.shields.io/badge/chart_types-25%2B-orange)](screenshots/)
+[![Charts](https://img.shields.io/badge/chart_types-27-orange)](screenshots/)
 [![Pure Typst](https://img.shields.io/badge/dependencies-zero-brightgreen)]()
 
 A charting library for [Typst](https://typst.app) built entirely with native primitives (`rect`, `circle`, `line`, `polygon`, `place`). No external dependencies required.
 
 ## Showcase
 
-All 25+ chart types on 2 pages:
+All 27 chart types across 3 pages:
 
 ![Showcase Page 1](screenshots/showcase-1.png)
 ![Showcase Page 2](screenshots/showcase-2.png)
+![Showcase Page 3](screenshots/showcase-3.png)
 
 ## Features
 
-- **25+ chart types** for data visualization
+- **27 chart types** for data visualization
 - **JSON data input** - load data directly from JSON files
 - **Theme system** - preset themes and custom overrides for consistent styling
 - **Customizable** - colors, sizes, labels, legends
@@ -63,6 +64,7 @@ All 25+ chart types on 2 pages:
 - `correlation-matrix` - Symmetric correlation display
 
 ### Statistical
+- `histogram` - Auto-binned frequency distribution
 - `waterfall-chart` - Bridge/waterfall chart with pos/neg/total segments
 - `funnel-chart` - Conversion funnel with percentages
 - `box-plot` - Box-and-whisker distribution plot
@@ -208,7 +210,7 @@ Pass a dictionary with only the keys you want to change. Unspecified keys fall b
 
 ## Examples
 
-- `examples/showcase.typ` - Compact 2-page showcase of all chart types
+- `examples/showcase.typ` - Compact 3-page showcase of all 27 chart types
 - `examples/demo.typ` - Comprehensive 18-page demo with all features
 
 Sample data files in `data/`:
