@@ -13,3 +13,6 @@ Thumbs.db
 
 # Agent/tracking files
 AGENTS.md
+
+# Claude artifacts
+.beads/
