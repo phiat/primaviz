@@ -5,17 +5,17 @@
 #import "../primitives/polar.typ": annular-wedge-points, separator-stroke
 #import "../primitives/layout.typ": try-fit-label, resolve-size
 
-/// Computes the maximum depth of a hierarchical node tree.
+/// Computes the depth of a hierarchical node tree.
 ///
 /// - node (dictionary): A node with optional `children` array
 /// -> int
-#let _max-depth(node) = {
+#let get-node-depth(node) = {
   if "children" not in node or node.children.len() == 0 {
     return 1
   }
   let deepest = 0
   for child in node.children {
-    let d = _max-depth(child)
+    let d = get-node-depth(child)
     if d > deepest {
       deepest = d
     }
@@ -30,10 +30,16 @@
 /// - start-angle (float): Start angle in degrees
 /// - end-angle (float): End angle in degrees
 /// - depth (int): Current depth (0 = root, 1 = first visible ring)
+/// - max-depth (int): Maximum depth to include in segments
 /// - color-index (int): Index into the theme palette for this branch
 /// -> array
-#let _collect-segments(node, start-angle, end-angle, depth, color-index) = {
+#let _collect-segments(node, start-angle, end-angle, depth, max-depth, color-index) = {
   let segments = ()
+
+  // Stop the recursion if maximum depth is reached
+  if depth > max-depth {
+    return segments
+  }
 
   // Only emit a segment for depth >= 1 (skip the root)
   if depth >= 1 {
@@ -56,7 +62,7 @@
         (child.value / total-child-value) * (end-angle - start-angle)
       } else { 0 }
       let child-color = if depth == 0 { i } else { color-index }
-      let child-segs = _collect-segments(child, current, current + span, depth + 1, child-color)
+      let child-segs = _collect-segments(child, current, current + span, depth + 1, max-depth, child-color)
       segments = segments + child-segs
       current = current + span
     }
@@ -74,6 +80,8 @@
 /// - size (length): Diameter of the chart
 /// - inner-radius (length): Radius of the empty center hole
 /// - ring-width (length): Width of each concentric ring
+/// - max-depth (int): Maximum number of rings to render
+/// - min-angle (angle): Minimum angle for a segment to be rendered
 /// - title (none, content): Optional chart title
 /// - show-labels (bool): Display name labels on segments large enough to fit them
 /// - theme (none, dictionary): Theme overrides
@@ -83,6 +91,8 @@
   size: 300pt,
   inner-radius: 40pt,
   ring-width: 35pt,
+  max-depth: 4,
+  min-angle: 0.1deg,
   title: none,
   show-labels: true,
   theme: none,
@@ -93,8 +103,8 @@
   let size = resolve-size(size, size, avail).width
 
   // Compute depth (excluding root) to determine how many rings we need
-  let total-depth = _max-depth(data) - 1  // rings = depth levels below root
-  let total-depth = calc.min(total-depth, 4)  // cap at 4 rings
+  let total-depth = get-node-depth(data) - 1 // rings = depth levels below root
+  let total-depth = calc.min(total-depth, max-depth) // cap at max-depth
 
   // Adjust size if rings would overflow
   let needed-diameter = 2 * (inner-radius + ring-width * total-depth)
@@ -102,8 +112,8 @@
 
   let radius = chart-size / 2
 
-  // Collect all arc segments
-  let segments = _collect-segments(data, 0, 360, 0, 0)
+  // Collect arc segments
+  let segments = _collect-segments(data, 0, 360, 0, max-depth, 0)
 
   align(center, chart-container(chart-size, chart-size, title, t, extra-height: 40pt)[
     #box(width: chart-size, height: chart-size)[
@@ -116,7 +126,7 @@
         let r-outer = inner-radius + depth * ring-width
 
         let angle-span = seg.end-angle - seg.start-angle
-        if angle-span < 0.1 { continue }  // skip tiny segments
+        if angle-span < min-angle.deg() { continue } // skip tiny segments
 
         let pts = annular-wedge-points(cx, cy, r-inner, r-outer, seg.start-angle, seg.end-angle)
 
