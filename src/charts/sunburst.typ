@@ -9,13 +9,13 @@
 ///
 /// - node (dictionary): A node with optional `children` array
 /// -> int
-#let get-node-depth(node) = {
+#let _get-node-depth(node) = {
   if "children" not in node or node.children.len() == 0 {
     return 1
   }
   let deepest = 0
   for child in node.children {
-    let d = get-node-depth(child)
+    let d = _get-node-depth(child)
     if d > deepest {
       deepest = d
     }
@@ -103,7 +103,7 @@
   let size = resolve-size(size, size, avail).width
 
   // Compute depth (excluding root) to determine how many rings we need
-  let total-depth = get-node-depth(data) - 1 // rings = depth levels below root
+  let total-depth = _get-node-depth(data) - 1 // rings = depth levels below root
   let total-depth = calc.min(total-depth, max-depth) // cap at max-depth
 
   // Adjust size if rings would overflow
