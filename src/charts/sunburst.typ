@@ -30,14 +30,14 @@
 /// - start-angle (float): Start angle in degrees
 /// - end-angle (float): End angle in degrees
 /// - depth (int): Current depth (0 = root, 1 = first visible ring)
-/// - max-depth (int): Maximum depth to include in segments
+/// - max-depth (none, int): Maximum depth to include in segments
 /// - color-index (int): Index into the theme palette for this branch
 /// -> array
 #let _collect-segments(node, start-angle, end-angle, depth, max-depth, color-index) = {
   let segments = ()
 
   // Stop the recursion if maximum depth is reached
-  if depth > max-depth {
+  if max-depth != none and depth > max-depth {
     return segments
   }
 
@@ -56,10 +56,15 @@
   // Recurse into children
   if "children" in node and node.children.len() > 0 {
     let total-child-value = node.children.map(c => c.value).sum()
+    let child-end-angle = if (
+      total-child-value > 0 and "value" in node and node.value > 0
+    ) {
+      start-angle + calc.min(total-child-value / node.value, 1.0) * (end-angle - start-angle)
+    } else { end-angle }
     let current = start-angle
     for (i, child) in node.children.enumerate() {
       let span = if total-child-value > 0 {
-        (child.value / total-child-value) * (end-angle - start-angle)
+        (child.value / total-child-value) * (child-end-angle - start-angle)
       } else { 0 }
       let child-color = if depth == 0 { i } else { color-index }
       let child-segs = _collect-segments(child, current, current + span, depth + 1, max-depth, child-color)
@@ -80,7 +85,7 @@
 /// - size (length): Diameter of the chart
 /// - inner-radius (length): Radius of the empty center hole
 /// - ring-width (length): Width of each concentric ring
-/// - max-depth (int): Maximum number of rings to render
+/// - max-depth (none, int): Maximum number of rings to render
 /// - min-angle (angle): Minimum angle for a segment to be rendered
 /// - title (none, content): Optional chart title
 /// - show-labels (bool): Display name labels on segments large enough to fit them
@@ -91,7 +96,7 @@
   size: 300pt,
   inner-radius: 40pt,
   ring-width: 35pt,
-  max-depth: 4,
+  max-depth: none,
   min-angle: 0.1deg,
   title: none,
   show-labels: true,
@@ -103,8 +108,10 @@
   let size = resolve-size(size, size, avail).width
 
   // Compute depth (excluding root) to determine how many rings we need
-  let total-depth = _get-node-depth(data) - 1 // rings = depth levels below root
-  let total-depth = calc.min(total-depth, max-depth) // cap at max-depth
+  let total-depth = _get-node-depth(data) - 1  // rings = depth levels below root
+  let total-depth = if max-depth != none {
+    calc.min(total-depth, max-depth)
+  } else { total-depth }  // cap at max-depth
 
   // Adjust size if rings would overflow
   let needed-diameter = 2 * (inner-radius + ring-width * total-depth)
@@ -126,7 +133,7 @@
         let r-outer = inner-radius + depth * ring-width
 
         let angle-span = seg.end-angle - seg.start-angle
-        if angle-span < min-angle.deg() { continue } // skip tiny segments
+        if angle-span < min-angle.deg() { continue }  // skip tiny segments
 
         let pts = annular-wedge-points(cx, cy, r-inner, r-outer, seg.start-angle, seg.end-angle)
 
