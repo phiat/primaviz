@@ -22,6 +22,7 @@
 /// - title (none, content): Optional chart title
 /// - show-values (bool): Display value labels at bar ends
 /// - bar-height (auto, float): Bar thickness as fraction of slot (0 to 1), auto = 0.6
+/// - x-label (none, content): X-axis title
 /// - theme (none, dictionary): Theme overrides
 /// - extra-legend-separation (length): Extra space between legend and chart
 /// -> content

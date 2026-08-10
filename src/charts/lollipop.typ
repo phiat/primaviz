@@ -141,6 +141,7 @@
 /// - show-values (bool): Display value labels beside dots
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
+/// - annotations (none, array): Optional annotation descriptors
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let horizontal-lollipop-chart(

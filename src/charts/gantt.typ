@@ -19,6 +19,8 @@
 /// - bar-height (length): Height of each task bar
 /// - gap (length): Vertical gap between task bars
 /// - show-grid (bool): Whether to draw vertical grid lines
+/// - x-label (none, content): X-axis title
+/// - show-legend (bool): Show a legend of task group names and colors
 /// - today (none, int): Optional time index to draw a "today" marker line
 /// - theme (none, dictionary): Theme overrides
 /// - extra-legend-separation (length): Extra space between legend and chart

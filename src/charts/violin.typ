@@ -25,6 +25,7 @@
 /// - stroke-width (length): Stroke width for violin outlines and inner box elements
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
+/// - annotations (none, array): Optional annotation descriptors
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let violin-plot(

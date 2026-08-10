@@ -15,6 +15,8 @@
 /// - palette (str, array): Color palette name or array of color stops. Append `"-r"` to reverse named palettes.
 /// - show-legend (bool): Show color scale legend
 /// - reverse (bool): Reverse palette direction
+/// - subtitle (none, content): Optional subtitle below the title
+/// - radius (length): Corner radius of the chart container
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let heatmap(

@@ -16,6 +16,8 @@
 /// - show-percentages (bool): Display percentage labels on slices
 /// - donut (bool): Cut out the center to create a donut chart
 /// - donut-ratio (float): Inner radius as fraction of outer radius (0 to 1)
+/// - subtitle (none, content): Optional subtitle below the title
+/// - radius (length): Corner radius of the chart container
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let pie-chart(
@@ -67,7 +69,7 @@
     total-width = budget
   }
 
-  let radius = size / 2
+  let pie-radius = size / 2
 
   // Build legend content
   let legend-entries = if show-legend {
@@ -96,14 +98,14 @@
   align(center, chart-container(size, size, title, t-with-legend, extra-height: extra-height, legend: if show-legend { legend-content }, legend-width: legend-width, subtitle: subtitle, radius: radius)[
     // Pie chart
     #box(width: size, height: size)[
-      #let center-x = radius
-      #let center-y = radius
+      #let center-x = pie-radius
+      #let center-y = pie-radius
       #let current-deg = 0
 
       #for (i, val) in values.enumerate() {
         let slice-deg = (val / total) * 360
 
-        let pts = pie-slice-points(center-x, center-y, radius, current-deg, current-deg + slice-deg)
+        let pts = pie-slice-points(center-x, center-y, pie-radius, current-deg, current-deg + slice-deg)
 
         place(
           left + top,
@@ -121,9 +123,9 @@
           let pct-text = str(pct) + "%"
           let pct-len = pct-text.len()
           // Approximate available width from arc at label distance
-          let label-dist = radius * (if donut { 0.75 } else { 0.7 })
+          let label-dist = pie-radius * (if donut { 0.75 } else { 0.7 })
           let arc-w = (label-dist / 1pt) * slice-deg / 360 * 2 * calc.pi * 1pt
-          let arc-h = radius * 0.3  // radial height available
+          let arc-h = pie-radius * 0.3  // radial height available
           let fit = try-fit-label(arc-w, arc-h, t.value-label-size, pct-len, shrink-min: 5pt)
           if fit.fits {
             let lx = center-x + label-dist * calc.cos(mid-deg * 1deg)
@@ -143,7 +145,7 @@
 
       // Donut hole
       #if donut {
-        place-donut-hole(center-x, center-y, radius * donut-ratio, t)
+        place-donut-hole(center-x, center-y, pie-radius * donut-ratio, t)
       }
     ]
   ])

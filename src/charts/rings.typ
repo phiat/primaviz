@@ -7,6 +7,16 @@
 /// Concentric ring progress chart (fitness rings).
 /// Outermost ring = first entry, innermost = last.
 /// Rings that exceed 100 % wrap around (overlap).
+///
+/// - entries (array): Array of dicts with `name`, `value`, and `max`
+/// - size (length): Outer diameter of the ring stack
+/// - title (none, content): Optional chart title
+/// - ring-width (length): Stroke thickness of each ring
+/// - gap (length): Gap between concentric rings
+/// - show-labels (bool): Display entry names beside the rings
+/// - show-values (bool): Display each entry's value and max
+/// - theme (none, dictionary): Theme overrides
+/// -> content
 #let ring-progress(
   entries,          // Array of dicts: ((name: "Move", value: 75, max: 100), ...)
   size: 150pt,

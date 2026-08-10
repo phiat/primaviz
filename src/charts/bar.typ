@@ -19,6 +19,7 @@
 /// - show-values (bool): Display value labels beside bars
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
+/// - annotations (none, array): Optional annotation descriptors
 /// - theme (none, dictionary): Theme overrides
 /// - extra-legend-separation (length): Extra space between legend and chart
 /// -> content
@@ -124,6 +125,13 @@
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
 /// - annotations (none, array): Optional annotation descriptors
+/// - errors (none, array): Symmetric `(e1, e2, ...)` or asymmetric `((lo1, hi1), ...)`
+/// - error-color (auto, color): Error bar color; `auto` uses the theme text color
+/// - error-cap-width (auto, length): Width of the error bar caps; `auto` scales with bar width
+/// - show-ticks (bool): Draw tick marks on the axis lines
+/// - show-minor-grid (bool): Draw lighter minor grid lines between the major ones
+/// - subtitle (none, content): Optional subtitle below the title
+/// - radius (length): Corner radius of the chart container
 /// - theme (none, dictionary): Theme overrides
 /// - extra-legend-separation (length): Extra space between legend and chart
 /// -> content
@@ -263,6 +271,7 @@
 /// - show-legend (bool): Show series legend
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
+/// - annotations (none, array): Optional annotation descriptors
 /// - theme (none, dictionary): Theme overrides
 /// - extra-legend-separation (length): Extra space between legend and chart
 /// -> content
@@ -359,6 +368,7 @@
 /// - show-legend (bool): Show series legend
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
+/// - annotations (none, array): Optional annotation descriptors
 /// - theme (none, dictionary): Theme overrides
 /// - extra-legend-separation (length): Extra space between legend and chart
 /// -> content
