@@ -22,6 +22,8 @@
 /// - total-color (none, color): Override color for total bars
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
+/// - annotations (none, array): Optional annotation descriptors
+/// - show-legend (bool): Show a legend of the positive, negative, and total bar colors
 /// - theme (none, dictionary): Theme overrides
 /// - extra-legend-separation (length): Extra space between legend and chart
 /// -> content

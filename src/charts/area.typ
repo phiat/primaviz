@@ -22,6 +22,9 @@
 /// - point-size (length): Radius of point markers
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
+/// - annotations (none, array): Optional annotation descriptors
+/// - show-ticks (bool): Draw tick marks on the axis lines
+/// - show-minor-grid (bool): Draw lighter minor grid lines between the major ones
 /// - theme (none, dictionary): Theme overrides
 /// - extra-legend-separation (length): Extra space between legend and chart
 /// -> content
@@ -151,6 +154,7 @@
 /// - show-legend (bool): Show series legend
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
+/// - annotations (none, array): Optional annotation descriptors
 /// - theme (none, dictionary): Theme overrides
 /// - extra-legend-separation (length): Extra space between legend and chart
 /// -> content

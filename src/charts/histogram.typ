@@ -21,6 +21,9 @@
 /// - density (bool): Normalize to probability density instead of counts
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
+/// - annotations (none, array): Optional annotation descriptors
+/// - show-ticks (bool): Draw tick marks on the axis lines
+/// - show-minor-grid (bool): Draw lighter minor grid lines between the major ones
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let histogram(

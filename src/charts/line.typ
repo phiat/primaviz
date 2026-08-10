@@ -103,7 +103,14 @@
 /// - fill-opacity (ratio): Opacity of the filled area
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
+/// - errors (none, array): Symmetric `(e1, e2, ...)` or asymmetric `((lo1, hi1), ...)`
+/// - error-color (auto, color): Error bar color; `auto` uses the series color
+/// - error-cap-width (length): Width of the error bar caps
 /// - annotations (none, array): Optional annotation descriptors
+/// - show-ticks (bool): Draw tick marks on the axis lines
+/// - show-minor-grid (bool): Draw lighter minor grid lines between the major ones
+/// - subtitle (none, content): Optional subtitle below the title
+/// - radius (length): Corner radius of the chart container
 /// - theme (none, dictionary): Theme overrides
 /// - extra-legend-separation (length): Extra space between legend and chart
 /// -> content
@@ -268,8 +275,11 @@
 /// - show-legend (bool): Show series legend
 /// - line-interpolation (str): "linear", "smooth", or "catmull-rom"
 /// - smooth-radius (int): Moving average radius for smooth lines, 1 to 5
+/// - line-width (length): Stroke width of each series line
+/// - point-size (length): Radius of point markers
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
+/// - annotations (none, array): Optional annotation descriptors
 /// - theme (none, dictionary): Theme overrides
 /// - extra-legend-separation (length): Extra space between legend and chart
 /// -> content

@@ -9,7 +9,7 @@
 ///
 /// - data (dictionary): Dict with `labels` (axis names) and `series` (each with `name` and `values`)
 /// - size (length): Diameter of the radar chart
-// - axis-max-value (none, number): The maximum value of the chart’s axes
+/// - axis-max-value (none, number): Fixed maximum for every axis; `none` uses the largest data value
 /// - title (none, content): Optional chart title
 /// - show-legend (bool): Show series legend
 /// - show-value-labels (bool): Display scale values and data point labels

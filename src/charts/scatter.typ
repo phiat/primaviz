@@ -20,6 +20,10 @@
 /// - show-grid (auto, bool): Draw background grid lines; `auto` uses theme default
 /// - color (none, color): Override point color
 /// - annotations (none, array): Optional annotation descriptors
+/// - show-ticks (bool): Draw tick marks on the axis lines
+/// - show-minor-grid (bool): Draw lighter minor grid lines between the major ones
+/// - subtitle (none, content): Optional subtitle below the title
+/// - radius (length): Corner radius of the chart container
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let scatter-plot(
@@ -122,6 +126,7 @@
 /// - point-size (length): Diameter of point markers
 /// - show-grid (auto, bool): Draw background grid lines; `auto` uses theme default
 /// - show-legend (bool): Show series legend
+/// - annotations (none, array): Optional annotation descriptors
 /// - theme (none, dictionary): Theme overrides
 /// - extra-legend-separation (length): Extra space between legend and chart
 /// -> content
@@ -227,6 +232,8 @@
 /// - color (none, color): Override bubble color
 /// - show-labels (bool): Display text labels on bubbles
 /// - labels (none, array): Array of label strings for each bubble
+/// - size-label (none, content): Title for the bubble size legend; `none` hides the legend
+/// - annotations (none, array): Optional annotation descriptors
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let bubble-chart(
@@ -446,6 +453,8 @@
 /// - max-radius (length): Maximum bubble radius
 /// - show-grid (auto, bool): Draw background grid lines; `auto` uses theme default
 /// - show-legend (bool): Show series legend
+/// - size-label (none, content): Title for the bubble size legend; `none` hides the legend
+/// - annotations (none, array): Optional annotation descriptors
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let multi-bubble-chart(
