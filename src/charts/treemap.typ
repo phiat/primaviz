@@ -1,6 +1,6 @@
 // treemap.typ - Treemap chart (squarified layout)
 #import "../theme.typ": _resolve-ctx, get-color
-#import "../util.typ": normalize-data, nonzero, contrast-text
+#import "../util.typ": normalize-data, nonzero, contrast-text, label-len
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/layout.typ": try-fit-label, resolve-size
@@ -198,7 +198,7 @@
           let value-text = str(values.at(i))
           let avail-w = rw - 8pt
           let avail-h = rh - 6pt
-          let lbl-len = label-text.len()
+          let lbl-len = label-len(label-text)
           let fit = try-fit-label(avail-w, avail-h, t.value-label-size, lbl-len, shrink-min: 5pt)
 
           if fit.fits {

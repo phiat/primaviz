@@ -502,12 +502,6 @@
     }
   }
 
-  // Build a mapping from segment name -> color index
-  let seg-color-map = (:)
-  for (i, name) in segment-names.enumerate() {
-    seg-color-map.insert(name, i)
-  }
-
   // Compute the max stacked total across all (label, group) pairs
   let max-val = 0
   for li in array.range(n-labels) {
@@ -554,7 +548,8 @@
           for seg in g.segments {
             let val = seg.values.at(li)
             let bar-h = (val / max-val) * chart-height
-            let ci = seg-color-map.at(seg.name)
+            // Names may be content, which cannot key a dictionary — look up by position
+            let ci = segment-names.position(nm => nm == seg.name)
 
             place(
               left + top,

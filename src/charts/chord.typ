@@ -220,7 +220,7 @@
           let label-r = outer-r + 12pt
 
           place-polar-label(center-x, center-y, mid-angle, label-r,
-            text(size: t.axis-label-size, fill: t.text-color, str(labels.at(i))))
+            text(size: t.axis-label-size, fill: t.text-color, [#labels.at(i)]))
         }
       }
     ]

@@ -1,6 +1,6 @@
 // funnel.typ - Funnel chart for process/conversion stages
 #import "../theme.typ": _resolve-ctx, get-color
-#import "../util.typ": normalize-data, format-number
+#import "../util.typ": normalize-data, format-number, label-len
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/layout.typ": label-fits-inside, try-fit-label, resolve-size
@@ -105,7 +105,7 @@
           let inset-half = calc.max(10pt, avg-half - 6pt)
           let label-size = if avg-half * 2 < 60pt { calc.max(5pt, t.value-label-size - 1pt) } else { t.value-label-size }
 
-          let lbl-len = label-text.len()
+          let lbl-len = label-len(label-text)
           // Use actual narrowest width of trapezoid (bottom edge), not inflated inset
           let min-half = calc.min(top-half, bottom-half)
           let avail-w = calc.max(0pt, min-half * 2 - 12pt)  // 6pt padding each side

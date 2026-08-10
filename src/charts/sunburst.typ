@@ -1,5 +1,6 @@
 // sunburst.typ - Multi-level pie/donut chart for hierarchical data
 #import "../theme.typ": _resolve-ctx, get-color
+#import "../util.typ": label-len
 #import "../validate.typ": validate-sunburst-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/polar.typ": annular-wedge-points, separator-stroke
@@ -165,7 +166,7 @@
           // Approximate available width from arc length at mid-radius
           let arc-w = (mid-r / 1pt) * angle-span / 360 * 2 * calc.pi * 1pt
           let arc-h = r-outer - r-inner
-          let lbl-len = seg.name.len()
+          let lbl-len = label-len(seg.name)
           let fit = try-fit-label(arc-w, arc-h, t.value-label-size, lbl-len, shrink-min: 5pt)
 
           if fit.fits {

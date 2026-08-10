@@ -73,7 +73,7 @@
   let legend-entries = if show-legend {
     labels.enumerate().map(((i, lbl)) => {
       let pct = calc.round((values.at(i) / total) * 100, digits: 1)
-      str(lbl) + " (" + str(pct) + "%)"
+      [#lbl (#pct%)]
     })
   } else { () }
   let legend-content = if show-legend {

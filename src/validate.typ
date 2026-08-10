@@ -1,4 +1,5 @@
 // validate.typ - Input validation helpers for chart functions
+#import "util.typ": label-str
 
 // Validate simple data (labels + values)
 #let validate-simple-data(data, chart-name) = {
@@ -27,7 +28,7 @@
     assert("name" in s, message: chart-name + ": series[" + str(i) + "] must have 'name' key")
     assert("values" in s, message: chart-name + ": series[" + str(i) + "] must have 'values' key")
     assert(s.values.len() == data.labels.len(),
-      message: chart-name + ": series '" + s.name + "' has " + str(s.values.len()) + " values but " + str(data.labels.len()) + " labels")
+      message: chart-name + ": series '" + label-str(s.name) + "' has " + str(s.values.len()) + " values but " + str(data.labels.len()) + " labels")
   }
 }
 
@@ -180,7 +181,7 @@
       assert("values" in seg,
         message: chart-name + ": groups[" + str(gi) + "].segments[" + str(si) + "] must have 'values' key")
       assert(seg.values.len() == n-labels,
-        message: chart-name + ": segment '" + seg.name + "' has " + str(seg.values.len()) + " values but " + str(n-labels) + " labels")
+        message: chart-name + ": segment '" + label-str(seg.name) + "' has " + str(seg.values.len()) + " values but " + str(n-labels) + " labels")
     }
   }
 }
@@ -293,7 +294,7 @@
   for (i, s) in data.series.enumerate() {
     assert("name" in s, message: chart-name + ": series[" + str(i) + "] must have 'name' key")
     assert("points" in s, message: chart-name + ": series[" + str(i) + "] must have 'points' key")
-    assert(s.points.len() > 0, message: chart-name + ": series '" + s.name + "' must have at least one point")
+    assert(s.points.len() > 0, message: chart-name + ": series '" + label-str(s.name) + "' must have at least one point")
   }
 }
 
@@ -303,7 +304,7 @@
   for (i, s) in data.series.enumerate() {
     for (j, pt) in s.points.enumerate() {
       assert(pt.len() >= 3,
-        message: chart-name + ": series '" + s.name + "' point[" + str(j) + "] must have at least 3 elements (x, y, size)")
+        message: chart-name + ": series '" + label-str(s.name) + "' point[" + str(j) + "] must have at least 3 elements (x, y, size)")
     }
   }
 }

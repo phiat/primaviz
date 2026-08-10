@@ -44,3 +44,5 @@
 #include "test-theme-json.typ"
 #pagebreak()
 #include "test-resolve-size.typ"
+#pagebreak()
+#include "test-content-labels.typ"

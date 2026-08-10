@@ -347,6 +347,21 @@ Themes support passthrough of custom keys not in the default theme. This lets yo
 )
 ```
 
+### Content labels
+
+Anywhere a label or series name is accepted, content works as well as a string —
+math, markup, or both:
+
+```typst
+#stacked-bar-chart((
+  labels: ($alpha$, $beta$),
+  series: (
+    (name: $x$, values: (90, 0)),
+    (name: [*y*], values: (10, 100)),
+  ),
+))
+```
+
 ### Scatter/bubble data
 ```typst
 (

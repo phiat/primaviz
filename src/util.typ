@@ -112,6 +112,49 @@
 /// -> int, float
 #let nonzero(val, fallback: 1) = if val == 0 { fallback } else { val }
 
+/// Extracts the plain text of a label that may be a string, a number, or content.
+///
+/// Labels accept arbitrary content (`$x^2$`, `[*Q1*]`), which has no `.len()` and
+/// cannot be concatenated with strings. Layout heuristics and error messages need a
+/// plain-text form, so walk the content tree and gather every text leaf. The result
+/// is an approximation for typeset math — good enough to size labels, never used for
+/// rendering (charts always place the original value).
+///
+/// - v (any): Label value — string, number, or content
+/// -> str
+#let label-str(v) = {
+  if type(v) == str {
+    v
+  } else if type(v) == int or type(v) == float {
+    str(v)
+  } else if type(v) == array {
+    v.map(label-str).fold("", (a, b) => a + b)
+  } else if type(v) == content {
+    if v.has("text") and type(v.text) == str {
+      v.text
+    } else {
+      let out = ""
+      for (_, field) in v.fields() {
+        if type(field) == str or type(field) == content or type(field) == array {
+          out += label-str(field)
+        }
+      }
+      out
+    }
+  } else {
+    ""
+  }
+}
+
+/// Returns the character count of a label for width heuristics.
+///
+/// Accepts the same values as `label-str`; content labels are measured by their
+/// extracted text.
+///
+/// - v (any): Label value — string, number, or content
+/// -> int
+#let label-len(v) = label-str(v).clusters().len()
+
 /// Clamps a numeric value to the range [lo, hi].
 ///
 /// - val (int, float): Value to clamp

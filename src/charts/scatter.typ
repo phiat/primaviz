@@ -1,6 +1,6 @@
 // scatter.typ - Scatter plot and bubble chart
 #import "../theme.typ": _resolve-ctx, get-color
-#import "../util.typ": nonzero, clamp, nice-ticks
+#import "../util.typ": nonzero, clamp, nice-ticks, label-len
 #import "../primitives/layout.typ": label-fits-inside, place-cartesian-label, try-fit-label, greedy-deconflict, resolve-size
 #import "../validate.typ": validate-scatter-data, validate-multi-scatter-data, validate-bubble-data, validate-multi-bubble-data
 #import "../primitives/container.typ": chart-container
@@ -335,7 +335,7 @@
         for b in computed {
           if b.i >= labels.len() { continue }
           let lbl = labels.at(b.i)
-          let lbl-len = if type(lbl) == str { lbl.len() } else { str(lbl).len() }
+          let lbl-len = label-len(lbl)
           let fit = try-fit-label(b.radius * 2, b.radius * 2, lbl-size, lbl-len)
 
           if fit.fits {
@@ -371,7 +371,7 @@
 
         // Render inside labels
         for il in inside-labels {
-          let lbl-w = il.size * 0.6 * il.lbl.len() + 4pt
+          let lbl-w = il.size * 0.6 * label-len(il.lbl) + 4pt
           let lbl-w = calc.max(il.radius * 2, lbl-w)
           place(
             left + top,

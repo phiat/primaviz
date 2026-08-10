@@ -1,6 +1,6 @@
 // sankey.typ - Sankey / flow diagrams
 #import "../theme.typ": _resolve-ctx, get-color
-#import "../util.typ": nonzero
+#import "../util.typ": nonzero, label-len
 #import "../validate.typ": validate-sankey-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/layout.typ": resolve-size
@@ -79,7 +79,7 @@
   // ── Layout geometry ───────────────────────────────────────────────────
   let label-size = calc.min(t.axis-label-size, calc.max(5pt, height / 25))
   // Scale pad-x with chart width — enough room for labels
-  let max-label-len = nodes.fold(0, (acc, lbl) => calc.max(acc, str(lbl).len()))
+  let max-label-len = nodes.fold(0, (acc, lbl) => calc.max(acc, label-len(lbl)))
   let pad-x = calc.max(30pt, calc.min(60pt, label-size * 0.6 * max-label-len + 8pt))
   let pad-y = 10pt    // vertical padding top/bottom
   let chart-w = width - 2 * pad-x
@@ -203,7 +203,7 @@
           let entries = col-nodes.map(i => {
             let lbl = nodes.at(i)
             let val-text = if show-values { " (" + str(node-value.at(i)) + ")" } else { "" }
-            (idx: i, y: node-y.at(i) + node-h.at(i) / 2 - label-h / 2, text: str(lbl) + val-text)
+            (idx: i, y: node-y.at(i) + node-h.at(i) / 2 - label-h / 2, text: [#lbl#val-text])
           }).sorted(key: e => e.y)
           // Nudge overlapping labels down (rebuild array for immutability)
           let deconflicted = ()

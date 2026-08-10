@@ -18,7 +18,7 @@
   align(center)[
     #_legend-title(title, theme)
     #for (i, entry) in entries.enumerate() {
-      let name = if type(entry) == str { entry } else { entry.name }
+      let name = if type(entry) == dictionary and "name" in entry { entry.name } else { entry }
       let color = if type(entry) == dictionary and "color" in entry {
         entry.color
       } else {
@@ -49,7 +49,7 @@
   box(width: width)[
     #_legend-title(title, theme)
     #for (i, entry) in entries.enumerate() {
-      let name = if type(entry) == str { entry } else { entry.name }
+      let name = if type(entry) == dictionary and "name" in entry { entry.name } else { entry }
       let color = if type(entry) == dictionary and "color" in entry {
         entry.color
       } else {
