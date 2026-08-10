@@ -62,6 +62,31 @@
   )
 }
 
+// Fills the region between the line and `baseline-y`, following the same
+// interpolation as the drawn line so fill and stroke share an edge.
+#let draw-line-fill(points, fill, baseline-y, line-interpolation, smooth-radius) = {
+  if points.len() <= 1 {
+    return
+  }
+
+  let curve-points = if line-interpolation == "smooth" {
+    _smooth-points(points, smooth-radius)
+  } else {
+    points
+  }
+  place(
+    left + top,
+    curve(
+      stroke: none,
+      fill: fill,
+      .._line-curve-components(curve-points, line-interpolation),
+      curve.line((curve-points.last().at(0), baseline-y)),
+      curve.line((curve-points.first().at(0), baseline-y)),
+      curve.close(mode: "straight"),
+    )
+  )
+}
+
 /// Renders a single-series line chart.
 ///
 /// - data (dictionary, array): Label-value pairs as dict or array of tuples
@@ -75,6 +100,7 @@
 /// - smooth-radius (int): Moving average radius for smooth lines, 1 to 5
 /// - point-size (length): Diameter of point markers
 /// - fill-area (bool): Fill the area under the line
+/// - fill-opacity (ratio): Opacity of the filled area
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
 /// - annotations (none, array): Optional annotation descriptors
@@ -93,6 +119,7 @@
   smooth-radius: 1,
   point-size: 4pt,
   fill-area: false,
+  fill-opacity: 40%,
   x-label: none,
   y-label: none,
   errors: none,
@@ -154,6 +181,20 @@
         let x = if n == 1 { origin-x + chart-width / 2 } else { origin-x + (i / (n - 1)) * chart-width }
         let y = pad-top + chart-height - ((val - min-val) / val-range) * chart-height
         points.push((x, y))
+      }
+
+      // Area fill under the line — baseline at zero, or the axis floor when the
+      // visible range excludes it, so the fill never escapes the plot area
+      #if fill-area {
+        let zero-y = pad-top + chart-height - ((0 - min-val) / val-range) * chart-height
+        let baseline-y = calc.max(pad-top, calc.min(pad-top + chart-height, zero-y))
+        draw-line-fill(
+          points,
+          get-color(t, 0).transparentize(100% - fill-opacity),
+          baseline-y,
+          line-interpolation,
+          smooth-radius,
+        )
       }
 
       // Draw line between points
