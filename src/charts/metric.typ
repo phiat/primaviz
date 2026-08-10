@@ -2,6 +2,7 @@
 #import "../theme.typ": _resolve-ctx, get-color
 #import "../util.typ": format-number
 #import "../primitives/layout.typ": resolve-size
+#import "../primitives/paths.typ": draw-polyline
 
 /// Renders a dashboard KPI tile with a prominent value, label, optional delta indicator,
 /// and optional trend sparkline.
@@ -96,16 +97,7 @@
       #place(left + top,
         polygon(fill: spark-color.transparentize(60%), stroke: none, ..fill-points))
       // Line segments
-      #for i in array.range(n - 1) {
-        let p1 = points.at(i)
-        let p2 = points.at(i + 1)
-        place(left + top,
-          line(
-            start: (p1.at(0), p1.at(1)),
-            end: (p2.at(0), p2.at(1)),
-            stroke: 1pt + spark-color,
-          ))
-      }
+      #draw-polyline(points, 1pt + spark-color)
       // Endpoint dot
       #let last = points.at(n - 1)
       #place(left + top, dx: last.at(0) - 1.5pt, dy: last.at(1) - 1.5pt,

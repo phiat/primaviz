@@ -6,6 +6,7 @@
 #import "../primitives/axes.typ": cartesian-layout, draw-axis-lines, draw-grid, draw-axis-titles, draw-x-even-labels
 #import "../primitives/legend.typ": draw-legend-auto
 #import "../primitives/layout.typ": resolve-size
+#import "../primitives/paths.typ": draw-polyline
 
 /// Renders a bump chart showing how items change ranking over time periods.
 ///
@@ -87,18 +88,7 @@
         }
 
         // Draw connecting lines
-        for i in array.range(calc.max(n - 1, 0)) {
-          let p1 = points.at(i)
-          let p2 = points.at(i + 1)
-          place(
-            left + top,
-            line(
-              start: (p1.at(0), p1.at(1)),
-              end: (p2.at(0), p2.at(1)),
-              stroke: line-width + color,
-            )
-          )
-        }
+        draw-polyline(points, line-width + color)
 
         // Draw dots at each period
         for pt in points {

@@ -13,6 +13,9 @@
 
 #line-chart(simple-data, title: "line-chart catmull-rom", line-interpolation: "catmull-rom")
 
+// Thick linear stroke without markers — segments must join, not show notches
+#line-chart(simple-data, title: "line-chart thick linear, no points", show-points: false, line-width: 6pt)
+
 #multi-line-chart(multi-data, title: "multi-line-chart")
 
 #multi-line-chart(multi-data, title: "multi-line-chart smooth", line-interpolation: "smooth")

@@ -7,6 +7,7 @@
 #import "../primitives/annotations.typ": draw-annotations
 #import "../util.typ": nonzero, nice-ticks
 #import "../primitives/layout.typ": resolve-size
+#import "../primitives/paths.typ": draw-polyline
 
 #let dual-axis-chart(
   data,
@@ -101,32 +102,10 @@
       }
 
       // Draw left series line segments
-      #for i in array.range(calc.max(n - 1, 0)) {
-        let p1 = l-points.at(i)
-        let p2 = l-points.at(i + 1)
-        place(
-          left + top,
-          line(
-            start: (p1.at(0), p1.at(1)),
-            end: (p2.at(0), p2.at(1)),
-            stroke: line-width + l-color,
-          )
-        )
-      }
+      #draw-polyline(l-points, line-width + l-color)
 
       // Draw right series line segments
-      #for i in array.range(calc.max(n - 1, 0)) {
-        let p1 = r-points.at(i)
-        let p2 = r-points.at(i + 1)
-        place(
-          left + top,
-          line(
-            start: (p1.at(0), p1.at(1)),
-            end: (p2.at(0), p2.at(1)),
-            stroke: line-width + r-color,
-          )
-        )
-      }
+      #draw-polyline(r-points, line-width + r-color)
 
       // Draw points
       #if show-points {

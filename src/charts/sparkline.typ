@@ -1,6 +1,7 @@
 // sparkline.typ - Tiny inline charts for tables and running text
 #import "../theme.typ": _resolve-ctx, get-color
 #import "../primitives/layout.typ": resolve-size
+#import "../primitives/paths.typ": draw-polyline
 
 /// Renders a tiny inline line chart (sparkline) suitable for tables and running text.
 ///
@@ -67,16 +68,7 @@
           polygon(fill: c.transparentize(70%), stroke: none, ..fill-points))
       }
       // Draw line segments
-      #for i in array.range(n - 1) {
-        let p1 = points.at(i)
-        let p2 = points.at(i + 1)
-        place(left + top,
-          line(
-            start: (p1.at(0), p1.at(1)),
-            end: (p2.at(0), p2.at(1)),
-            stroke: stroke-width + c,
-          ))
-      }
+      #draw-polyline(points, stroke-width + c)
       // Endpoint dot
       #if show-endpoint {
         let last = points.at(n - 1)

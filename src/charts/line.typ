@@ -30,7 +30,9 @@
   for i in array.range(points.len() - 1) {
     let p1 = points.at(i)
     let p2 = points.at(i + 1)
-    if line-interpolation == "smooth" {
+    if line-interpolation == "linear" {
+      comps.push(curve.line(p2))
+    } else if line-interpolation == "smooth" {
       let mid-x = (p1.at(0) + p2.at(0)) / 2
       comps.push(curve.cubic((mid-x, p1.at(1)), (mid-x, p2.at(1)), p2))
     } else if line-interpolation == "catmull-rom" {
@@ -49,30 +51,15 @@
     return
   }
 
-  if line-interpolation == "linear" {
-    for i in array.range(points.len() - 1) {
-      let p1 = points.at(i)
-      let p2 = points.at(i + 1)
-      place(
-        left + top,
-        line(
-          start: (p1.at(0), p1.at(1)),
-          end: (p2.at(0), p2.at(1)),
-          stroke: stroke,
-        )
-      )
-    }
+  let curve-points = if line-interpolation == "smooth" {
+    _smooth-points(points, smooth-radius)
   } else {
-    let curve-points = if line-interpolation == "smooth" {
-      _smooth-points(points, smooth-radius)
-    } else {
-      points
-    }
-    place(
-      left + top,
-      curve(stroke: stroke, fill: none, .._line-curve-components(curve-points, line-interpolation))
-    )
+    points
   }
+  place(
+    left + top,
+    curve(stroke: stroke, fill: none, .._line-curve-components(curve-points, line-interpolation))
+  )
 }
 
 /// Renders a single-series line chart.

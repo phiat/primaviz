@@ -7,6 +7,7 @@
 #import "../primitives/legend.typ": draw-legend-auto
 #import "../primitives/annotations.typ": draw-annotations
 #import "../primitives/layout.typ": resolve-size
+#import "../primitives/paths.typ": draw-polyline
 
 /// Renders a single-series area chart with a filled region below the line.
 ///
@@ -108,18 +109,7 @@
 
       // Draw line on top
       #if show-line {
-        for i in array.range(calc.max(n - 1, 0)) {
-          let p1 = points.at(i)
-          let p2 = points.at(i + 1)
-          place(
-            left + top,
-            line(
-              start: (p1.at(0), p1.at(1)),
-              end: (p2.at(0), p2.at(1)),
-              stroke: line-width + get-color(t, 0),
-            )
-          )
-        }
+        draw-polyline(points, line-width + get-color(t, 0))
       }
 
       // Draw points
