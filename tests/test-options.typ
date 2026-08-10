@@ -14,6 +14,12 @@
 == Line chart options
 #line-chart(simple-data, width: 250pt, height: 150pt, show-points: false, fill-area: true, title: "fill, no points")
 #line-chart(simple-data, width: 250pt, height: 150pt, show-points: true, show-values: true, title: "points + values")
+#line-chart(simple-data, width: 250pt, height: 150pt, fill-area: true, fill-opacity: 80%, title: "fill, custom opacity")
+#line-chart(simple-data, width: 250pt, height: 150pt, fill-area: true, line-interpolation: "catmull-rom", title: "fill follows the curve")
+#line-chart(
+  (labels: ("A", "B", "C", "D"), values: (20, -15, 30, -5)),
+  width: 250pt, height: 150pt, fill-area: true, title: "fill across zero",
+)
 
 == Histogram options
 #histogram(

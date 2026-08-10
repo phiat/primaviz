@@ -14,3 +14,10 @@
 #bubble-chart(bubble-data, title: "bubble-chart")
 
 #multi-bubble-chart(multi-bubble-data, title: "multi-bubble-chart")
+
+#multi-bubble-chart(
+  multi-bubble-data,
+  width: 350pt, height: 220pt,
+  title: "multi-bubble-chart with axis titles",
+  x-label: "Quarter", y-label: "Revenue", size-label: "Headcount",
+)

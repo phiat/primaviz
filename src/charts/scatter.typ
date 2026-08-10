@@ -539,6 +539,11 @@
         }
       }
 
+      // Axis titles
+      #let y-tw = measure-y-tick-width(y-min, y-max, t)
+      #let x-th = measure-x-tick-height(([#x-max],), t)
+      #draw-axis-titles(x-label, y-label, origin-x + chart-width / 2, pad-top + chart-height / 2, t, origin-x: origin-x, origin-y: origin-y, y-tick-width: y-tw, x-tick-height: x-th)
+
       #draw-annotations(annotations, origin-x, pad-top, chart-width, chart-height, x-min, x-max, y-min, y-max, t)
     ]
 
