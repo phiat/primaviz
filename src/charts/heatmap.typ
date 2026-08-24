@@ -3,7 +3,7 @@
 #import "../util.typ": lerp-color, heat-color, nonzero, day-of-week, contrast-text
 #import "../validate.typ": validate-heatmap-data, validate-calendar-data, validate-correlation-data
 #import "../primitives/container.typ": chart-container, container-inset
-#import "../primitives/layout.typ": density-skip
+#import "../primitives/layout.typ": density-skip, font-to-fit-width
 #import "../primitives/legend.typ": draw-gradient-legend
 
 /// Renders a heatmap grid with color-coded cells.
@@ -81,6 +81,17 @@
         }
       }
 
+      // Resolve every cell's position and color once, so the fills and the
+      // value labels can be drawn in two separate passes below.
+      #let cells = values.enumerate().map(((i, row-vals)) => {
+        row-vals.enumerate().map(((j, val)) => (
+          x: row-label-width + j * cell-size,
+          y: col-label-height + i * cell-size,
+          value: val,
+          color: heat-color((val - min-val) / val-range, palette: palette, reverse: reverse),
+        ))
+      })
+
       // Grid cells and row labels
       #for (i, row) in rows.enumerate() {
         // Row label — right-aligned into label area
@@ -94,32 +105,41 @@
         )
 
         // Cells for this row
-        for (j, val) in values.at(i).enumerate() {
-          let normalized = (val - min-val) / val-range
-          let cell-color = heat-color(normalized, palette: palette, reverse: reverse)
-
+        for cell in cells.at(i) {
           place(
             left + top,
-            dx: row-label-width + j * cell-size,
-            dy: col-label-height + i * cell-size,
+            dx: cell.x,
+            dy: cell.y,
             rect(
               width: cell-size,
               height: cell-size,
-              fill: cell-color,
+              fill: cell.color,
               stroke: t.marker-stroke,
             )
           )
+        }
+      }
 
-          // Value label — centered in cell
-          if show-values {
-            let text-color = contrast-text(cell-color)
+      // Value labels — drawn after every cell. Cells sit flush against each
+      // other, so a value wider than its cell overflows past the edge and a
+      // label emitted alongside its own cell loses that tail to the next one.
+      #if show-values {
+        // Size off the longest value in the grid so every cell shares one
+        // size, and so the widest number is the one that has to fit.
+        let widest = cells.flatten()
+          .map(c => str(calc.round(c.value, digits: 1)).clusters().len())
+          .fold(0, calc.max)
+        let value-size = font-to-fit-width(cell-size - 4pt, t.axis-label-size, widest)
+        for row-cells in cells {
+          for cell in row-cells {
             place(
               left + top,
-              dx: row-label-width + j * cell-size,
-              dy: col-label-height + i * cell-size,
+              dx: cell.x,
+              dy: cell.y,
               box(width: cell-size, height: cell-size,
                 align(center + horizon,
-                  text(size: t.axis-label-size, fill: text-color)[#calc.round(val, digits: 1)]))
+                  text(size: value-size, fill: contrast-text(cell.color))[
+                    #calc.round(cell.value, digits: 1)]))
             )
           }
         }
@@ -370,6 +390,18 @@
         }
       }
 
+      // Resolve every cell's position and color once, so the fills and the
+      // value labels can be drawn in two separate passes below.
+      #let cells = values.enumerate().map(((i, row-vals)) => {
+        row-vals.enumerate().map(((j, val)) => (
+          x: label-area + j * cell-size,
+          y: label-area + i * cell-size,
+          value: val,
+          // Map correlation range [-1, +1] to normalized [0, 1] for heat-color
+          color: heat-color((calc.max(-1, calc.min(1, val)) + 1) / 2, palette: palette, reverse: reverse),
+        ))
+      })
+
       // Cells and row labels
       #for (i, row-lbl) in labels.enumerate() {
         // Row label — right-aligned into label area
@@ -383,33 +415,39 @@
         )
 
         // Cells
-        for (j, val) in values.at(i).enumerate() {
-          // Map correlation range [-1, +1] to normalized [0, 1] for heat-color
-          let normalized = (calc.max(-1, calc.min(1, val)) + 1) / 2
-          let cell-color = heat-color(normalized, palette: palette, reverse: reverse)
-          let cell-stroke = t.marker-stroke
-
+        for cell in cells.at(i) {
           place(
             left + top,
-            dx: label-area + j * cell-size,
-            dy: label-area + i * cell-size,
+            dx: cell.x,
+            dy: cell.y,
             rect(
               width: cell-size,
               height: cell-size,
-              fill: cell-color,
-              stroke: cell-stroke,
+              fill: cell.color,
+              stroke: t.marker-stroke,
             )
           )
+        }
+      }
 
-          if show-values {
-            let text-color = contrast-text(cell-color)
+      // Value labels — drawn after every cell, so a value wider than its cell
+      // keeps the tail that overflows into the neighbour.
+      #if show-values {
+        // Size off the longest value in the grid so every cell shares one size
+        let widest = cells.flatten()
+          .map(c => str(calc.round(c.value, digits: 2)).clusters().len())
+          .fold(0, calc.max)
+        let value-size = font-to-fit-width(cell-size - 4pt, t.axis-label-size, widest)
+        for row-cells in cells {
+          for cell in row-cells {
             place(
               left + top,
-              dx: label-area + j * cell-size,
-              dy: label-area + i * cell-size,
+              dx: cell.x,
+              dy: cell.y,
               box(width: cell-size, height: cell-size,
                 align(center + horizon,
-                  text(size: t.axis-label-size, fill: text-color)[#calc.round(val, digits: 2)]))
+                  text(size: value-size, fill: contrast-text(cell.color))[
+                    #calc.round(cell.value, digits: 2)]))
             )
           }
         }

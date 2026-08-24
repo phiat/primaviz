@@ -15,6 +15,22 @@
   estimated-width <= available-width and estimated-height <= available-height
 }
 
+/// Largest font size, at or below `base-size`, whose label fits `available-width`.
+///
+/// Inverts the width heuristic `label-fits-inside` uses, so a label sized by
+/// this function is one `label-fits-inside` accepts. Results are clamped to
+/// `min-size` — a label that cannot fit stays readable rather than fitting.
+///
+/// - available-width (length): Width the label has to fit into
+/// - base-size (length): Preferred/maximum font size
+/// - text-len (int): Number of characters in the label
+/// - min-size (length): Floor font size
+/// -> length
+#let font-to-fit-width(available-width, base-size, text-len, min-size: 4pt) = {
+  if text-len <= 0 { return base-size }
+  calc.max(min-size, calc.min(base-size, available-width / (0.6 * text-len)))
+}
+
 /// Returns a skip factor N so that showing every Nth label maintains min-spacing.
 ///
 /// - count (int): Total number of labels

@@ -100,32 +100,57 @@
     #box(width: size, height: size)[
       #let center-x = pie-radius
       #let center-y = pie-radius
-      #let current-deg = 0
 
-      #for (i, val) in values.enumerate() {
-        let slice-deg = (val / total) * 360
+      // Resolve each slice's angular span once, so the wedges, the donut hole
+      // and the labels can be drawn in three separate passes below.
+      #let slices = {
+        let current-deg = 0
+        let out = ()
+        for (i, val) in values.enumerate() {
+          let slice-deg = (val / total) * 360
+          out.push((index: i, value: val, start-deg: current-deg, span-deg: slice-deg))
+          current-deg = current-deg + slice-deg
+        }
+        out
+      }
 
-        let pts = pie-slice-points(center-x, center-y, pie-radius, current-deg, current-deg + slice-deg)
-
+      // Pass 1 — every wedge
+      #for slice in slices {
         place(
           left + top,
           polygon(
-            fill: get-color(t, i),
+            fill: get-color(t, slice.index),
             stroke: separator-stroke(t, thickness: 1pt),
-            ..pts,
+            ..pie-slice-points(center-x, center-y, pie-radius, slice.start-deg, slice.start-deg + slice.span-deg),
           )
         )
+      }
 
-        // Percentage label — try fitting into slice arc
-        if show-percentages {
-          let mid-deg = current-deg + slice-deg / 2
-          let pct = calc.round((val / total) * 100, digits: 1)
+      // Pass 2 — donut hole, before the labels. Labels sit at 0.75 of the
+      // radius, which a large donut-ratio punches straight through.
+      #if donut {
+        place-donut-hole(center-x, center-y, pie-radius * donut-ratio, t)
+      }
+
+      // Pass 3 — percentage labels, on top of every wedge and the hole
+      #if show-percentages {
+        for slice in slices {
+          let mid-deg = slice.start-deg + slice.span-deg / 2
+          let pct = calc.round((slice.value / total) * 100, digits: 1)
           let pct-text = str(pct) + "%"
           let pct-len = pct-text.len()
+          // Sit the label in the middle of the ring band, whatever the hole
+          // takes out of it — a fixed 0.75 falls inside the hole once
+          // donut-ratio passes it, leaving the text on the hole's fill.
+          let label-dist = pie-radius * (if donut { (donut-ratio + 1) / 2 } else { 0.7 })
           // Approximate available width from arc at label distance
-          let label-dist = pie-radius * (if donut { 0.75 } else { 0.7 })
-          let arc-w = (label-dist / 1pt) * slice-deg / 360 * 2 * calc.pi * 1pt
-          let arc-h = pie-radius * 0.3  // radial height available
+          let arc-w = (label-dist / 1pt) * slice.span-deg / 360 * 2 * calc.pi * 1pt
+          // Radial height available — never more than the band itself
+          let arc-h = if donut {
+            calc.min(pie-radius * 0.3, pie-radius * (1 - donut-ratio))
+          } else {
+            pie-radius * 0.3
+          }
           let fit = try-fit-label(arc-w, arc-h, t.value-label-size, pct-len, shrink-min: 5pt)
           if fit.fits {
             let lx = center-x + label-dist * calc.cos(mid-deg * 1deg)
@@ -139,13 +164,6 @@
             )
           }
         }
-
-        current-deg = current-deg + slice-deg
-      }
-
-      // Donut hole
-      #if donut {
-        place-donut-hole(center-x, center-y, pie-radius * donut-ratio, t)
       }
     ]
   ])

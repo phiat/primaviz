@@ -134,51 +134,63 @@
     0
   )
 
+  // Resolve geometry and color once per visible segment, so the wedges and the
+  // labels can be drawn in two separate passes below. Segments too thin to see
+  // are dropped here rather than in each pass.
+  let visible = segments
+    .filter(seg => seg.end-angle - seg.start-angle >= min-angle.deg())
+    .map(seg => {
+      let depth = seg.depth  // 1-based (1 = innermost ring)
+      // Color: base color from palette, lighten for deeper levels
+      let base-color = get-color(t, seg.color-index)
+      (
+        ..seg,
+        r-inner: inner-radius + (depth - 1) * ring-width,
+        r-outer: inner-radius + depth * ring-width,
+        color: if depth == 1 {
+          base-color
+        } else if depth == 2 {
+          base-color.lighten(25%)
+        } else if depth == 3 {
+          base-color.lighten(45%)
+        } else {
+          base-color.lighten(60%)
+        },
+      )
+    })
+
   align(center, chart-container(chart-size, chart-size, title, t, extra-height: 40pt)[
     #box(width: chart-size, height: chart-size)[
       #let cx = radius
       #let cy = radius
 
-      #for seg in segments {
-        let depth = seg.depth  // 1-based (1 = innermost ring)
-        let r-inner = inner-radius + (depth - 1) * ring-width
-        let r-outer = inner-radius + depth * ring-width
-
-        let angle-span = seg.end-angle - seg.start-angle
-        if angle-span < min-angle.deg() { continue }  // skip tiny segments
-
-        let pts = annular-wedge-points(cx, cy, r-inner, r-outer, seg.start-angle, seg.end-angle)
-
-        // Color: base color from palette, lighten for deeper levels
-        let base-color = get-color(t, seg.color-index)
-        let seg-color = if seg.depth == 1 {
-          base-color
-        } else if seg.depth == 2 {
-          base-color.lighten(25%)
-        } else if seg.depth == 3 {
-          base-color.lighten(45%)
-        } else {
-          base-color.lighten(60%)
-        }
-
+      // Pass 1 — every wedge. Placed content paints in order, so drawing all
+      // wedges before any label keeps an outer ring from covering the label of
+      // the ring beneath it.
+      #for seg in visible {
         place(
           left + top,
           polygon(
-            fill: seg-color,
+            fill: seg.color,
             stroke: separator-stroke(t, thickness: 0.75pt),
-            ..pts,
+            ..annular-wedge-points(cx, cy, seg.r-inner, seg.r-outer, seg.start-angle, seg.end-angle),
           )
         )
+      }
 
-        // Label on segments — estimate arc width and try fitting
-        if show-labels and angle-span >= 5 {
+      // Pass 2 — labels, on top of every wedge
+      #if show-labels {
+        for seg in visible {
+          let angle-span = seg.end-angle - seg.start-angle
+          if angle-span < 5 { continue }
+
           let mid-angle = (seg.start-angle + seg.end-angle) / 2
-          let mid-r = (r-inner + r-outer) / 2
+          let mid-r = (seg.r-inner + seg.r-outer) / 2
           // Approximate available width from arc length at mid-radius.
           // The 360 is the degrees-to-radians conversion, not the chart sweep —
           // arc length is independent of total-angle.
           let arc-w = (mid-r / 1pt) * angle-span / 360 * 2 * calc.pi * 1pt
-          let arc-h = r-outer - r-inner
+          let arc-h = seg.r-outer - seg.r-inner
           let lbl-len = label-len(seg.name)
           let fit = try-fit-label(arc-w, arc-h, t.value-label-size, lbl-len, shrink-min: 5pt)
 
@@ -197,7 +209,7 @@
             let label-w = text-size.width + 4pt
             let pill-h = text-size.height + 3pt
             // Semi-transparent background pill matching segment color
-            let pill-fill = seg-color.transparentize(20%)
+            let pill-fill = seg.color.transparentize(20%)
             place(
               left + top,
               dx: lx - label-w / 2,
