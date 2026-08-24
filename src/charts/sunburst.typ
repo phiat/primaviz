@@ -87,8 +87,8 @@
 /// - inner-radius (length): Radius of the empty center hole
 /// - ring-width (length): Width of each concentric ring
 /// - max-depth (none, int): Maximum number of rings to render
-/// - total-angle (angle): Total angle used by the rings.
-/// - start-angle (angle): Angle at which rings start.
+/// - total-angle (angle): Total angle swept by the rings
+/// - start-angle (angle): Angle at which the first segment starts
 /// - min-angle (angle): Minimum angle for a segment to be rendered
 /// - title (none, content): Optional chart title
 /// - show-labels (bool): Display name labels on segments large enough to fit them
@@ -174,8 +174,10 @@
         if show-labels and angle-span >= 5 {
           let mid-angle = (seg.start-angle + seg.end-angle) / 2
           let mid-r = (r-inner + r-outer) / 2
-          // Approximate available width from arc length at mid-radius
-          let arc-w = (mid-r / 1pt) * angle-span / total-angle.deg() * 2 * calc.pi * 1pt
+          // Approximate available width from arc length at mid-radius.
+          // The 360 is the degrees-to-radians conversion, not the chart sweep —
+          // arc length is independent of total-angle.
+          let arc-w = (mid-r / 1pt) * angle-span / 360 * 2 * calc.pi * 1pt
           let arc-h = r-outer - r-inner
           let lbl-len = label-len(seg.name)
           let fit = try-fit-label(arc-w, arc-h, t.value-label-size, lbl-len, shrink-min: 5pt)
