@@ -215,7 +215,8 @@
 /// - overrides (none, dictionary): Additional per-call overrides
 /// -> dictionary
 #let _resolve-ctx(user-theme, overrides: none) = {
-  let global = _primaviz-theme.get().last(default: none)
+  let stack = _primaviz-theme.get()
+  let global = if stack.len() > 0 { stack.last() } else { none }
   let (bs, bg) = _seeds(global, user-theme, overrides)
   let result = _derive-theme(bs, bg)
   for layer in (global, user-theme, overrides) {

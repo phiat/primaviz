@@ -97,7 +97,7 @@
           let detail-parts = ()
           if show-values { detail-parts.push(value-text) }
           if show-percentages { detail-parts.push(pct-text) }
-          let detail = detail-parts.join(" · ", default: "")
+          let detail = if detail-parts.len() > 0 { detail-parts.join(" · ") } else { "" }
 
           // Center the text on the segment — use inset width to avoid boundary overlap
           let mid-y = y-top + seg-height / 2
