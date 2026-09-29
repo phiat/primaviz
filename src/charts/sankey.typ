@@ -93,30 +93,31 @@
   }
 
   // Compute vertical positions for each node within its layer.
-  // Nodes are stacked with small gaps, sized proportional to their value.
+  // One scale (length per unit of value) for the whole chart, set by the
+  // fullest column, so a flow keeps the same thickness from end to end and
+  // a node's bands never stretch to fill it. Shorter columns are centred.
   let node-gap = calc.max(4pt, chart-h * 0.03)
   let node-x = array.range(n).map(_ => 0pt)
   let node-y = array.range(n).map(_ => 0pt)
   let node-h = array.range(n).map(_ => 0pt)
 
+  let col-avail = layers.map(col => calc.max(10pt, chart-h - node-gap * calc.max(col.len() - 1, 0)))
+  let col-total = layers.map(col => col.fold(0, (acc, i) => acc + node-value.at(i)))
+  let scales = array.range(num-layers)
+    .filter(li => col-total.at(li) > 0)
+    .map(li => col-avail.at(li) / col-total.at(li))
+  let scale = if scales.len() > 0 { calc.min(..scales) } else { 0pt }
+
   for li in array.range(num-layers) {
     let col-nodes = layers.at(li)
-    let total-val = col-nodes.fold(0, (acc, i) => acc + node-value.at(i))
-    let gap-total = node-gap * calc.max(col-nodes.len() - 1, 0)
-    let avail-h = chart-h - gap-total
-    if avail-h < 10pt { avail-h = 10pt }
-
-    let y-cursor = pad-y
-    for i in col-nodes {
-      let h = if total-val > 0 {
-        avail-h * (node-value.at(i) / total-val)
-      } else {
-        avail-h / col-nodes.len()
-      }
+    let hs = col-nodes.map(i => node-value.at(i) * scale)
+    let col-h = hs.sum(default: 0pt) + node-gap * calc.max(col-nodes.len() - 1, 0)
+    let y-cursor = pad-y + (chart-h - col-h) / 2
+    for (k, i) in col-nodes.enumerate() {
       node-x.at(i) = pad-x + col-spacing * layer.at(i)
       node-y.at(i) = y-cursor
-      node-h.at(i) = h
-      y-cursor = y-cursor + h + node-gap
+      node-h.at(i) = hs.at(k)
+      y-cursor = y-cursor + hs.at(k) + node-gap
     }
   }
 
@@ -137,10 +138,9 @@
         let src = f.from
         let dst = f.to
         let val = f.value
-        let src-total = if node-out.at(src) > 0 { node-out.at(src) } else { 1 }
-        let dst-total = if node-in.at(dst) > 0 { node-in.at(dst) } else { 1 }
-        let src-h = node-h.at(src) * (val / src-total)
-        let dst-h = node-h.at(dst) * (val / dst-total)
+        // Same scale as the nodes: the band is equally thick at both ends
+        let src-h = val * scale
+        let dst-h = val * scale
 
         let src-y-start = node-y.at(src) + out-offset.at(src)
         let dst-y-start = node-y.at(dst) + in-offset.at(dst)
