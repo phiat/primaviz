@@ -1,5 +1,5 @@
 // waterfall.typ - Waterfall chart (bridge chart)
-#import "../theme.typ": _resolve-ctx, get-color
+#import "../theme.typ": _resolve-ctx, get-color, _is-dark
 #import "../util.typ": normalize-data, format-number, nonzero, nice-ticks
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
@@ -55,7 +55,7 @@
   let (width, height) = resolve-size(width, height, size, n: n, theme: t)
 
   // Resolve colors — check theme passthrough keys, then params, then defaults
-  let has-dark-bg = t.background != none
+  let has-dark-bg = _is-dark(t)
   let pos-color = if positive-color != none { positive-color }
     else if "positive-color" in t { t.positive-color }
     else if has-dark-bg { rgb("#4ade80") } else { rgb("#16a34a") }

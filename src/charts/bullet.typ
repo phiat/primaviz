@@ -2,7 +2,7 @@
 // A compact gauge replacement showing a quantitative measure against a target
 // with qualitative ranges (poor/satisfactory/good).
 
-#import "../theme.typ": _resolve-ctx, get-color
+#import "../theme.typ": _resolve-ctx, get-color, _is-dark, _shade
 #import "../util.typ": nonzero, nice-ticks, format-number
 #import "../validate.typ": validate-bullet-data, validate-bullet-charts-data
 #import "../primitives/container.typ": chart-container
@@ -42,10 +42,8 @@
   let max-range = nonzero(ranges.last())
 
   // Qualitative range shades (darkest = poor, lightest = good)
-  let is-dark = t.background != none
-  let range-fills = if is-dark {
-    let bg = t.background
-    (bg.lighten(15%), bg.lighten(25%), bg.lighten(35%))
+  let range-fills = if _is-dark(t) {
+    (_shade(t, 15%), _shade(t, 25%), _shade(t, 35%))
   } else {
     (t.text-color-light.transparentize(50%), t.text-color-light.transparentize(70%), t.text-color-light.transparentize(85%))
   }
@@ -166,10 +164,8 @@
   let n = bullets.len()
 
   let bar-color = get-color(t, 0)
-  let is-dark = t.background != none
-  let range-fills = if is-dark {
-    let bg = t.background
-    (bg.lighten(15%), bg.lighten(25%), bg.lighten(35%))
+  let range-fills = if _is-dark(t) {
+    (_shade(t, 15%), _shade(t, 25%), _shade(t, 35%))
   } else {
     (t.text-color-light.transparentize(50%), t.text-color-light.transparentize(70%), t.text-color-light.transparentize(85%))
   }

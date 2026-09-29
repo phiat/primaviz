@@ -224,6 +224,20 @@
   result
 }
 
+// Whether a theme draws on a dark surface. Judged by perceived lightness,
+// not by `background` merely being set: a custom white background is light.
+#let _is-dark(theme) = (
+  theme.background != none and oklab(theme.background).components().first() < 50%
+)
+
+// A surface tone set off from the theme background (tracks, empty cells,
+// zebra rows): lighter on dark themes, darker on light ones.
+#let _shade(theme, amount) = if _is-dark(theme) {
+  theme.background.lighten(amount)
+} else {
+  theme.background.darken(amount / 2)
+}
+
 /// Sets a default theme for all charts in `body`.
 ///
 /// Charts inside `body` that don't pass an explicit `theme:` parameter

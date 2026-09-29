@@ -1,5 +1,5 @@
 // dashboard.typ - Dashboard layout primitives (card, compact-table, alert, badge, separator)
-#import "../theme.typ": _resolve-ctx, get-color
+#import "../theme.typ": _resolve-ctx, get-color, _is-dark, _shade
 
 /// Renders a themed card container with optional title and description.
 ///
@@ -47,7 +47,7 @@
 #let compact-table(headers, rows, highlight-col: none, col-widths: none, theme: none) = context {
   let t = _resolve-ctx(theme)
   let fill = if t.background != none { t.background } else { white }
-  let alt-fill = if t.background != none { t.background.lighten(5%) } else { t.text-color-light.transparentize(90%) }
+  let alt-fill = if t.background != none { _shade(t, 5%) } else { t.text-color-light.transparentize(90%) }
   let header-fill = t.palette.at(1, default: t.palette.at(0))
   let stroke = if t.border != none { t.border } else { 0.4pt + t.text-color-light }
   let highlight-color = t.palette.at(0)
@@ -81,7 +81,7 @@
 /// -> content
 #let alert(body, variant: "info", title: none, theme: none) = context {
   let t = _resolve-ctx(theme)
-  let has-dark-bg = t.background != none
+  let has-dark-bg = _is-dark(t)
   let pal = t.palette
 
   // Map variants to palette indices and icons

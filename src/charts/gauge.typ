@@ -1,5 +1,5 @@
 // gauge.typ - Gauge/dial and progress indicators
-#import "../theme.typ": _resolve-ctx, get-color
+#import "../theme.typ": _resolve-ctx, get-color, _shade
 #import "../util.typ": nonzero, clamp
 #import "../validate.typ": validate-number, validate-simple-data
 #import "../primitives/container.typ": chart-container
@@ -187,7 +187,7 @@
   let (width, height) = resolve-size(width, height, size, container: false)
   let progress = clamp(value / nonzero(max-val), 0, 1)
   let bar-color = if color != none { color } else { get-color(t, 0) }
-  let background = if background != auto { background } else if t.background != none { t.background.lighten(20%) } else { luma(230) }
+  let background = if background != auto { background } else if t.background != none { _shade(t, 20%) } else { luma(230) }
   let radius = if rounded { height / 2 } else { 0pt }
 
   box(width: width, height: height + (if title != none { 20pt } else { 0pt }))[
@@ -264,7 +264,7 @@
   let size = resolve-size(size, size, avail, container: false).width
   let progress = clamp(value / nonzero(max-val), 0, 1)
   let bar-color = if color != none { color } else { get-color(t, 0) }
-  let background = if background != auto { background } else if t.background != none { t.background.lighten(20%) } else { luma(230) }
+  let background = if background != auto { background } else if t.background != none { _shade(t, 20%) } else { luma(230) }
   let radius = size / 2 - stroke-width / 2
   let cx = size / 2
   let cy = size / 2
@@ -368,7 +368,7 @@
   let t = _resolve-ctx(theme)
   set text(size: 11pt)  // sized by the theme, not the document font
   let width = resolve-size(width, 0pt, size, container: false).width
-  let background = if background != auto { background } else if t.background != none { t.background.lighten(20%) } else { luma(230) }
+  let background = if background != auto { background } else if t.background != none { _shade(t, 20%) } else { luma(230) }
   let labels = data.labels
   let values = data.values
   let n = labels.len()

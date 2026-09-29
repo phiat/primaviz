@@ -1,5 +1,5 @@
 // heatmap.typ - Heatmap/matrix charts
-#import "../theme.typ": _resolve-ctx, get-color, _phi
+#import "../theme.typ": _resolve-ctx, get-color, _phi, _shade
 #import "../util.typ": lerp-color, heat-color, nonzero, day-of-week, contrast-text
 #import "../validate.typ": validate-heatmap-data, validate-calendar-data, validate-correlation-data
 #import "../primitives/container.typ": chart-container, container-inset
@@ -202,7 +202,7 @@
   let month-label-height = if show-month-labels { t.axis-padding-bottom } else { 0pt }
 
   // Theme-aware empty cell styling
-  let empty-fill = if t.background != none { t.background.lighten(15%) } else { t.text-color-light.transparentize(80%) }
+  let empty-fill = if t.background != none { _shade(t, 15%) } else { t.text-color-light.transparentize(80%) }
   let empty-stroke = t.stroke-thin + t.text-color-light.transparentize(40%)
 
   let legend-total-w = t.axis-padding-bottom + 5 * (cell-size + t.cell-gap) + t.label-offset + t.axis-padding-bottom  // Less + boxes + More
