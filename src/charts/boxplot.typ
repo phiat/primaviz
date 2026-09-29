@@ -19,6 +19,7 @@
 /// - show-grid (auto, bool): Draw background grid lines; `auto` uses theme default
 /// - stroke-width (auto, length): Stroke width for box outlines and whiskers; `auto` uses the theme's `stroke-mid`
 /// - outlier-radius (length): Radius of outlier marker dots
+/// - include-zero (bool): Extend the value axis to include zero; off by default so the axis fits the data
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
 /// - annotations (none, array): Optional annotation descriptors (see annotations.typ)
@@ -34,6 +35,7 @@
   show-grid: auto,
   stroke-width: auto,
   outlier-radius: 2pt,
+  include-zero: false,
   x-label: none,
   y-label: none,
   annotations: none,
@@ -64,7 +66,13 @@
       }
     }
   }
-  let nt = nice-ticks(calc.min(0, global-min), global-max, count: t.tick-count)
+  // Box plots compare spreads, so by default the axis fits the data rather
+  // than stretching down to a zero baseline
+  let nt = if include-zero {
+    nice-ticks(calc.min(0, global-min), calc.max(0, global-max), count: t.tick-count)
+  } else {
+    nice-ticks(global-min, global-max, count: t.tick-count)
+  }
   let y-min = nt.min
   let y-max = nt.max
 
