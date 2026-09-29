@@ -19,7 +19,7 @@
 /// - height (length): Chart height
 /// - title (none, content): Optional chart title
 /// - dot-size (length): Diameter of endpoint dots
-/// - line-width (length): Stroke width of connecting lines
+/// - line-width (auto, length): Stroke width of connecting lines; `auto` uses the theme's `stroke-thick`
 /// - show-values (bool): Display numeric values next to dots
 /// - theme (none, dictionary): Theme overrides
 /// - extra-legend-separation (length): Extra space between legend and chart
@@ -30,7 +30,7 @@
   height: auto,
   title: none,
   dot-size: 10pt,
-  line-width: 1.5pt,
+  line-width: auto,
   show-values: false,
   theme: none,
   extra-legend-separation: 0pt
@@ -38,6 +38,7 @@
   layout(size => {
   validate-dumbbell-data(data, "dumbbell-chart")
   let t = _resolve-ctx(theme)
+  let line-width = if line-width == auto { t.stroke-thick } else { line-width }
   let (width, height) = resolve-size(width, height, size, n: data.labels.len(), theme: t)
 
   let labels = data.labels

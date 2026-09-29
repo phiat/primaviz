@@ -95,7 +95,7 @@
 /// - title (none, content): Optional chart title
 /// - show-points (bool): Draw data point markers
 /// - show-values (bool): Display value labels at data points
-/// - line-width (length): Stroke width of the line
+/// - line-width (auto, length): Stroke width of the line; `auto` uses the theme's `stroke-thick`
 /// - line-interpolation (str): "linear", "smooth", or "catmull-rom"
 /// - smooth-radius (int): Moving average radius for smooth lines, 1 to 5
 /// - point-size (length): Diameter of point markers
@@ -121,7 +121,7 @@
   title: none,
   show-points: true,
   show-values: false,
-  line-width: 1.5pt,
+  line-width: auto,
   line-interpolation: "linear",
   smooth-radius: 1,
   point-size: 4pt,
@@ -144,6 +144,7 @@
   validate-simple-data(data, "line-chart")
   validate-line-style(line-interpolation, smooth-radius, "line-chart")
   let t = _resolve-ctx(theme)
+  let line-width = if line-width == auto { t.stroke-thick } else { line-width }
   let norm = normalize-data(data)
   let labels = norm.labels
   let values = norm.values
@@ -276,7 +277,7 @@
 /// - show-legend (bool): Show series legend
 /// - line-interpolation (str): "linear", "smooth", or "catmull-rom"
 /// - smooth-radius (int): Moving average radius for smooth lines, 1 to 5
-/// - line-width (length): Stroke width of each series line
+/// - line-width (auto, length): Stroke width of each series line; `auto` uses the theme's `stroke-thick`
 /// - point-size (length): Diameter of point markers
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
@@ -291,7 +292,7 @@
   title: none,
   show-points: true,
   show-legend: true,
-  line-width: 1.5pt,
+  line-width: auto,
   line-interpolation: "linear",
   smooth-radius: 1,
   point-size: 6pt,
@@ -305,6 +306,7 @@
   validate-series-data(data, "multi-line-chart")
   validate-line-style(line-interpolation, smooth-radius, "multi-line-chart")
   let t = _resolve-ctx(theme)
+  let line-width = if line-width == auto { t.stroke-thick } else { line-width }
   let (width, height) = resolve-size(width, height, size, n: data.labels.len(), theme: t)
   let labels = data.labels
   let series = data.series

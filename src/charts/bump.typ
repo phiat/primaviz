@@ -20,7 +20,7 @@
 /// - height (length): Chart height
 /// - title (none, content): Optional chart title
 /// - dot-size (length): Diameter of point markers at each period
-/// - line-width (length): Stroke width of ranking lines
+/// - line-width (auto, length): Stroke width of ranking lines; `auto` uses the theme's `stroke-heavy`
 /// - show-labels (bool): Show series name labels at start and end of lines
 /// - show-legend (bool): Show series legend below the chart
 /// - theme (none, dictionary): Theme overrides
@@ -32,7 +32,7 @@
   height: auto,
   title: none,
   dot-size: 5pt,
-  line-width: 2.5pt,
+  line-width: auto,
   show-labels: true,
   show-legend: true,
   theme: none,
@@ -41,6 +41,7 @@
   layout(size => {
   validate-series-data(data, "bump-chart")
   let t = _resolve-ctx(theme)
+  let line-width = if line-width == auto { t.stroke-heavy } else { line-width }
   let (width, height) = resolve-size(width, height, size, n: data.labels.len(), theme: t)
   let labels = data.labels
   let series = data.series

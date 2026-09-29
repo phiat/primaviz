@@ -16,7 +16,7 @@
 /// - height (auto, length): Chart height
 /// - title (none, content): Optional chart title
 /// - show-points (bool): Draw point markers
-/// - line-width (length): Stroke width of both lines
+/// - line-width (auto, length): Stroke width of both lines; `auto` uses the theme's `stroke-thick`
 /// - point-size (length): Diameter of point markers
 /// - left-color (none, color): Left series color (theme palette when `none`)
 /// - right-color (none, color): Right series color (theme palette when `none`)
@@ -34,7 +34,7 @@
   height: auto,
   title: none,
   show-points: true,
-  line-width: 1.5pt,
+  line-width: auto,
   point-size: 6pt,
   left-color: none,
   right-color: none,
@@ -50,6 +50,7 @@
   validate-dual-axis-data(data, "dual-axis-chart")
   let grid-overrides = if show-grid != auto { (show-grid: show-grid) } else { none }
   let t = _resolve-ctx(theme, overrides: grid-overrides)
+  let line-width = if line-width == auto { t.stroke-thick } else { line-width }
   let (width, height) = resolve-size(width, height, size, n: data.labels.len(), theme: t)
 
   let labels = data.labels

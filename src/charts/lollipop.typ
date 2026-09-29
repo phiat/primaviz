@@ -17,7 +17,7 @@
 /// - width (length): Chart width
 /// - height (length): Chart height
 /// - dot-size (length): Diameter of the dot at the end of each stem
-/// - stem-width (length): Thickness of the stem line
+/// - stem-width (auto, length): Thickness of the stem line; `auto` uses the theme's `stroke-thick`
 /// - title (none, content): Optional chart title
 /// - show-values (bool): Display value labels above dots
 /// - x-label (none, content): X-axis title
@@ -30,7 +30,7 @@
   width: auto,
   height: auto,
   dot-size: 8pt,
-  stem-width: 1.5pt,
+  stem-width: auto,
   title: none,
   show-values: true,
   x-label: none,
@@ -41,6 +41,7 @@
   layout(size => {
   validate-simple-data(data, "lollipop-chart")
   let t = _resolve-ctx(theme)
+  let stem-width = if stem-width == auto { t.stroke-thick } else { stem-width }
   let norm = normalize-data(data)
   let labels = norm.labels
   let values = norm.values
@@ -136,7 +137,7 @@
 /// - width (length): Chart width
 /// - height (length): Chart height
 /// - dot-size (length): Diameter of the dot at the end of each stem
-/// - stem-width (length): Thickness of the stem line
+/// - stem-width (auto, length): Thickness of the stem line; `auto` uses the theme's `stroke-thick`
 /// - title (none, content): Optional chart title
 /// - show-values (bool): Display value labels beside dots
 /// - x-label (none, content): X-axis title
@@ -149,7 +150,7 @@
   width: auto,
   height: auto,
   dot-size: 8pt,
-  stem-width: 1.5pt,
+  stem-width: auto,
   title: none,
   show-values: true,
   x-label: none,
@@ -160,6 +161,7 @@
   layout(size => {
   validate-simple-data(data, "horizontal-lollipop-chart")
   let t = _resolve-ctx(theme)
+  let stem-width = if stem-width == auto { t.stroke-thick } else { stem-width }
   let norm = normalize-data(data)
   let labels = norm.labels
   let values = norm.values

@@ -15,14 +15,14 @@
 /// Derives a complete theme from two seed values using golden-ratio scaling.
 ///
 /// Font scale (base-size × φ^power):
-///   φ^0    = 1.00×  axis-label-size, value-label-size
-///   φ^0.5  = 1.27×  axis-title-size, legend-size
+///   φ^0    = 1.00×  axis-label-size
+///   φ^0.5  = 1.27×  axis-title-size, value-label-size, legend-size
 ///   φ^1    = 1.62×  title-size
 ///
 /// Spacing scale (base-gap × φ^power):
 ///   φ^-1   = 0.62×  bar-gap, cell-gap
 ///   φ^-0.5 = 0.79×  tick-length, label-offset
-///   φ^0    = 1.00×  axis-label-gap, axis-title-gap, element-size
+///   φ^0    = 1.00×  axis-label-gap, axis-title-gap
 ///   φ^0.5  = 1.27×  title-gap, container-inset
 ///   φ^1    = 1.62×  legend-gap
 ///   φ^1.5  = 2.06×  legend-swatch-size
@@ -32,9 +32,9 @@
 ///
 /// Stroke scale (base-size × ratio):
 ///   ×0.0625  stroke-thin  (0.5pt @ 8pt) — axes, grid, markers
-///   ×0.125   stroke-mid   (1.0pt @ 8pt) — separators, annotations
-///   ×0.1875  stroke-thick (1.5pt @ 8pt) — lines, stems, arms
-///   ×0.3125  stroke-heavy (2.5pt @ 8pt) — bump lines, emphasis
+///   ×0.125   stroke-mid   (1.0pt @ 8pt) — box plots, stacked-area boundaries
+///   ×0.1875  stroke-thick (1.5pt @ 8pt) — lines, stems, slopes, dumbbells
+///   ×0.3125  stroke-heavy (2.5pt @ 8pt) — bump lines
 #let _derive-theme(base-size, base-gap) = {
   let phi2 = _phi * _phi
   let phi3 = phi2 * _phi
@@ -42,9 +42,11 @@
   let inv-phi = 1.0 / _phi
   let inv-sqrt-phi = 1.0 / _sqrt-phi
   (
-    // Seeds
+    // Seeds (and a record of them, so layering can tell derived sizes
+    // from deliberate overrides — see _layer)
     base-size: base-size,
     base-gap: base-gap,
+    _derived-from: (base-size: base-size, base-gap: base-gap),
 
     // Palette
     palette: (
@@ -69,7 +71,6 @@
     label-offset: base-gap * inv-sqrt-phi,      // label-to-element spacing
     axis-label-gap: base-gap,                   // gap between axis and tick labels
     axis-title-gap: base-gap,                   // gap between tick labels and axis title
-    element-size: base-gap,                     // base dot/marker size
     container-inset: base-gap * _sqrt-phi,      // chart container padding
     title-gap: base-gap * _sqrt-phi,
     legend-gap: base-gap * _phi,
@@ -112,12 +113,44 @@
   "axis-label-size", "axis-title-size", "value-label-size", "legend-size", "title-size",
   "axis-label-gap", "axis-title-gap", "title-gap", "legend-gap", "legend-swatch-size",
   "axis-padding-top", "axis-padding-right", "axis-padding-bottom", "axis-padding-left",
-  "bar-gap", "cell-gap", "cell-size", "tick-length", "label-offset", "element-size", "container-inset",
+  "bar-gap", "cell-gap", "cell-size", "tick-length", "label-offset", "container-inset",
   "stroke-thin", "stroke-mid", "stroke-thick", "stroke-heavy",
   "border-radius",
 )
 
+// Final seeds: the last layer that sets base-size / base-gap wins.
+#let _seeds(..layers) = {
+  let bs = default-theme.base-size
+  let bg = default-theme.base-gap
+  for layer in layers.pos() {
+    if layer != none {
+      bs = layer.at("base-size", default: bs)
+      bg = layer.at("base-gap", default: bg)
+    }
+  }
+  (bs, bg)
+}
+
+// Layers a theme dictionary onto `result`. A derived theme (a preset, or
+// anything from resolve-theme / _derive-theme) records the seeds its sizes
+// came from in `_derived-from`; its seed-derived values only count as
+// overrides where they differ from what those seeds produce, so the rest
+// rescale with the final seeds — `(..themes.presentation, base-size: 12pt)`
+// scales everything to 12pt. In a plain dictionary every key is explicit.
+#let _layer(result, layer) = {
+  if layer == none { return result }
+  let from = layer.at("_derived-from", default: none)
+  let own = if from != none { _derive-theme(from.base-size, from.base-gap) }
+  for (key, val) in layer {
+    if key in ("base-size", "base-gap", "_derived-from") { continue }
+    if own != none and key in _seed-derived-keys and val == own.at(key) { continue }
+    result.insert(key, val)
+  }
+  result
+}
+
 /// Merges a user's partial theme dictionary onto the default theme.
+/// Sizes are derived from the theme's `base-size` / `base-gap` seeds.
 /// Custom keys not in default-theme are preserved (passthrough).
 /// An optional `overrides` dictionary is applied after the user theme,
 /// useful for per-chart parameter overrides (e.g., `show-grid: true`).
@@ -126,26 +159,8 @@
 /// - overrides (none, dictionary): Additional per-call overrides applied last
 /// -> dictionary
 #let resolve-theme(user-theme, overrides: none) = {
-  let result = (:)
-  for (key, val) in default-theme {
-    if user-theme != none and key in user-theme {
-      result.insert(key, user-theme.at(key))
-    } else {
-      result.insert(key, val)
-    }
-  }
-  // Passthrough: preserve custom keys not in default-theme
-  if user-theme != none {
-    for (key, val) in user-theme {
-      if key not in result { result.insert(key, val) }
-    }
-  }
-  if overrides != none {
-    for (key, val) in overrides {
-      result.insert(key, val)
-    }
-  }
-  result
+  let (bs, bg) = _seeds(user-theme, overrides)
+  _layer(_layer(_derive-theme(bs, bg), user-theme), overrides)
 }
 
 /// Builds a primaviz theme dictionary from a JSON tokens object.
@@ -201,39 +216,11 @@
 /// -> dictionary
 #let _resolve-ctx(user-theme, overrides: none) = {
   let global = _primaviz-theme.get().last(default: none)
-
-  // Step 1: Determine seed values from highest-priority source
-  let bs = default-theme.base-size
-  let bg = default-theme.base-gap
-  for source in (global, user-theme, overrides) {
-    if source != none {
-      if "base-size" in source { bs = source.at("base-size") }
-      if "base-gap" in source { bg = source.at("base-gap") }
-    }
-  }
-
-  // Step 2: Compute seed-derived defaults
+  let (bs, bg) = _seeds(global, user-theme, overrides)
   let result = _derive-theme(bs, bg)
-
-  // Step 3: Apply explicit overrides from each source layer.
-  // For seed-derived keys, only apply if the value differs from the
-  // default-theme value (meaning it was explicitly set, not inherited).
-  for source in (global, user-theme, overrides) {
-    if source != none {
-      for (key, val) in source {
-        if key == "base-size" or key == "base-gap" { continue }
-        if key in _seed-derived-keys {
-          // Only apply if explicitly different from default
-          if key not in default-theme or val != default-theme.at(key) {
-            result.insert(key, val)
-          }
-        } else {
-          result.insert(key, val)
-        }
-      }
-    }
+  for layer in (global, user-theme, overrides) {
+    result = _layer(result, layer)
   }
-
   result
 }
 
