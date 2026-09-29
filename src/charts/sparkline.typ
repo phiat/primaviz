@@ -106,15 +106,19 @@
   if n == 0 {
     box(width: width, height: height, baseline: -3pt)
   } else {
-    let max-val = calc.max(..values)
-    let max-val = if max-val == 0 { 1 } else { max-val }
+    // Bars grow from zero, so the scale always spans it (negatives hang down)
+    let hi = calc.max(0, ..values)
+    let lo = calc.min(0, ..values)
+    let span = if hi == lo { 1 } else { hi - lo }
+    let zero-y = hi / span * height
     let bar-width = (width - gap * (n - 1)) / n
 
     box(width: width, height: height, baseline: -3pt)[
       #for i in array.range(n) {
-        let bar-height = (values.at(i) / max-val) * height
+        let v = values.at(i)
+        let bar-height = calc.abs(v) / span * height
         let x = i * (bar-width + gap)
-        let y = height - bar-height
+        let y = if v >= 0 { zero-y - bar-height } else { zero-y }
         place(left + top, dx: x, dy: y,
           rect(width: bar-width, height: bar-height, fill: c, stroke: none))
       }
@@ -129,7 +133,7 @@
 /// - width (length): Chart width
 /// - height (length): Chart height
 /// - color (none, color): Override dot color
-/// - dot-size (length): Radius of each dot
+/// - dot-size (length): Diameter of each dot
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let sparkdot(
@@ -137,7 +141,7 @@
   width: 60pt,
   height: 15pt,
   color: none,
-  dot-size: 2.5pt,
+  dot-size: 5pt,
   theme: none,
 ) = context {
   layout(size => {
@@ -156,12 +160,12 @@
 
     box(width: width, height: height, baseline: -3pt)[
       // Pad drawing area by max dot radius to prevent clipping
-      #let max-r = dot-size * 1.3
+      #let max-r = dot-size / 2 * 1.3
       #for i in array.range(n) {
         let x = if n == 1 { width / 2 } else { max-r + (i / (n - 1)) * (width - 2 * max-r) }
         let y = max-r + (height - 2 * max-r) - ((values.at(i) - min-val) / val-range) * (height - 2 * max-r)
         let is-last = i == n - 1
-        let r = if is-last { dot-size * 1.3 } else { dot-size }
+        let r = if is-last { dot-size / 2 * 1.3 } else { dot-size / 2 }
         let dot-color = if is-last { c.darken(20%) } else { c }
         place(left + top, dx: x - r, dy: y - r,
           circle(radius: r, fill: dot-color, stroke: none))

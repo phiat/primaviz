@@ -1,5 +1,5 @@
 // metric.typ - Dashboard KPI tiles with big number, label, delta, and optional sparkline
-#import "../theme.typ": _resolve-ctx, get-color
+#import "../theme.typ": _resolve-ctx, get-color, _is-dark
 #import "../util.typ": format-number
 #import "../primitives/layout.typ": resolve-size
 #import "../primitives/paths.typ": draw-polyline
@@ -30,8 +30,9 @@
 ) = context {
   layout(size => {
   let t = _resolve-ctx(theme)
+  set text(size: 11pt)  // sized by the theme, not the document font
   let width = resolve-size(width, 0pt, size, container: false).width
-  let has-dark-bg = t.background != none
+  let has-dark-bg = _is-dark(t)
   // Semantic delta colors — overridable via custom theme keys
   let positive-color = if "positive-color" in t { t.positive-color }
     else if has-dark-bg { rgb("#4ade80") } else { rgb("#16a34a") }
@@ -154,7 +155,7 @@
 
   let cols = range(n).map(_ => 1fr)
 
-  grid(
+  block(width: width, grid(
     columns: cols,
     column-gutter: gap,
     ..metrics.map(m => {
@@ -169,5 +170,5 @@
         theme: theme,
       )
     })
-  )
+  ))
 }

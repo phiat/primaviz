@@ -2,7 +2,7 @@
 
 #import "../theme.typ": *
 #import "../util.typ": format-number, nice-ceil, nice-floor, nice-ticks
-#import "layout.typ": density-skip
+#import "layout.typ": density-skip, pin
 
 /// Computes the standard Cartesian layout dimensions from theme padding.
 /// Returns a dictionary with: pad-left, pad-right, pad-top, pad-bottom,
@@ -74,7 +74,7 @@
     let fraction = if val-range > 0 { (value - min-val) / val-range } else { 0 }
     if fraction < -0.001 or fraction > 1.001 { continue }
     let y = y-offset + chart-height - fraction * chart-height
-    let label = format-number(value, digits: digits, mode: theme.number-format)
+    let label = format-number(value, digits: digits, mode: theme.number-format, step: nt.step)
     if side == "right" {
       place(left + top, dx: x-pos + gap, dy: y, box(height: 0pt, align(left + horizon, text(
         size: theme.axis-label-size,
@@ -166,10 +166,9 @@
 // Draw a single right-aligned y-axis category label in the left margin.
 // Used by horizontal charts (horizontal-bar, horizontal-lollipop, dumbbell, diverging).
 #let draw-y-label(label, y, margin-width, theme) = {
-  place(left + top, dx: 0pt, dy: y, box(width: margin-width - theme.axis-label-gap, height: 0pt, align(right, move(
-    dy: -0.5em,
+  place(left + top, dx: 0pt, dy: y, box(width: margin-width - theme.axis-label-gap, height: 0pt, align(right + horizon,
     text(size: theme.axis-label-size, fill: theme.text-color)[#label],
-  ))))
+  )))
 }
 
 // Draw grid lines behind chart area.
@@ -221,7 +220,7 @@
   let digits = if td != auto { td } else { nt.digits }
   let max-w = 0pt
   for value in nt.ticks {
-    let label = format-number(value, digits: digits, mode: theme.number-format)
+    let label = format-number(value, digits: digits, mode: theme.number-format, step: nt.step)
     let w = measure(text(size: theme.axis-label-size)[#label]).width
     if w > max-w { max-w = w }
   }

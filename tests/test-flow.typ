@@ -158,7 +158,7 @@
   ),
   width: 400pt,
   event-gap: 55pt,
-  marker-size: 7pt,
+  marker-size: 14pt,
   title: "Timeline with Categories",
 )
 

@@ -17,8 +17,9 @@
 /// - box-width (float): Box width as fraction of slot (0 to 1)
 /// - show-values (bool): Display five-number summary labels beside each box
 /// - show-grid (auto, bool): Draw background grid lines; `auto` uses theme default
-/// - stroke-width (length): Stroke width for box outlines and whiskers
+/// - stroke-width (auto, length): Stroke width for box outlines and whiskers; `auto` uses the theme's `stroke-mid`
 /// - outlier-radius (length): Radius of outlier marker dots
+/// - include-zero (bool): Extend the value axis to include zero; off by default so the axis fits the data
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
 /// - annotations (none, array): Optional annotation descriptors (see annotations.typ)
@@ -32,8 +33,9 @@
   box-width: 0.5,
   show-values: false,
   show-grid: auto,
-  stroke-width: 1pt,
+  stroke-width: auto,
   outlier-radius: 2pt,
+  include-zero: false,
   x-label: none,
   y-label: none,
   annotations: none,
@@ -43,6 +45,7 @@
   validate-boxplot-data(data, "box-plot")
   let grid-overrides = if show-grid != auto { (show-grid: show-grid) } else { none }
   let t = _resolve-ctx(theme, overrides: grid-overrides)
+  let stroke-width = if stroke-width == auto { t.stroke-mid } else { stroke-width }
   let (width, height) = resolve-size(width, height, size, n: data.labels.len(), theme: t)
 
   let labels = data.labels
@@ -63,7 +66,13 @@
       }
     }
   }
-  let nt = nice-ticks(calc.min(0, global-min), global-max, count: t.tick-count)
+  // Box plots compare spreads, so by default the axis fits the data rather
+  // than stretching down to a zero baseline
+  let nt = if include-zero {
+    nice-ticks(calc.min(0, global-min), calc.max(0, global-max), count: t.tick-count)
+  } else {
+    nice-ticks(global-min, global-max, count: t.tick-count)
+  }
   let y-min = nt.min
   let y-max = nt.max
 

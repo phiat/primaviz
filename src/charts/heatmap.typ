@@ -1,9 +1,9 @@
 // heatmap.typ - Heatmap/matrix charts
-#import "../theme.typ": _resolve-ctx, get-color, _phi
-#import "../util.typ": lerp-color, heat-color, nonzero, day-of-week, contrast-text
+#import "../theme.typ": _resolve-ctx, get-color, _phi, _shade
+#import "../util.typ": lerp-color, heat-color, nonzero, contrast-text
 #import "../validate.typ": validate-heatmap-data, validate-calendar-data, validate-correlation-data
 #import "../primitives/container.typ": chart-container, container-inset
-#import "../primitives/layout.typ": density-skip, font-to-fit-width
+#import "../primitives/layout.typ": density-skip, font-to-fit-width, pin
 #import "../primitives/legend.typ": draw-gradient-legend
 
 /// Renders a heatmap grid with color-coded cells.
@@ -100,8 +100,8 @@
           dx: 0pt,
           dy: col-label-height + i * cell-size + cell-size / 2,
           box(width: row-label-width - t.label-offset, height: 0pt,
-            align(right, move(dy: -0.5em,
-              text(size: t.axis-label-size, fill: t.text-color)[#row])))
+            align(right + horizon,
+              text(size: t.axis-label-size, fill: t.text-color)[#row]))
         )
 
         // Cells for this row
@@ -181,9 +181,23 @@
 ) = context {
   validate-calendar-data(data, "calendar-heatmap")
   let t = _resolve-ctx(theme)
-  let dates = data.dates
-  let values = data.values
-  let n = dates.len()
+  // Place each value by its actual date: gaps between dates stay empty and
+  // repeated dates add up, so sparse data (e.g. weekly) lands on the right day
+  let parse(dt) = {
+    let p = dt.split("-")
+    assert(p.len() == 3, message: "calendar-heatmap: dates must be YYYY-MM-DD, got " + repr(dt))
+    datetime(year: int(p.at(0)), month: int(p.at(1)), day: int(p.at(2)))
+  }
+  let days = data.dates.map(parse)
+  let first = days.fold(days.at(0), (a, d) => if d < a { d } else { a })
+  let last = days.fold(days.at(0), (a, d) => if d > a { d } else { a })
+  let span = int((last - first).days()) + 1
+  let by-offset = (:)
+  for (d, v) in days.zip(data.values) {
+    let k = str(int((d - first).days()))
+    by-offset.insert(k, by-offset.at(k, default: 0) + v)
+  }
+  let values = by-offset.values()
 
   // Find min/max (excluding zeros for color scaling)
   let non-zero-vals = values.filter(v => v > 0)
@@ -191,23 +205,27 @@
   let max-val = calc.max(..values)
   let val-range = nonzero(max-val - min-val)
 
-  // Compute the starting day-of-week offset (0=Mon..6=Sun)
-  let start-dow = day-of-week(dates.at(0))  // 0=Mon..6=Sun
+  // Starting day-of-week offset (0=Mon..6=Sun)
+  let start-dow = first.weekday() - 1
 
-  // Total grid slots = offset + n data cells, rounded up to full weeks
-  let total-slots = start-dow + n
-  let n-weeks = calc.ceil(total-slots / 7)
+  // Total grid slots = offset + every day in the range, rounded up to full weeks
+  let n-weeks = calc.ceil((start-dow + span) / 7)
 
   let day-label-width = if show-day-labels { t.axis-padding-bottom } else { 0pt }
   let month-label-height = if show-month-labels { t.axis-padding-bottom } else { 0pt }
 
   // Theme-aware empty cell styling
-  let empty-fill = if t.background != none { t.background.lighten(15%) } else { t.text-color-light.transparentize(80%) }
+  let empty-fill = if t.background != none { _shade(t, 15%) } else { t.text-color-light.transparentize(80%) }
   let empty-stroke = t.stroke-thin + t.text-color-light.transparentize(40%)
 
   let legend-total-w = t.axis-padding-bottom + 5 * (cell-size + t.cell-gap) + t.label-offset + t.axis-padding-bottom  // Less + boxes + More
   let grid-w = n-weeks * cell-size
-  let body-w = day-label-width + grid-w
+  // Wide enough for the legend and title too, so short ranges don't wrap them
+  let title-w = if title != none { measure(text(size: t.title-size, weight: t.title-weight)[#title]).width } else { 0pt }
+  let body-w = calc.max(day-label-width + grid-w, legend-total-w, title-w)
+  let x0 = (body-w - day-label-width - grid-w) / 2  // centres the grid
+  // Day/month labels shrink with small cells so rows don't collide
+  let cal-label-size = calc.min(t.axis-label-size * 0.85, cell-size * 0.8)
   align(center, chart-container(body-w, month-label-height + 7 * cell-size, title, t, extra-height: t.axis-padding-left)[
     #box(width: body-w)[
       // Month labels along the top (x-axis) — skip labels that would overlap
@@ -216,21 +234,19 @@
         let prev-month = ""
         let last-label-x = -100pt  // track last placed label x to prevent overlap
         let min-label-gap = t.axis-padding-bottom   // minimum horizontal gap between month labels
-        for (i, dt) in dates.enumerate() {
-          let parts = dt.split("-")
-          let month-str = if parts.len() >= 2 { parts.at(1) } else { "" }
-          if month-str != prev-month and month-str != "" {
-            let grid-idx = start-dow + i
-            let week = calc.floor(grid-idx / 7)
-            let label-x = day-label-width + week * cell-size
-            let month-idx = int(month-str) - 1
-            let label = if month-idx >= 0 and month-idx < 12 { month-names.at(month-idx) } else { month-str }
+        for k in range(span) {
+          let d = first + duration(days: k)
+          let month-str = str(d.month())
+          if month-str != prev-month {
+            let week = calc.floor((start-dow + k) / 7)
+            let label-x = x0 + day-label-width + week * cell-size
+            let label = month-names.at(d.month() - 1)
             // Only place if far enough from previous label
             if label-x - last-label-x >= min-label-gap {
               place(left + top,
                 dx: label-x,
                 dy: 0pt,
-                text(size: t.axis-label-size * 0.85, fill: t.text-color)[#label])
+                text(size: cal-label-size, fill: t.text-color)[#label])
               last-label-x = label-x
             }
             prev-month = month-str
@@ -238,27 +254,24 @@
         }
       }
 
-      // Day labels (Mon, Wed, Fri)
+      // Day labels
       #if show-day-labels {
-        let days = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-        for (i, day) in days.enumerate() {
-          if day != "" {
-            place(
-              left + top,
-              dx: 0pt,
-              dy: month-label-height + i * cell-size + cell-size / 2,
-              move(dy: -0.5em, text(size: t.axis-label-size * 0.85, fill: t.text-color)[#day])
-            )
-          }
+        for (i, day) in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun").enumerate() {
+          place(
+            left + top,
+            dx: x0,
+            dy: month-label-height + i * cell-size + cell-size / 2,
+            pin(text(size: cal-label-size, fill: t.text-color)[#day])
+          )
         }
       }
 
-      // Empty padding cells before the first date
-      #for d in range(start-dow) {
+      // Every slot starts as an empty cell (padding and dates without data)
+      #for slot in range(n-weeks * 7) {
         place(
           left + top,
-          dx: day-label-width,
-          dy: month-label-height + d * cell-size,
+          dx: x0 + day-label-width + calc.floor(slot / 7) * cell-size,
+          dy: month-label-height + calc.rem(slot, 7) * cell-size,
           rect(
             width: cell-size - t.cell-gap,
             height: cell-size - t.cell-gap,
@@ -269,52 +282,27 @@
         )
       }
 
-      // Data cells — positioned by actual day-of-week
-      #for (i, val) in values.enumerate() {
-        let grid-idx = start-dow + i
-        let week = calc.floor(grid-idx / 7)
-        let day = calc.rem(grid-idx, 7)
-        let normalized = if val > 0 { (val - min-val) / val-range } else { 0 }
-        let cell-color = if val == 0 { empty-fill } else { heat-color(normalized, palette: palette, reverse: reverse) }
-
+      // Data cells — positioned by date
+      #for (k, val) in by-offset {
+        if val == 0 { continue }
+        let slot = start-dow + int(k)
+        let normalized = (val - min-val) / val-range
         place(
           left + top,
-          dx: day-label-width + week * cell-size,
-          dy: month-label-height + day * cell-size,
+          dx: x0 + day-label-width + calc.floor(slot / 7) * cell-size,
+          dy: month-label-height + calc.rem(slot, 7) * cell-size,
           rect(
             width: cell-size - t.cell-gap,
             height: cell-size - t.cell-gap,
-            fill: cell-color,
-            stroke: if val == 0 { empty-stroke } else { none },
+            fill: heat-color(normalized, palette: palette, reverse: reverse),
+            stroke: none,
             radius: t.cell-gap,
           )
         )
       }
 
-      // Empty padding cells after the last date (fill remaining week)
-      #let last-grid-idx = start-dow + n - 1
-      #let last-day = calc.rem(last-grid-idx, 7)
-      #if last-day < 6 {
-        let last-week = calc.floor(last-grid-idx / 7)
-        for d in range(last-day + 1, 7) {
-          place(
-            left + top,
-            dx: day-label-width + last-week * cell-size,
-            dy: month-label-height + d * cell-size,
-            rect(
-              width: cell-size - 2pt,
-              height: cell-size - 2pt,
-              fill: empty-fill,
-              stroke: empty-stroke,
-              radius: t.cell-gap,
-            )
-          )
-        }
-      }
-
       // Legend — centered under the grid
       #let legend-y = month-label-height + 7 * cell-size + t.legend-gap
-      #let grid-width = n-weeks * cell-size
       #let legend-start = calc.max(0pt, (body-w - legend-total-w) / 2)
       #place(left + top, dx: legend-start, dy: legend-y, text(size: t.axis-label-size * 0.85, fill: t.text-color)[Less])
       #for i in array.range(5) {
@@ -410,8 +398,8 @@
           dx: 0pt,
           dy: label-area + i * cell-size + cell-size / 2,
           box(width: label-area - t.label-offset, height: 0pt,
-            align(right, move(dy: -0.5em,
-              text(size: t.axis-label-size, fill: t.text-color)[#row-lbl])))
+            align(right + horizon,
+              text(size: t.axis-label-size, fill: t.text-color)[#row-lbl]))
         )
 
         // Cells

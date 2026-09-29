@@ -9,14 +9,33 @@
 #import "../primitives/layout.typ": resolve-size
 #import "../primitives/paths.typ": draw-polyline
 
+/// Renders a line chart with two series on independent left and right y-axes.
+///
+/// - data (dictionary): `labels`, `left` and `right` series (`name`, `values`)
+/// - width (auto, length): Chart width
+/// - height (auto, length): Chart height
+/// - title (none, content): Optional chart title
+/// - show-points (bool): Draw point markers
+/// - line-width (auto, length): Stroke width of both lines; `auto` uses the theme's `stroke-thick`
+/// - point-size (length): Diameter of point markers
+/// - left-color (none, color): Left series color (theme palette when `none`)
+/// - right-color (none, color): Right series color (theme palette when `none`)
+/// - left-label (none, content): Left y-axis title
+/// - right-label (none, content): Right y-axis title
+/// - x-label (none, content): X-axis title
+/// - show-grid (auto, bool): Override the theme's grid setting
+/// - annotations (none, array): Annotation overlays
+/// - theme (none, dictionary): Theme overrides
+/// - extra-legend-separation (length): Extra space between legend and chart
+/// -> content
 #let dual-axis-chart(
   data,
   width: auto,
   height: auto,
   title: none,
   show-points: true,
-  line-width: 1.5pt,
-  point-size: 3pt,
+  line-width: auto,
+  point-size: 6pt,
   left-color: none,
   right-color: none,
   left-label: none,
@@ -31,6 +50,7 @@
   validate-dual-axis-data(data, "dual-axis-chart")
   let grid-overrides = if show-grid != auto { (show-grid: show-grid) } else { none }
   let t = _resolve-ctx(theme, overrides: grid-overrides)
+  let line-width = if line-width == auto { t.stroke-thick } else { line-width }
   let (width, height) = resolve-size(width, height, size, n: data.labels.len(), theme: t)
 
   let labels = data.labels
@@ -112,17 +132,17 @@
         for pt in l-points {
           place(
             left + top,
-            dx: pt.at(0) - point-size,
-            dy: pt.at(1) - point-size,
-            circle(radius: point-size, fill: l-color, stroke: t.marker-stroke)
+            dx: pt.at(0) - point-size / 2,
+            dy: pt.at(1) - point-size / 2,
+            circle(radius: point-size / 2, fill: l-color, stroke: t.marker-stroke)
           )
         }
         for pt in r-points {
           place(
             left + top,
-            dx: pt.at(0) - point-size,
-            dy: pt.at(1) - point-size,
-            circle(radius: point-size, fill: r-color, stroke: t.marker-stroke)
+            dx: pt.at(0) - point-size / 2,
+            dy: pt.at(1) - point-size / 2,
+            circle(radius: point-size / 2, fill: r-color, stroke: t.marker-stroke)
           )
         }
       }

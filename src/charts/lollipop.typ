@@ -5,7 +5,7 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/axes.typ": cartesian-layout, draw-axis-lines, draw-grid, draw-axis-titles, draw-y-ticks, draw-x-ticks, draw-x-category-labels, draw-y-label, measure-y-tick-width, measure-x-tick-height
 #import "../primitives/annotations.typ": draw-annotations
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/layout.typ": resolve-size, pin
 
 /// Renders a vertical lollipop chart with a thin stem and circle dot per category.
 ///
@@ -17,7 +17,7 @@
 /// - width (length): Chart width
 /// - height (length): Chart height
 /// - dot-size (length): Diameter of the dot at the end of each stem
-/// - stem-width (length): Thickness of the stem line
+/// - stem-width (auto, length): Thickness of the stem line; `auto` uses the theme's `stroke-thick`
 /// - title (none, content): Optional chart title
 /// - show-values (bool): Display value labels above dots
 /// - x-label (none, content): X-axis title
@@ -30,7 +30,7 @@
   width: auto,
   height: auto,
   dot-size: 8pt,
-  stem-width: 1.5pt,
+  stem-width: auto,
   title: none,
   show-values: true,
   x-label: none,
@@ -41,6 +41,7 @@
   layout(size => {
   validate-simple-data(data, "lollipop-chart")
   let t = _resolve-ctx(theme)
+  let stem-width = if stem-width == auto { t.stroke-thick } else { stem-width }
   let norm = normalize-data(data)
   let labels = norm.labels
   let values = norm.values
@@ -105,9 +106,9 @@
           place(
             left + top,
             dx: x-center - spacing / 2,
-            dy: origin-y - stem-h - dot-size - 1em,
-            box(width: spacing,
-              align(center, text(size: t.value-label-size, fill: t.text-color)[#val]))
+            dy: origin-y - stem-h - dot-size / 2 - t.label-offset,
+            pin(width: spacing, align: center + bottom,
+              text(size: t.value-label-size, fill: t.text-color)[#val])
           )
         }
       }
@@ -136,7 +137,7 @@
 /// - width (length): Chart width
 /// - height (length): Chart height
 /// - dot-size (length): Diameter of the dot at the end of each stem
-/// - stem-width (length): Thickness of the stem line
+/// - stem-width (auto, length): Thickness of the stem line; `auto` uses the theme's `stroke-thick`
 /// - title (none, content): Optional chart title
 /// - show-values (bool): Display value labels beside dots
 /// - x-label (none, content): X-axis title
@@ -149,7 +150,7 @@
   width: auto,
   height: auto,
   dot-size: 8pt,
-  stem-width: 1.5pt,
+  stem-width: auto,
   title: none,
   show-values: true,
   x-label: none,
@@ -160,6 +161,7 @@
   layout(size => {
   validate-simple-data(data, "horizontal-lollipop-chart")
   let t = _resolve-ctx(theme)
+  let stem-width = if stem-width == auto { t.stroke-thick } else { stem-width }
   let norm = normalize-data(data)
   let labels = norm.labels
   let values = norm.values
@@ -225,7 +227,7 @@
             left + top,
             dx: origin-x + stem-len + dot-size / 2 + 5pt,
             dy: y-center,
-            move(dy: -0.5em, text(size: t.value-label-size, fill: t.text-color)[#val])
+            pin(text(size: t.value-label-size, fill: t.text-color)[#val])
           )
         }
 

@@ -212,7 +212,7 @@
   width: 350pt,
   height: 180pt,
   title: "Dumbbell (no values)",
-  dot-size: 6pt,
+  dot-size: 12pt,
 )
 
 #v(12pt)

@@ -3,7 +3,7 @@
 #import "../util.typ": nonzero
 #import "../validate.typ": validate-slope-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/layout.typ": resolve-size, pin
 
 /// Renders a slope chart showing changes between two time periods.
 ///
@@ -15,8 +15,8 @@
 /// - width (length): Chart width
 /// - height (length): Chart height
 /// - title (none, content): Optional chart title
-/// - dot-size (length): Radius of endpoint dots
-/// - line-width (length): Stroke width of connecting lines
+/// - dot-size (length): Diameter of endpoint dots
+/// - line-width (auto, length): Stroke width of connecting lines; `auto` uses the theme's `stroke-thick`
 /// - show-values (bool): Display numeric values next to dots
 /// - theme (none, dictionary): Theme overrides
 /// -> content
@@ -25,14 +25,15 @@
   width: auto,
   height: auto,
   title: none,
-  dot-size: 3pt,
-  line-width: 1.5pt,
+  dot-size: 6pt,
+  line-width: auto,
   show-values: true,
   theme: none,
 ) = context {
   layout(size => {
   validate-slope-data(data, "slope-chart")
   let t = _resolve-ctx(theme)
+  let line-width = if line-width == auto { t.stroke-thick } else { line-width }
   let (width, height) = resolve-size(width, height, size, n: data.labels.len(), theme: t)
 
   let labels = data.labels
@@ -114,15 +115,15 @@
 
         // Left dot
         place(left + top,
-          dx: axis-x-left - dot-size,
-          dy: y-start - dot-size,
-          circle(radius: dot-size, fill: color, stroke: t.marker-stroke)
+          dx: axis-x-left - dot-size / 2,
+          dy: y-start - dot-size / 2,
+          circle(radius: dot-size / 2, fill: color, stroke: t.marker-stroke)
         )
         // Right dot
         place(left + top,
-          dx: axis-x-right - dot-size,
-          dy: y-end - dot-size,
-          circle(radius: dot-size, fill: color, stroke: t.marker-stroke)
+          dx: axis-x-right - dot-size / 2,
+          dy: y-end - dot-size / 2,
+          circle(radius: dot-size / 2, fill: color, stroke: t.marker-stroke)
         )
 
         // Left label + value — right-aligned into label margin
@@ -135,8 +136,8 @@
           place(left + top,
             dx: 0pt,
             dy: y-start,
-            box(width: axis-x-left - dot-size - 4pt, height: 0pt,
-              align(right, move(dy: -0.5em, label-content))),
+            box(width: axis-x-left - dot-size / 2 - 4pt, height: 0pt,
+              align(right + horizon, label-content)),
           )
         }
 
@@ -148,9 +149,9 @@
             [#text(size: t.axis-label-size, fill: t.text-color)[#lbl]]
           }
           place(left + top,
-            dx: axis-x-right + dot-size + 4pt,
+            dx: axis-x-right + dot-size / 2 + 4pt,
             dy: y-end,
-            move(dy: -0.5em, label-content),
+            pin(label-content),
           )
         }
       }

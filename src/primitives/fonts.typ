@@ -179,3 +179,17 @@
   place(left + top, dx: lx, dy: ly,
     box(width: box-width, align(center, body)))
 }
+
+/// Pins a label to its placement point by vertical alignment, independent of
+/// the surrounding document's font size.
+///
+/// `place(dy: y, pin(body))` centres `body` on `y`; with `align: bottom` it
+/// sits on `y`, with `align: top` it hangs from it. Prefer this over
+/// `move(dy: -0.5em, ...)`: an `em` there resolves against the document's
+/// text size, not the label's, so labels drift when the document font changes.
+///
+/// - body (content): Label content
+/// - width (auto, length): Box width (for horizontal alignment)
+/// - align (alignment): Alignment within the zero-height box
+/// -> content
+#let pin(body, width: auto, align: horizon) = box(width: width, height: 0pt, std.align(align, body))

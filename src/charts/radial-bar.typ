@@ -91,7 +91,8 @@
           let mid-angle-deg = (start-deg + end-deg) / 2
           let mid-r = (r-inner + r-outer) / 2
           place-polar-label(cx, cy, mid-angle-deg, mid-r,
-            text(size: t.value-label-size, fill: t.text-color-inverse, weight: "bold")[#calc.round(val, digits: 1)])
+            text(size: t.value-label-size, fill: t.text-color-inverse, weight: "bold")[#calc.round(val, digits: 1)],
+            centered: true)
         }
       }
 

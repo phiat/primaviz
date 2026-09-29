@@ -1,6 +1,6 @@
 // funnel.typ - Funnel chart for process/conversion stages
 #import "../theme.typ": _resolve-ctx, get-color
-#import "../util.typ": normalize-data, format-number, label-len
+#import "../util.typ": normalize-data, format-number, label-len, nonzero
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/layout.typ": label-fits-inside, try-fit-label, resolve-size
@@ -35,8 +35,8 @@
   let (width, height) = resolve-size(width, height, size, n: values.len(), theme: t)
 
   let n = values.len()
-  let max-val = calc.max(..values)
-  let first-val = values.at(0)
+  let max-val = nonzero(calc.max(..values))
+  let first-val = nonzero(values.at(0))
 
   // Usable drawing area inside the container (leave padding for title)
   let padding-x = 10pt
@@ -97,7 +97,7 @@
           let detail-parts = ()
           if show-values { detail-parts.push(value-text) }
           if show-percentages { detail-parts.push(pct-text) }
-          let detail = detail-parts.join(" · ")
+          let detail = detail-parts.join(" · ", default: "")
 
           // Center the text on the segment — use inset width to avoid boundary overlap
           let mid-y = y-top + seg-height / 2
@@ -122,8 +122,13 @@
             let avg-w = calc.max(0pt, avg-half * 2 - 12pt)
             let detail-len = detail.len()
             let detail-fit = if has-detail { try-fit-label(avg-w, avail-h, detail-size, detail-len) } else { (fits: false, size: detail-size) }
-            let show-detail = has-detail and detail-fit.fits
-            let block-h = if show-detail { label-size + detail-size + 2pt } else { label-size + 2pt }
+            // Stack name over detail only when both lines fit the segment's
+            // height; otherwise put them on one line if that fits the width
+            let stacked-h = label-size + detail-size + 2pt
+            let show-detail = has-detail and detail-fit.fits and stacked-h <= avail-h
+            let inline-detail = has-detail and not show-detail and try-fit-label(
+              avg-w, avail-h, label-size, lbl-len + detail-len + 2, shrink-min: label-size).fits
+            let block-h = if show-detail { stacked-h } else { label-size + 2pt }
             let start-y = mid-y - block-h / 2
 
             place(
@@ -137,6 +142,10 @@
                       text(size: label-size, fill: t.text-color-inverse, weight: "bold")[#label-text],
                       text(size: detail-size, fill: t.text-color-inverse)[#detail],
                     )
+                  } else if inline-detail {
+                    text(size: label-size, fill: t.text-color-inverse, weight: "bold")[#label-text]
+                    h(0.4em)
+                    text(size: detail-size, fill: t.text-color-inverse)[#detail]
                   } else {
                     text(size: label-size, fill: t.text-color-inverse, weight: "bold")[#label-text]
                   }

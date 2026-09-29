@@ -1,10 +1,10 @@
 // sunburst.typ - Multi-level pie/donut chart for hierarchical data
 #import "../theme.typ": _resolve-ctx, get-color
-#import "../util.typ": label-len
+#import "../util.typ": contrast-text
 #import "../validate.typ": validate-sunburst-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/polar.typ": annular-wedge-points, separator-stroke
-#import "../primitives/layout.typ": try-fit-label, resolve-size
+#import "../primitives/layout.typ": resolve-size
 
 /// Computes the depth of a hierarchical node tree.
 ///
@@ -186,24 +186,35 @@
 
           let mid-angle = (seg.start-angle + seg.end-angle) / 2
           let mid-r = (seg.r-inner + seg.r-outer) / 2
-          // Approximate available width from arc length at mid-radius.
-          // The 360 is the degrees-to-radians conversion, not the chart sweep —
-          // arc length is independent of total-angle.
-          let arc-w = (mid-r / 1pt) * angle-span / 360 * 2 * calc.pi * 1pt
-          let arc-h = seg.r-outer - seg.r-inner
-          let lbl-len = label-len(seg.name)
-          let fit = try-fit-label(arc-w, arc-h, t.value-label-size, lbl-len, shrink-min: 5pt)
+          // Locally the wedge is a rectangle rotated to mid-angle: `depth`
+          // along the radius, `arc` (arc length at mid-radius) across it. The
+          // 360 is the degrees-to-radians conversion, not the chart sweep.
+          let arc = (mid-r / 1pt) * angle-span / 360 * 2 * calc.pi * 1pt
+          let depth = seg.r-outer - seg.r-inner
+          let cos-a = calc.abs(calc.cos(mid-angle * 1deg))
+          let sin-a = calc.abs(calc.sin(mid-angle * 1deg))
+          let weight = if seg.depth == 1 { "bold" } else { "regular" }
+          // A horizontal w×h label fits that rotated rectangle iff both of
+          // its projections do. Near the left/right of the ring the label's
+          // width runs along the radius, so the ring depth is what limits it.
+          let fits(size) = {
+            let m = measure(text(size: size, weight: weight)[#seg.name])
+            let (w, h) = (m.width + 4pt, m.height + 3pt)
+            w * cos-a + h * sin-a <= depth and w * sin-a + h * cos-a <= arc
+          }
+          let size = t.value-label-size
+          while size > 5pt and not fits(size) { size -= 0.5pt }
 
-          if fit.fits {
+          if fits(size) {
             let lx = cx + mid-r * calc.cos(mid-angle * 1deg)
             let ly = cy + mid-r * calc.sin(mid-angle * 1deg)
-            // All labels sit on colored pill backgrounds — use inverse text for contrast
-            let label-color = t.text-color-inverse
+            // Readable on the pill whatever the ring's lightness
+            let label-color = contrast-text(seg.color)
             // Measure actual text dimensions for tight-fitting pill
             let label-content = text(
-              size: fit.size,
+              size: size,
               fill: label-color,
-              weight: if seg.depth == 1 { "bold" } else { "regular" },
+              weight: weight,
             )[#seg.name]
             let text-size = measure(label-content)
             let label-w = text-size.width + 4pt

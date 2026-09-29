@@ -1,10 +1,10 @@
 // gauge.typ - Gauge/dial and progress indicators
-#import "../theme.typ": _resolve-ctx, get-color
+#import "../theme.typ": _resolve-ctx, get-color, _shade
 #import "../util.typ": nonzero, clamp
 #import "../validate.typ": validate-number, validate-simple-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/polar.typ": pie-slice-points, place-donut-hole
-#import "../primitives/layout.typ": font-for-space, resolve-size
+#import "../primitives/layout.typ": font-for-space, resolve-size, pin
 
 /// Renders a semicircular gauge/dial chart with a needle indicator.
 ///
@@ -121,10 +121,11 @@
 
       // Min/max labels — scale font with chart size
       #let scale-label-size = font-for-space(size, t.axis-label-size, min-size: 5pt, ratio: 0.07)
-      #place(left + top, dx: cx - radius, dy: cy + 0.3em,
-        move(dx: -1em, text(size: scale-label-size, fill: t.text-color)[#min-val]))
-      #place(left + top, dx: cx + radius, dy: cy + 0.3em,
-        text(size: scale-label-size, fill: t.text-color)[#max-val])
+      #let band-mid = radius * 0.8
+      #place(left + top, dx: cx - band-mid - 20pt, dy: cy + 2pt,
+        pin(width: 40pt, align: center + top, text(size: scale-label-size, fill: t.text-color)[#min-val]))
+      #place(left + top, dx: cx + band-mid - 20pt, dy: cy + 2pt,
+        pin(width: 40pt, align: center + top, text(size: scale-label-size, fill: t.text-color)[#max-val]))
 
       // Value display — below the semicircle, in the open space
       #let value-size = font-for-space(size, 14pt, min-size: 7pt, ratio: 0.15)
@@ -182,10 +183,11 @@
   layout(size => {
   validate-number(value, "progress-bar")
   let t = _resolve-ctx(theme)
+  set text(size: 11pt)  // sized by the theme, not the document font
   let (width, height) = resolve-size(width, height, size, container: false)
-  let progress = clamp(value / max-val, 0, 1)
+  let progress = clamp(value / nonzero(max-val), 0, 1)
   let bar-color = if color != none { color } else { get-color(t, 0) }
-  let background = if background != auto { background } else if t.background != none { t.background.lighten(20%) } else { luma(230) }
+  let background = if background != auto { background } else if t.background != none { _shade(t, 20%) } else { luma(230) }
   let radius = if rounded { height / 2 } else { 0pt }
 
   box(width: width, height: height + (if title != none { 20pt } else { 0pt }))[
@@ -258,10 +260,11 @@
   layout(avail => {
   validate-number(value, "circular-progress")
   let t = _resolve-ctx(theme)
+  set text(size: 11pt)  // sized by the theme, not the document font
   let size = resolve-size(size, size, avail, container: false).width
-  let progress = clamp(value / max-val, 0, 1)
+  let progress = clamp(value / nonzero(max-val), 0, 1)
   let bar-color = if color != none { color } else { get-color(t, 0) }
-  let background = if background != auto { background } else if t.background != none { t.background.lighten(20%) } else { luma(230) }
+  let background = if background != auto { background } else if t.background != none { _shade(t, 20%) } else { luma(230) }
   let radius = size / 2 - stroke-width / 2
   let cx = size / 2
   let cy = size / 2
@@ -363,8 +366,9 @@
   layout(size => {
   validate-simple-data(data, "progress-bars")
   let t = _resolve-ctx(theme)
+  set text(size: 11pt)  // sized by the theme, not the document font
   let width = resolve-size(width, 0pt, size, container: false).width
-  let background = if background != auto { background } else if t.background != none { t.background.lighten(20%) } else { luma(230) }
+  let background = if background != auto { background } else if t.background != none { _shade(t, 20%) } else { luma(230) }
   let labels = data.labels
   let values = data.values
   let n = labels.len()
@@ -373,7 +377,7 @@
 
   box(width: width)[
     #if title != none {
-      align(center)[*#title*]
+      align(center, text(size: t.title-size, weight: t.title-weight, fill: t.text-color)[#title])
       v(8pt)
     }
 
@@ -381,9 +385,10 @@
       columns: (auto, 1fr, if show-values { auto } else { 0pt }),
       column-gutter: 6pt,
       row-gutter: 6pt,
+      align: horizon,
       ..labels.enumerate().map(((i, lbl)) => {
         let val = values.at(i)
-        let progress = val / actual-max
+        let progress = clamp(val / actual-max, 0, 1)
         (
           text(size: t.axis-label-size, fill: t.text-color)[#lbl],
           box(width: 100%, height: bar-height)[

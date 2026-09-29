@@ -2,7 +2,7 @@
 // A compact gauge replacement showing a quantitative measure against a target
 // with qualitative ranges (poor/satisfactory/good).
 
-#import "../theme.typ": _resolve-ctx, get-color
+#import "../theme.typ": _resolve-ctx, get-color, _is-dark, _shade
 #import "../util.typ": nonzero, nice-ticks, format-number
 #import "../validate.typ": validate-bullet-data, validate-bullet-charts-data
 #import "../primitives/container.typ": chart-container
@@ -35,16 +35,15 @@
   layout(size => {
   validate-bullet-data((value: value, target: target, ranges: ranges), "bullet-chart")
   let t = _resolve-ctx(theme)
+  set text(size: 11pt)  // sized by the theme, not the document font
   let (width, height) = resolve-size(width, height, size, container: false)
   let bar-color = get-color(t, 0)
 
   let max-range = nonzero(ranges.last())
 
   // Qualitative range shades (darkest = poor, lightest = good)
-  let is-dark = t.background != none
-  let range-fills = if is-dark {
-    let bg = t.background
-    (bg.lighten(15%), bg.lighten(25%), bg.lighten(35%))
+  let range-fills = if _is-dark(t) {
+    (_shade(t, 15%), _shade(t, 25%), _shade(t, 35%))
   } else {
     (t.text-color-light.transparentize(50%), t.text-color-light.transparentize(70%), t.text-color-light.transparentize(85%))
   }
@@ -130,7 +129,7 @@
           dx: tx - 10pt,
           dy: height + 3pt,
           box(width: 20pt, align(center,
-            text(size: tick-size, fill: t.text-color)[#format-number(tick-val, digits: b-nt.digits, mode: t.number-format)])))
+            text(size: tick-size, fill: t.text-color)[#format-number(tick-val, digits: b-nt.digits, mode: t.number-format, step: b-nt.step)])))
       }
     }
   ]
@@ -159,15 +158,14 @@
   layout(size => {
   validate-bullet-charts-data(data, "bullet-charts")
   let t = _resolve-ctx(theme)
+  set text(size: 11pt)  // sized by the theme, not the document font
   let width = resolve-size(width, 0pt, size, container: false).width
   let bullets = data.bullets
   let n = bullets.len()
 
   let bar-color = get-color(t, 0)
-  let is-dark = t.background != none
-  let range-fills = if is-dark {
-    let bg = t.background
-    (bg.lighten(15%), bg.lighten(25%), bg.lighten(35%))
+  let range-fills = if _is-dark(t) {
+    (_shade(t, 15%), _shade(t, 25%), _shade(t, 35%))
   } else {
     (t.text-color-light.transparentize(50%), t.text-color-light.transparentize(70%), t.text-color-light.transparentize(85%))
   }

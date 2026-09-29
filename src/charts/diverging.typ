@@ -5,7 +5,7 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/legend.typ": draw-legend-auto
 #import "../primitives/axes.typ": draw-y-label
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/layout.typ": resolve-size, pin
 
 /// Renders a horizontal diverging bar chart where bars extend left and right
 /// from a central vertical axis. Useful for survey results (agree/disagree),
@@ -53,14 +53,19 @@
 
   // Find the max value across both sides for proportional scaling
   let all-values = (..left-values, ..right-values)
-  let max-val = nonzero(calc.max(..all-values))
+  // Scale to the top tick (not the raw max) so bars and tick labels agree
+  let max-val = nice-ticks(0, nonzero(calc.max(..all-values)), count: t.tick-count).max
 
   // Layout constants — scale label area with chart width
   let label-area = calc.min(80pt, width * 0.28)
   let right-pad = t.axis-padding-right
-  let usable-width = width - label-area - right-pad
+  // Reserve room beside the longest bars for their value labels
+  let val-w = if show-values {
+    calc.max(..all-values.map(v => measure(text(size: t.value-label-size)[#v]).width)) + 4pt
+  } else { 0pt }
+  let usable-width = width - label-area - right-pad - 2 * val-w
   let half-width = usable-width / 2
-  let center-x = label-area + half-width
+  let center-x = label-area + val-w + half-width
 
   let show-legend = left-label != none and right-label != none
   let extra-h = if show-legend { 50pt } else { 30pt }
@@ -74,6 +79,9 @@
     #let chart-height = height - t.axis-padding-top - t.axis-padding-bottom - tick-area
     #let spacing = chart-height / n
     #let actual-bar-h = spacing * bar-frac
+    // Keep row text within its row when many rows share a short chart
+    #let row-t = (..t, axis-label-size: calc.min(t.axis-label-size, spacing * 0.9))
+    #let val-size = calc.min(t.value-label-size, spacing * 0.9)
 
     #box(width: width, height: chart-height + tick-area)[
       // Center vertical axis
@@ -125,14 +133,12 @@
 
         // Left value label — placed just left of the bar end
         if show-values {
-          let label-w = 25pt
-          let l-label-x = calc.max(label-area, center-x - l-bar-w - label-w - 2pt)
           place(
             left + top,
-            dx: l-label-x,
+            dx: center-x - l-bar-w - val-w,
             dy: y-pos + actual-bar-h / 2,
-            box(width: label-w, align(right,
-              move(dy: -0.5em, text(size: t.value-label-size, fill: t.text-color)[#l-val])))
+            pin(width: val-w - 4pt, align: right + horizon,
+              text(size: val-size, fill: t.text-color)[#l-val])
           )
         }
 
@@ -140,21 +146,26 @@
         if show-values {
           place(
             left + top,
-            dx: center-x + r-bar-w + 5pt,
+            dx: center-x + r-bar-w + 4pt,
             dy: y-pos + actual-bar-h / 2,
-            move(dy: -0.5em, text(size: t.value-label-size, fill: t.text-color)[#r-val])
+            pin(text(size: val-size, fill: t.text-color)[#r-val])
           )
         }
 
         // Category label on the far left — right-aligned into label area
-        draw-y-label(label, y-pos + actual-bar-h / 2, label-area, t)
+        draw-y-label(label, y-pos + actual-bar-h / 2, label-area, row-t)
       }
 
       // X-axis tick labels (symmetric around center) — below the bar area
       #let div-nt = nice-ticks(0, max-val, count: t.tick-count)
-      #for value in div-nt.ticks {
+      // Thin the ticks when their labels would collide on a narrow chart
+      #let tick-w = calc.max(..div-nt.ticks.map(v => measure(text(size: t.axis-label-size)[#format-number(v, digits: div-nt.digits, mode: t.number-format, step: div-nt.step)]).width))
+      #let tick-gap = half-width / calc.max(1, div-nt.ticks.len() - 1)
+      #let tick-skip = calc.max(1, calc.ceil((tick-w + 4pt) / tick-gap))
+      #for (ti, value) in div-nt.ticks.enumerate() {
+        if calc.rem(ti, tick-skip) != 0 { continue }
         let fraction = if max-val > 0 { value / max-val } else { 0 }
-        let tick-label = format-number(value, digits: div-nt.digits, mode: t.number-format)
+        let tick-label = format-number(value, digits: div-nt.digits, mode: t.number-format, step: div-nt.step)
 
         // Right side ticks
         let rx = center-x + fraction * half-width

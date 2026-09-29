@@ -47,7 +47,7 @@
     show-values: false,
     annotations: (
       (type: "h-line", value: 160, color: rgb("#c0392b"), dash: "dashed", label: "target"),
-      (type: "content", x: 2, y: 165, body: text(weight: "bold", fill: rgb("#c0392b"))[★ hit], anchor: "bottom"),
+      (type: "content", x: 2, y: 175, body: text(weight: "bold", fill: rgb("#c0392b"))[★ hit], anchor: "bottom"),
     ),
     theme: lt,
   ),
@@ -58,7 +58,7 @@
     show-points: true,
     annotations: (
       (type: "h-band", from: 60, to: 75, color: rgb("#2ecc71"), opacity: 18%, label: "goal zone"),
-      (type: "content", x: 5, y: 85, body: text(fill: rgb("#e74c3c"), weight: "bold")[peak], anchor: "bottom"),
+      (type: "content", x: 5, y: 85, body: text(fill: rgb("#e74c3c"), weight: "bold")[peak], anchor: "bottom", dy: -6pt),
       (type: "point", x: 5, y: 85, radius: 4pt, fill: rgb("#e74c3c")),
     ),
     theme: dk,
@@ -83,7 +83,7 @@
       (type: "errorbar", x: 4, low: 20, high: 24, color: rgb("#7f8c8d")),
       (type: "errorbar", x: 5, low: 26, high: 30, color: rgb("#7f8c8d")),
       (type: "errorbar", x: 6, low: 23, high: 27, color: rgb("#7f8c8d")),
-      (type: "content", x: 5, y: 28, body: text(size: 7pt, fill: rgb("#2c3e50"))[outlier], anchor: "left", dx: 6pt),
+      (type: "content", x: 5, y: 28, body: text(size: 7pt, fill: rgb("#e74c3c"))[outlier], anchor: "left", dx: 6pt),
     ),
     theme: dk,
   ),

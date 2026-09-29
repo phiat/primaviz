@@ -1,9 +1,10 @@
 // radar.typ - Radar/spider charts
 #import "../theme.typ": _resolve-ctx, get-color
+#import "../util.typ": nonzero
 #import "../validate.typ": validate-series-data
 #import "../primitives/container.typ": chart-container, container-inset
 #import "../primitives/legend.typ": draw-legend-vertical
-#import "../primitives/layout.typ": font-for-space, resolve-size
+#import "../primitives/layout.typ": font-for-space, resolve-size, pin
 
 /// Renders a radar (spider) chart for comparing series across multiple axes.
 ///
@@ -38,7 +39,7 @@
 
   // Find max value across all series
   let all-values = series.map(s => s.values).flatten()
-  let max-val = if axis-max-value == none { calc.max(..all-values) } else { axis-max-value }
+  let max-val = nonzero(if axis-max-value == none { calc.max(..all-values) } else { axis-max-value })
 
   // Respect both show-legend param and theme legend-position
   let show-legend = show-legend and t.legend-position != "none"
@@ -198,9 +199,9 @@
               let offset-y = 8pt * calc.sin(angle)
               place(
                 left + top,
-                dx: pt.at(0) + offset-x,
+                dx: pt.at(0) + offset-x - 20pt,
                 dy: pt.at(1) + offset-y,
-                move(dx: -1em, dy: -0.5em,
+                pin(width: 40pt, align: center + horizon,
                   text(size: t.axis-label-size, fill: color, weight: "bold")[#s.values.at(i)])
               )
             }

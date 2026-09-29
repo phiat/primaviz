@@ -18,8 +18,8 @@
 /// - show-line (bool): Draw the line on top of the filled area
 /// - show-points (bool): Draw data point markers
 /// - fill-opacity (ratio): Opacity of the filled area
-/// - line-width (length): Stroke width of the line
-/// - point-size (length): Radius of point markers
+/// - line-width (auto, length): Stroke width of the line; `auto` uses the theme's `stroke-thick`
+/// - point-size (length): Diameter of point markers
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
 /// - annotations (none, array): Optional annotation descriptors
@@ -36,8 +36,8 @@
   show-line: true,
   show-points: false,
   fill-opacity: 40%,
-  line-width: 1.5pt,
-  point-size: 3pt,
+  line-width: auto,
+  point-size: 6pt,
   x-label: none,
   y-label: none,
   annotations: none,
@@ -49,12 +49,13 @@
   layout(size => {
   validate-simple-data(data, "area-chart")
   let t = _resolve-ctx(theme)
+  let line-width = if line-width == auto { t.stroke-thick } else { line-width }
   let norm = normalize-data(data)
   let labels = norm.labels
   let values = norm.values
   let (width, height) = resolve-size(width, height, size, n: values.len(), theme: t)
 
-  let nt = nice-ticks(calc.min(0, ..values), calc.max(..values), count: t.tick-count)
+  let nt = nice-ticks(calc.min(0, ..values), calc.max(0, ..values), count: t.tick-count)
   let max-val = nt.max
   let min-val = nt.min
   let val-range = nonzero(max-val - min-val)
@@ -120,9 +121,9 @@
         for pt in points {
           place(
             left + top,
-            dx: pt.at(0) - point-size,
-            dy: pt.at(1) - point-size,
-            circle(radius: point-size, fill: get-color(t, 0), stroke: t.marker-stroke)
+            dx: pt.at(0) - point-size / 2,
+            dy: pt.at(1) - point-size / 2,
+            circle(radius: point-size / 2, fill: get-color(t, 0), stroke: t.marker-stroke)
           )
         }
       }
@@ -150,7 +151,7 @@
 /// - title (none, content): Optional chart title
 /// - show-lines (bool): Draw boundary lines between series
 /// - fill-opacity (ratio): Opacity of each filled area
-/// - line-width (length): Stroke width of boundary lines
+/// - line-width (auto, length): Stroke width of boundary lines; `auto` uses the theme's `stroke-mid`
 /// - show-legend (bool): Show series legend
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
@@ -165,7 +166,7 @@
   title: none,
   show-lines: true,
   fill-opacity: 70%,
-  line-width: 1pt,
+  line-width: auto,
   show-legend: true,
   x-label: none,
   y-label: none,
@@ -176,6 +177,7 @@
   layout(size => {
   validate-series-data(data, "stacked-area-chart")
   let t = _resolve-ctx(theme)
+  let line-width = if line-width == auto { t.stroke-mid } else { line-width }
   let (width, height) = resolve-size(width, height, size, n: data.labels.len(), theme: t)
   let labels = data.labels
   let series = data.series

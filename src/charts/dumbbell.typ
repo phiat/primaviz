@@ -5,7 +5,7 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/legend.typ": draw-legend-auto
 #import "../primitives/axes.typ": draw-y-label
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/layout.typ": resolve-size, pin
 
 /// Renders a dumbbell chart showing range or before/after comparisons.
 ///
@@ -18,8 +18,8 @@
 /// - width (length): Chart width
 /// - height (length): Chart height
 /// - title (none, content): Optional chart title
-/// - dot-size (length): Radius of endpoint dots
-/// - line-width (length): Stroke width of connecting lines
+/// - dot-size (length): Diameter of endpoint dots
+/// - line-width (auto, length): Stroke width of connecting lines; `auto` uses the theme's `stroke-thick`
 /// - show-values (bool): Display numeric values next to dots
 /// - theme (none, dictionary): Theme overrides
 /// - extra-legend-separation (length): Extra space between legend and chart
@@ -29,8 +29,8 @@
   width: auto,
   height: auto,
   title: none,
-  dot-size: 5pt,
-  line-width: 1.5pt,
+  dot-size: 10pt,
+  line-width: auto,
   show-values: false,
   theme: none,
   extra-legend-separation: 0pt
@@ -38,6 +38,7 @@
   layout(size => {
   validate-dumbbell-data(data, "dumbbell-chart")
   let t = _resolve-ctx(theme)
+  let line-width = if line-width == auto { t.stroke-thick } else { line-width }
   let (width, height) = resolve-size(width, height, size, n: data.labels.len(), theme: t)
 
   let labels = data.labels
@@ -67,8 +68,9 @@
   let right-pad = calc.max(gap * 2, width * 0.05)
   let top-pad = calc.max(gap, height * 0.04)
   let bottom-pad = t.axis-padding-bottom
-  let plot-left = label-margin + dot-size
-  let plot-right = width - right-pad - dot-size
+  let dot-r = dot-size / 2
+  let plot-left = label-margin + dot-r
+  let plot-right = width - right-pad - dot-r
   let plot-width = plot-right - plot-left
 
   // Colors: start uses palette color 0, end uses palette color 1
@@ -165,21 +167,21 @@
 
         // Start dot
         place(left + top,
-          dx: x-start - dot-size,
-          dy: y - dot-size,
-          circle(radius: dot-size, fill: start-color, stroke: t.marker-stroke)
+          dx: x-start - dot-r,
+          dy: y - dot-r,
+          circle(radius: dot-r, fill: start-color, stroke: t.marker-stroke)
         )
 
         // End dot
         place(left + top,
-          dx: x-end - dot-size,
-          dy: y - dot-size,
-          circle(radius: dot-size, fill: end-color, stroke: t.marker-stroke)
+          dx: x-end - dot-r,
+          dy: y - dot-r,
+          circle(radius: dot-r, fill: end-color, stroke: t.marker-stroke)
         )
 
         // Optional value labels — place on the outside of each dot
         if show-values {
-          let label-gap = dot-size + gap / 2
+          let label-gap = dot-r + gap / 2
           let s-content = text(size: t.value-label-size, fill: start-color)[#sv]
           let e-content = text(size: t.value-label-size, fill: end-color)[#ev]
           let s-w = measure(s-content).width
@@ -203,19 +205,19 @@
           let s-dy-adj = 0pt
           let e-dy-adj = 0pt
           if sv == ev {
-            s-dy-adj = -0.6em
-            e-dy-adj = 0.4em
+            s-dy-adj = -0.55 * t.value-label-size
+            e-dy-adj = 0.55 * t.value-label-size
           }
 
           place(left + top,
             dx: s-dx,
             dy: y,
-            move(dy: -0.5em + s-dy-adj, s-content)
+            move(dy: s-dy-adj, pin(s-content))
           )
           place(left + top,
             dx: e-dx,
             dy: y,
-            move(dy: -0.5em + e-dy-adj, e-content)
+            move(dy: e-dy-adj, pin(e-content))
           )
         }
       }
