@@ -209,7 +209,7 @@
 
 === Calendar Heatmap
 #calendar-heatmap(league.match-calendar,
-  cell-size: 14pt, title: "Match-Day Total Goals", palette: "heat",
+  cell-size: 12pt, title: "Match-Day Total Goals", palette: "heat",
 )
 
 #pagebreak()
