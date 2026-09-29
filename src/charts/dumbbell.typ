@@ -18,7 +18,7 @@
 /// - width (length): Chart width
 /// - height (length): Chart height
 /// - title (none, content): Optional chart title
-/// - dot-size (length): Radius of endpoint dots
+/// - dot-size (length): Diameter of endpoint dots
 /// - line-width (length): Stroke width of connecting lines
 /// - show-values (bool): Display numeric values next to dots
 /// - theme (none, dictionary): Theme overrides
@@ -29,7 +29,7 @@
   width: auto,
   height: auto,
   title: none,
-  dot-size: 5pt,
+  dot-size: 10pt,
   line-width: 1.5pt,
   show-values: false,
   theme: none,
@@ -67,8 +67,9 @@
   let right-pad = calc.max(gap * 2, width * 0.05)
   let top-pad = calc.max(gap, height * 0.04)
   let bottom-pad = t.axis-padding-bottom
-  let plot-left = label-margin + dot-size
-  let plot-right = width - right-pad - dot-size
+  let dot-r = dot-size / 2
+  let plot-left = label-margin + dot-r
+  let plot-right = width - right-pad - dot-r
   let plot-width = plot-right - plot-left
 
   // Colors: start uses palette color 0, end uses palette color 1
@@ -165,21 +166,21 @@
 
         // Start dot
         place(left + top,
-          dx: x-start - dot-size,
-          dy: y - dot-size,
-          circle(radius: dot-size, fill: start-color, stroke: t.marker-stroke)
+          dx: x-start - dot-r,
+          dy: y - dot-r,
+          circle(radius: dot-r, fill: start-color, stroke: t.marker-stroke)
         )
 
         // End dot
         place(left + top,
-          dx: x-end - dot-size,
-          dy: y - dot-size,
-          circle(radius: dot-size, fill: end-color, stroke: t.marker-stroke)
+          dx: x-end - dot-r,
+          dy: y - dot-r,
+          circle(radius: dot-r, fill: end-color, stroke: t.marker-stroke)
         )
 
         // Optional value labels — place on the outside of each dot
         if show-values {
-          let label-gap = dot-size + gap / 2
+          let label-gap = dot-r + gap / 2
           let s-content = text(size: t.value-label-size, fill: start-color)[#sv]
           let e-content = text(size: t.value-label-size, fill: end-color)[#ev]
           let s-w = measure(s-content).width

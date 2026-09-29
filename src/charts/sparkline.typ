@@ -133,7 +133,7 @@
 /// - width (length): Chart width
 /// - height (length): Chart height
 /// - color (none, color): Override dot color
-/// - dot-size (length): Radius of each dot
+/// - dot-size (length): Diameter of each dot
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let sparkdot(
@@ -141,7 +141,7 @@
   width: 60pt,
   height: 15pt,
   color: none,
-  dot-size: 2.5pt,
+  dot-size: 5pt,
   theme: none,
 ) = context {
   layout(size => {
@@ -160,12 +160,12 @@
 
     box(width: width, height: height, baseline: -3pt)[
       // Pad drawing area by max dot radius to prevent clipping
-      #let max-r = dot-size * 1.3
+      #let max-r = dot-size / 2 * 1.3
       #for i in array.range(n) {
         let x = if n == 1 { width / 2 } else { max-r + (i / (n - 1)) * (width - 2 * max-r) }
         let y = max-r + (height - 2 * max-r) - ((values.at(i) - min-val) / val-range) * (height - 2 * max-r)
         let is-last = i == n - 1
-        let r = if is-last { dot-size * 1.3 } else { dot-size }
+        let r = if is-last { dot-size / 2 * 1.3 } else { dot-size / 2 }
         let dot-color = if is-last { c.darken(20%) } else { c }
         place(left + top, dx: x - r, dy: y - r,
           circle(radius: r, fill: dot-color, stroke: none))

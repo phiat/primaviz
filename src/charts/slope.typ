@@ -15,7 +15,7 @@
 /// - width (length): Chart width
 /// - height (length): Chart height
 /// - title (none, content): Optional chart title
-/// - dot-size (length): Radius of endpoint dots
+/// - dot-size (length): Diameter of endpoint dots
 /// - line-width (length): Stroke width of connecting lines
 /// - show-values (bool): Display numeric values next to dots
 /// - theme (none, dictionary): Theme overrides
@@ -25,7 +25,7 @@
   width: auto,
   height: auto,
   title: none,
-  dot-size: 3pt,
+  dot-size: 6pt,
   line-width: 1.5pt,
   show-values: true,
   theme: none,
@@ -114,15 +114,15 @@
 
         // Left dot
         place(left + top,
-          dx: axis-x-left - dot-size,
-          dy: y-start - dot-size,
-          circle(radius: dot-size, fill: color, stroke: t.marker-stroke)
+          dx: axis-x-left - dot-size / 2,
+          dy: y-start - dot-size / 2,
+          circle(radius: dot-size / 2, fill: color, stroke: t.marker-stroke)
         )
         // Right dot
         place(left + top,
-          dx: axis-x-right - dot-size,
-          dy: y-end - dot-size,
-          circle(radius: dot-size, fill: color, stroke: t.marker-stroke)
+          dx: axis-x-right - dot-size / 2,
+          dy: y-end - dot-size / 2,
+          circle(radius: dot-size / 2, fill: color, stroke: t.marker-stroke)
         )
 
         // Left label + value — right-aligned into label margin
@@ -135,7 +135,7 @@
           place(left + top,
             dx: 0pt,
             dy: y-start,
-            box(width: axis-x-left - dot-size - 4pt, height: 0pt,
+            box(width: axis-x-left - dot-size / 2 - 4pt, height: 0pt,
               align(right + horizon, label-content)),
           )
         }
@@ -148,7 +148,7 @@
             [#text(size: t.axis-label-size, fill: t.text-color)[#lbl]]
           }
           place(left + top,
-            dx: axis-x-right + dot-size + 4pt,
+            dx: axis-x-right + dot-size / 2 + 4pt,
             dy: y-end,
             pin(label-content),
           )

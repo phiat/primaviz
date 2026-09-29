@@ -15,7 +15,7 @@
 /// - width (length): Chart width
 /// - event-gap (length): Vertical spacing between events
 /// - title (none, content): Optional chart title
-/// - marker-size (length): Radius of event marker circles
+/// - marker-size (length): Diameter of event marker circles
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let timeline-chart(
@@ -23,7 +23,7 @@
   width: auto,
   event-gap: 60pt,
   title: none,
-  marker-size: 6pt,
+  marker-size: 12pt,
   theme: none,
 ) = context {
   layout(size => {
@@ -86,7 +86,7 @@
         place(
           left + top,
           dx: if is-left { center-x - arm-length } else { center-x },
-          dy: y-pos + marker-size / 2,
+          dy: y-pos,
           line(
             start: (0pt, 0pt),
             end: (arm-length, 0pt),
@@ -97,10 +97,10 @@
         // Marker circle on the spine
         place(
           left + top,
-          dx: center-x - marker-size,
+          dx: center-x - marker-size / 2,
           dy: y-pos - marker-size / 2,
           circle(
-            radius: marker-size,
+            radius: marker-size / 2,
             fill: marker-color,
             stroke: t.marker-stroke,
           ),
@@ -132,7 +132,7 @@
         place(
           left + top,
           dx: text-x,
-          dy: y-pos + marker-size / 2 - measure(block-body).height / 2,
+          dy: y-pos - measure(block-body).height / 2,
           block-body,
         )
       }

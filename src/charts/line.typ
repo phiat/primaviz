@@ -277,7 +277,7 @@
 /// - line-interpolation (str): "linear", "smooth", or "catmull-rom"
 /// - smooth-radius (int): Moving average radius for smooth lines, 1 to 5
 /// - line-width (length): Stroke width of each series line
-/// - point-size (length): Radius of point markers
+/// - point-size (length): Diameter of point markers
 /// - x-label (none, content): X-axis title
 /// - y-label (none, content): Y-axis title
 /// - annotations (none, array): Optional annotation descriptors
@@ -294,7 +294,7 @@
   line-width: 1.5pt,
   line-interpolation: "linear",
   smooth-radius: 1,
-  point-size: 3pt,
+  point-size: 6pt,
   x-label: none,
   y-label: none,
   annotations: none,
@@ -354,9 +354,9 @@
           for pt in points {
             place(
               left + top,
-              dx: pt.at(0) - point-size,
-              dy: pt.at(1) - point-size,
-              circle(radius: point-size, fill: color, stroke: t.marker-stroke)
+              dx: pt.at(0) - point-size / 2,
+              dy: pt.at(1) - point-size / 2,
+              circle(radius: point-size / 2, fill: color, stroke: t.marker-stroke)
             )
           }
         }
