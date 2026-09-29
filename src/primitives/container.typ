@@ -26,6 +26,10 @@
     inset: pad,
     radius: radius,
   )[
+    // Charts are sized by the theme, not the document: pin the ambient text
+    // size (Typst's default) so flow spacing, leading and the spaces between
+    // legend entries don't shift with the document's `set text(size: ..)`.
+    #set text(size: 11pt)
     #draw-title(title, theme, subtitle: subtitle)
     #if lp == "top" and legend != none {
       legend

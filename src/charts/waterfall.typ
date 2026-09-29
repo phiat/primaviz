@@ -6,7 +6,7 @@
 #import "../primitives/axes.typ": cartesian-layout, draw-axis-lines, draw-grid, draw-axis-titles, draw-y-ticks, draw-x-category-labels, measure-y-tick-width, measure-x-tick-height
 #import "../primitives/legend.typ": draw-legend
 #import "../primitives/annotations.typ": draw-annotations
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/layout.typ": resolve-size, pin
 
 /// Renders a waterfall (bridge) chart showing cumulative effect of positive and negative values.
 ///
@@ -112,7 +112,7 @@
   let nt = nice-ticks(calc.min(0, min-val), max-val, count: t.tick-count)
   let y-min = nt.min
   let y-max = nt.max
-  let y-range = y-max - y-min
+  let y-range = nonzero(y-max - y-min)
 
   let cl = cartesian-layout(width, height, t)
 
@@ -182,10 +182,9 @@
         // Value label
         if show-values {
           let val = values.at(i)
-          let label-y = bar-top-px - t.value-label-size * 1.5
-          place(left + top, dx: x-pos, dy: label-y,
-            box(width: actual-bw, align(center,
-              text(size: t.value-label-size, fill: t.text-color)[#format-number(val, digits: nt.digits, mode: t.number-format)])))
+          place(left + top, dx: x-pos, dy: bar-top-px - t.label-offset,
+            pin(width: actual-bw, align: center + bottom,
+              text(size: t.value-label-size, fill: t.text-color)[#format-number(val, digits: nt.digits, mode: t.number-format)]))
 
         }
 

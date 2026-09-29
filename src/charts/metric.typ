@@ -30,6 +30,7 @@
 ) = context {
   layout(size => {
   let t = _resolve-ctx(theme)
+  set text(size: 11pt)  // sized by the theme, not the document font
   let width = resolve-size(width, 0pt, size, container: false).width
   let has-dark-bg = t.background != none
   // Semantic delta colors — overridable via custom theme keys
@@ -154,7 +155,7 @@
 
   let cols = range(n).map(_ => 1fr)
 
-  grid(
+  block(width: width, grid(
     columns: cols,
     column-gutter: gap,
     ..metrics.map(m => {
@@ -169,5 +170,5 @@
         theme: theme,
       )
     })
-  )
+  ))
 }

@@ -62,9 +62,13 @@
   }
 
   // Reserve margin for labels so they don't get clipped at the edges.
-  // Labels sit 12pt outside the outer arc in a ~4em box; reserve enough
-  // space on each side for the label offset plus half the box width.
-  let label-margin = if show-labels { 40pt } else { 0pt }
+  // Labels sit just outside the outer arc; reserve the widest label plus
+  // that offset on each side, capped so long names can't collapse the ring.
+  let label-gap = 6pt
+  let label-margin = if show-labels {
+    let widest = calc.max(..labels.map(l => measure(text(size: t.axis-label-size)[#l]).width))
+    calc.min(40pt, widest + label-gap + 2pt)
+  } else { 0pt }
   let radius = (size - 2 * label-margin) / 2
   let outer-r = radius - 2pt          // outer edge of arcs
   let inner-r = outer-r - arc-width   // inner edge of arcs (chord attachment)
@@ -217,7 +221,7 @@
           if span <= 0 { continue }
 
           let mid-angle = arc-starts.at(i) + span / 2
-          let label-r = outer-r + 12pt
+          let label-r = outer-r + label-gap
 
           place-polar-label(center-x, center-y, mid-angle, label-r,
             text(size: t.axis-label-size, fill: t.text-color, [#labels.at(i)]))

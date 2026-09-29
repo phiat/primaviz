@@ -106,15 +106,19 @@
   if n == 0 {
     box(width: width, height: height, baseline: -3pt)
   } else {
-    let max-val = calc.max(..values)
-    let max-val = if max-val == 0 { 1 } else { max-val }
+    // Bars grow from zero, so the scale always spans it (negatives hang down)
+    let hi = calc.max(0, ..values)
+    let lo = calc.min(0, ..values)
+    let span = if hi == lo { 1 } else { hi - lo }
+    let zero-y = hi / span * height
     let bar-width = (width - gap * (n - 1)) / n
 
     box(width: width, height: height, baseline: -3pt)[
       #for i in array.range(n) {
-        let bar-height = (values.at(i) / max-val) * height
+        let v = values.at(i)
+        let bar-height = calc.abs(v) / span * height
         let x = i * (bar-width + gap)
-        let y = height - bar-height
+        let y = if v >= 0 { zero-y - bar-height } else { zero-y }
         place(left + top, dx: x, dy: y,
           rect(width: bar-width, height: bar-height, fill: c, stroke: none))
       }

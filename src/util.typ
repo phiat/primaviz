@@ -170,21 +170,33 @@
 /// - val (int, float): Number to format
 /// - digits (int): Decimal places to round to
 /// - mode (str): Format mode: `"auto"`, `"comma"`, `"si"`, `"plain"`, or `"percent"`
+/// - step (none, int, float): Tick step, when formatting axis ticks. In SI
+///   mode it sets the decimals so adjacent ticks stay distinct (10.05k, not
+///   two "10.1k"); without it SI values get one decimal.
 /// -> str
-#let format-number(val, digits: 1, mode: "auto") = {
+#let format-number(val, digits: 1, mode: "auto", step: none) = {
   let abs-val = calc.abs(val)
   let rounded = calc.round(val, digits: digits)
 
   if mode == "si" or (mode == "auto" and abs-val >= 10000) {
-    // SI abbreviations
-    if abs-val >= 1000000000 {
-      str(calc.round(val / 1000000000, digits: 1)) + "B"
-    } else if abs-val >= 1000000 {
-      str(calc.round(val / 1000000, digits: 1)) + "M"
-    } else if abs-val >= 1000 {
-      str(calc.round(val / 1000, digits: 1)) + "k"
-    } else {
+    // SI abbreviations, largest tier first
+    let tiers = ((1000000000, "B"), (1000000, "M"), (1000, "k"))
+    let pick = tiers.position(((scale, _)) => abs-val >= scale)
+    let decimals(scale) = if step != none and step > 0 {
+      int(calc.max(0, -calc.floor(calc.log(step / scale, base: 10))))
+    } else { 1 }
+    if pick == none {
       str(rounded)
+    } else {
+      let (scale, suffix) = tiers.at(pick)
+      let scaled = calc.round(val / scale, digits: decimals(scale))
+      // Rounding can carry into the next tier (999,999.9 -> "1000k" -> "1M")
+      if calc.abs(scaled) >= 1000 and pick > 0 {
+        let (scale, suffix) = tiers.at(pick - 1)
+        str(calc.round(val / scale, digits: decimals(scale))) + suffix
+      } else {
+        str(scaled) + suffix
+      }
     }
   } else if mode == "comma" {
     // Add comma separators - Typst doesn't have built-in number formatting
@@ -263,27 +275,34 @@
   (labels: data.labels, values: agg-values)
 }
 
+// Nice fractions of a power of ten, as used by nice-ceil / nice-floor.
+#let _nice-fracs = (1, 1.5, 2, 2.5, 3, 4, 5, 7, 10)
+
+// Rounds a positive value to a nice number, up or down. The fraction is
+// rounded before comparing and the result snapped, so float noise neither
+// bumps a value to the next step nor leaks out (1.5 × 0.1 = 0.15000000000000002).
+#let _nice-positive(val, up) = {
+  let exp = calc.floor(calc.log(val, base: 10))
+  let base = calc.pow(10, exp)
+  let frac = calc.round(val / base, digits: 9)
+  let nice = if up {
+    _nice-fracs.find(f => frac <= f)
+  } else {
+    _nice-fracs.rev().find(f => frac >= f)
+  }
+  let x = nice * base
+  if exp < 0 { calc.round(x, digits: -exp + 2) } else { x }
+}
+
 /// Rounds a value up to the next "nice" number for axis scaling.
 /// Uses the standard nice-number algorithm (similar to D3/matplotlib).
 ///
 /// - val (int, float): Value to round up
 /// -> int, float
 #let nice-ceil(val) = {
-  if val <= 0 { return val }
-  let exp = calc.floor(calc.log(val, base: 10))
-  let base = calc.pow(10, exp)
-  let frac = val / base
-  // Pick the next nice fraction: 1, 1.5, 2, 2.5, 3, 4, 5, 7, 10
-  let nice = if frac <= 1 { 1 }
-    else if frac <= 1.5 { 1.5 }
-    else if frac <= 2 { 2 }
-    else if frac <= 2.5 { 2.5 }
-    else if frac <= 3 { 3 }
-    else if frac <= 4 { 4 }
-    else if frac <= 5 { 5 }
-    else if frac <= 7 { 7 }
-    else { 10 }
-  nice * base
+  if val == 0 { 0 }
+  else if val > 0 { _nice-positive(val, true) }
+  else { -_nice-positive(-val, false) }
 }
 
 /// Rounds a value down to the previous "nice" number for axis scaling.
@@ -291,21 +310,9 @@
 /// - val (int, float): Value to round down
 /// -> int, float
 #let nice-floor(val) = {
-  if val == 0 { return 0 }
-  if val < 0 { return -nice-ceil(calc.abs(val)) }
-  let exp = calc.floor(calc.log(val, base: 10))
-  let base = calc.pow(10, exp)
-  let frac = val / base
-  let nice = if frac >= 10 { 10 }
-    else if frac >= 7 { 7 }
-    else if frac >= 5 { 5 }
-    else if frac >= 4 { 4 }
-    else if frac >= 3 { 3 }
-    else if frac >= 2.5 { 2.5 }
-    else if frac >= 2 { 2 }
-    else if frac >= 1.5 { 1.5 }
-    else { 1 }
-  nice * base
+  if val == 0 { 0 }
+  else if val > 0 { _nice-positive(val, false) }
+  else { -_nice-positive(-val, true) }
 }
 
 /// Normalizes an `errors` parameter for bar/line/scatter charts into a uniform
@@ -340,7 +347,14 @@
 /// - count (int): Target number of ticks (actual count may vary slightly)
 /// -> dictionary
 #let nice-ticks(data-min, data-max, count: 5) = {
-  let raw-range = nonzero(data-max - data-min, fallback: 1.0)
+  // A flat series (all values equal) would snap to a single tick; give it a
+  // band around the value so the axis still has a scale.
+  if data-min == data-max {
+    let pad = if data-min == 0 { 1 } else { calc.abs(data-min) * 0.1 }
+    data-min -= pad
+    data-max += pad
+  }
+  let raw-range = data-max - data-min
   // Target intervals = count - 1
   let raw-step = raw-range / calc.max(1, count - 1)
 
@@ -355,8 +369,10 @@
     else { base }
 
   // Snap min/max to step boundaries
-  let tick-min = calc.floor(data-min / step) * step
-  let tick-max = calc.ceil(data-max / step) * step
+  // (the epsilon keeps 0.6 / 0.2 = 2.9999999999999996 from snapping a whole
+  // step past the data)
+  let tick-min = calc.round(calc.floor(data-min / step + 1e-9) * step, digits: 10)
+  let tick-max = calc.round(calc.ceil(data-max / step - 1e-9) * step, digits: 10)
 
   // Generate ticks
   let ticks = ()

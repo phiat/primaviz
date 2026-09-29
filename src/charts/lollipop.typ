@@ -5,7 +5,7 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/axes.typ": cartesian-layout, draw-axis-lines, draw-grid, draw-axis-titles, draw-y-ticks, draw-x-ticks, draw-x-category-labels, draw-y-label, measure-y-tick-width, measure-x-tick-height
 #import "../primitives/annotations.typ": draw-annotations
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/layout.typ": resolve-size, pin
 
 /// Renders a vertical lollipop chart with a thin stem and circle dot per category.
 ///
@@ -105,9 +105,9 @@
           place(
             left + top,
             dx: x-center - spacing / 2,
-            dy: origin-y - stem-h - dot-size - 1em,
-            box(width: spacing,
-              align(center, text(size: t.value-label-size, fill: t.text-color)[#val]))
+            dy: origin-y - stem-h - dot-size / 2 - t.label-offset,
+            pin(width: spacing, align: center + bottom,
+              text(size: t.value-label-size, fill: t.text-color)[#val])
           )
         }
       }
@@ -225,7 +225,7 @@
             left + top,
             dx: origin-x + stem-len + dot-size / 2 + 5pt,
             dy: y-center,
-            move(dy: -0.5em, text(size: t.value-label-size, fill: t.text-color)[#val])
+            pin(text(size: t.value-label-size, fill: t.text-color)[#val])
           )
         }
 

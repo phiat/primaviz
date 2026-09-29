@@ -5,7 +5,7 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/axes.typ": cartesian-layout, draw-axis-lines, draw-grid, draw-axis-titles, draw-x-even-labels
 #import "../primitives/legend.typ": draw-legend-auto
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/layout.typ": resolve-size, pin
 #import "../primitives/paths.typ": draw-polyline
 
 /// Renders a bump chart showing how items change ranking over time periods.
@@ -56,7 +56,13 @@
   let max-rank = calc.max(..all-values)
   let rank-range = nonzero(max-rank - min-rank)
 
-  let cl = cartesian-layout(width, height, t)
+  // Reserve room for the series names drawn beside the first/last points
+  let name-w = if show-labels {
+    calc.max(..series.map(s => measure(text(size: t.axis-label-size, weight: "bold")[#s.name]).width))
+  } else { 0pt }
+  let cl = cartesian-layout(width, height, t,
+    extra-left: calc.max(0pt, name-w + 6pt - t.axis-padding-left),
+    extra-right: calc.max(0pt, name-w + dot-size / 2 + 5pt - t.axis-padding-right))
 
   let legend-content = draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, swatch-type: "line")
   chart-container(width, height, title, t, extra-height: 50pt, legend: legend-content, extra-legend-separation: extra-legend-separation)[
@@ -68,7 +74,7 @@
 
     #box(width: width, height: height)[
       // Grid
-      #draw-grid(origin-x, pad-top, chart-width, chart-height, t)
+      #draw-grid(origin-x, pad-top, chart-width, chart-height, t, num-ticks: int(rank-range) + 1)
 
       // Axes
       #draw-axis-lines(origin-x, origin-y, origin-x + chart-width, pad-top, t)
@@ -108,8 +114,8 @@
             dx: 0pt,
             dy: first-pt.at(1),
             box(width: origin-x - 4pt, height: 0pt,
-              align(right, move(dy: -0.5em,
-                text(size: t.axis-label-size, fill: color, weight: "bold")[#s.name])))
+              align(right + horizon,
+                text(size: t.axis-label-size, fill: color, weight: "bold")[#s.name]))
           )
 
           if n > 1 {
@@ -122,7 +128,7 @@
                 dx: label-x,
                 dy: last-pt.at(1),
                 box(width: label-w, height: 0pt,
-                  move(dy: -0.5em,
+                  align(horizon,
                     text(size: t.axis-label-size, fill: color, weight: "bold")[#s.name]))
               )
             }
@@ -139,8 +145,8 @@
           let y = pad-top + ((rank - min-rank) / rank-range) * chart-height
           place(left + top, dx: 0pt, dy: y,
             box(width: origin-x - 2pt, height: 0pt,
-              align(right, move(dy: -0.5em,
-                text(size: t.axis-label-size, fill: t.text-color)[#rank])))
+              align(right + horizon,
+                text(size: t.axis-label-size, fill: t.text-color)[#rank]))
           )
         }
       }

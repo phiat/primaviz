@@ -49,38 +49,44 @@
   // Determine rows and seat distribution.
   // We start from an inner radius and add rows outward until we have enough seats.
   // Each row at radius r fits floor(pi * r / spacing) dots along the semicircle.
-  let min-inner = spacing * 2
-  let max-outer = radius - dot-r
-
-  // Try increasing row count until total capacity >= total seats
+  // If even the tightest packing can't seat everyone, shrink dots and gaps
+  // together and try again rather than silently dropping seats.
   let n-rows = 1
   let row-radii = ()
   let row-seats = ()
-
-  // Binary-search style: start with 1 row, increase until enough
   let found = false
-  for try-rows in range(1, 100) {
-    let step = (max-outer - min-inner) / calc.max(try-rows, 1)
-    if step < spacing {
-      // Rows too close, use fewer
-      break
+  while not found and spacing > 0.5pt {
+    let min-inner = spacing * 2
+    let max-outer = radius - dot-r
+
+    // Start with 1 row, increase until capacity >= total seats
+    for try-rows in range(1, 100) {
+      let step = (max-outer - min-inner) / calc.max(try-rows, 1)
+      if step < spacing {
+        // Rows too close, use fewer
+        break
+      }
+      let radii = ()
+      let seats = ()
+      let cap = 0
+      for ri in range(try-rows) {
+        let r = min-inner + ri * step + step / 2
+        let n = calc.max(1, int(calc.pi * r / spacing))
+        radii.push(r)
+        seats.push(n)
+        cap = cap + n
+      }
+      row-radii = radii
+      row-seats = seats
+      n-rows = try-rows
+      if cap >= total {
+        found = true
+        break
+      }
     }
-    let radii = ()
-    let seats = ()
-    let cap = 0
-    for ri in range(try-rows) {
-      let r = min-inner + ri * step + step / 2
-      let n = calc.max(1, int(calc.pi * r / spacing))
-      radii.push(r)
-      seats.push(n)
-      cap = cap + n
-    }
-    row-radii = radii
-    row-seats = seats
-    n-rows = try-rows
-    if cap >= total {
-      found = true
-      break
+    if not found {
+      dot-r *= 0.9
+      spacing *= 0.9
     }
   }
 

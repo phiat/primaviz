@@ -3,7 +3,7 @@
 #import "../util.typ": nonzero
 #import "../validate.typ": validate-slope-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/layout.typ": resolve-size, pin
 
 /// Renders a slope chart showing changes between two time periods.
 ///
@@ -136,7 +136,7 @@
             dx: 0pt,
             dy: y-start,
             box(width: axis-x-left - dot-size - 4pt, height: 0pt,
-              align(right, move(dy: -0.5em, label-content))),
+              align(right + horizon, label-content)),
           )
         }
 
@@ -150,7 +150,7 @@
           place(left + top,
             dx: axis-x-right + dot-size + 4pt,
             dy: y-end,
-            move(dy: -0.5em, label-content),
+            pin(label-content),
           )
         }
       }

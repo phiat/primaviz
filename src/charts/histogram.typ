@@ -5,7 +5,7 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/axes.typ": cartesian-layout, draw-axis-lines, draw-grid, draw-y-ticks, draw-x-ticks, draw-axis-titles, measure-y-tick-width, measure-x-tick-height
 #import "../primitives/annotations.typ": draw-annotations
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/layout.typ": resolve-size, pin
 
 /// Renders a histogram showing the frequency distribution of numeric data.
 ///
@@ -141,9 +141,9 @@
           place(
             left + top,
             dx: x-pos,
-            dy: y-pos - 1.2em,
-            box(width: bar-w,
-              align(center, text(size: t.value-label-size, fill: t.text-color)[#count-val]))
+            dy: y-pos - t.label-offset,
+            pin(width: bar-w, align: center + bottom,
+              text(size: t.value-label-size, fill: t.text-color)[#count-val])
           )
         }
       }

@@ -1,7 +1,7 @@
 // pie.typ - Pie and donut charts
 #import "../theme.typ": _resolve-ctx, get-color
-#import "../util.typ": normalize-data
-#import "../primitives/layout.typ": font-for-space, try-fit-label, resolve-size
+#import "../util.typ": normalize-data, nonzero
+#import "../primitives/layout.typ": font-for-space, try-fit-label, resolve-size, pin
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container, container-inset
 #import "../primitives/legend.typ": draw-legend-vertical
@@ -40,7 +40,7 @@
   let labels = norm.labels
   let values = norm.values
 
-  let total = values.sum()
+  let total = nonzero(values.sum())
   let n = values.len()
 
   // Respect both show-legend param and theme legend-position
@@ -157,9 +157,9 @@
             let ly = center-y + label-dist * calc.sin(mid-deg * 1deg)
             place(
               left + top,
-              dx: lx,
+              dx: lx - 40pt,
               dy: ly,
-              move(dx: -1em, dy: -0.5em,
+              pin(width: 80pt, align: center + horizon,
                 text(size: fit.size, fill: t.text-color-inverse, weight: "bold")[#pct-text])
             )
           }

@@ -3,7 +3,7 @@
 #import "../util.typ": lerp-color, heat-color, nonzero, day-of-week, contrast-text
 #import "../validate.typ": validate-heatmap-data, validate-calendar-data, validate-correlation-data
 #import "../primitives/container.typ": chart-container, container-inset
-#import "../primitives/layout.typ": density-skip, font-to-fit-width
+#import "../primitives/layout.typ": density-skip, font-to-fit-width, pin
 #import "../primitives/legend.typ": draw-gradient-legend
 
 /// Renders a heatmap grid with color-coded cells.
@@ -100,8 +100,8 @@
           dx: 0pt,
           dy: col-label-height + i * cell-size + cell-size / 2,
           box(width: row-label-width - t.label-offset, height: 0pt,
-            align(right, move(dy: -0.5em,
-              text(size: t.axis-label-size, fill: t.text-color)[#row])))
+            align(right + horizon,
+              text(size: t.axis-label-size, fill: t.text-color)[#row]))
         )
 
         // Cells for this row
@@ -247,7 +247,7 @@
               left + top,
               dx: 0pt,
               dy: month-label-height + i * cell-size + cell-size / 2,
-              move(dy: -0.5em, text(size: t.axis-label-size * 0.85, fill: t.text-color)[#day])
+              pin(text(size: t.axis-label-size * 0.85, fill: t.text-color)[#day])
             )
           }
         }
@@ -410,8 +410,8 @@
           dx: 0pt,
           dy: label-area + i * cell-size + cell-size / 2,
           box(width: label-area - t.label-offset, height: 0pt,
-            align(right, move(dy: -0.5em,
-              text(size: t.axis-label-size, fill: t.text-color)[#row-lbl])))
+            align(right + horizon,
+              text(size: t.axis-label-size, fill: t.text-color)[#row-lbl]))
         )
 
         // Cells

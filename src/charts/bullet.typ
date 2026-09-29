@@ -35,6 +35,7 @@
   layout(size => {
   validate-bullet-data((value: value, target: target, ranges: ranges), "bullet-chart")
   let t = _resolve-ctx(theme)
+  set text(size: 11pt)  // sized by the theme, not the document font
   let (width, height) = resolve-size(width, height, size, container: false)
   let bar-color = get-color(t, 0)
 
@@ -130,7 +131,7 @@
           dx: tx - 10pt,
           dy: height + 3pt,
           box(width: 20pt, align(center,
-            text(size: tick-size, fill: t.text-color)[#format-number(tick-val, digits: b-nt.digits, mode: t.number-format)])))
+            text(size: tick-size, fill: t.text-color)[#format-number(tick-val, digits: b-nt.digits, mode: t.number-format, step: b-nt.step)])))
       }
     }
   ]
@@ -159,6 +160,7 @@
   layout(size => {
   validate-bullet-charts-data(data, "bullet-charts")
   let t = _resolve-ctx(theme)
+  set text(size: 11pt)  // sized by the theme, not the document font
   let width = resolve-size(width, 0pt, size, container: false).width
   let bullets = data.bullets
   let n = bullets.len()

@@ -2,6 +2,7 @@
 
 #import "../theme.typ": *
 #import "../util.typ": heat-color
+#import "fonts.typ": pin
 
 // Optional legend title rendered above entries.
 #let _legend-title(title, theme) = {
@@ -117,8 +118,8 @@
         rect(width: bar-width, height: step-h + 0.5pt, fill: cell-color, stroke: none))
     }
     // Max label (above bar)
-    #place(left + top, dx: 0pt, dy: -1.2em,
-      box(width: bar-width, align(center, text(size: theme.axis-label-size, fill: theme.text-color)[#calc.round(max-val, digits: 1)])))
+    #place(left + top, dx: 0pt, dy: -2pt,
+      pin(width: bar-width, align: center + bottom, text(size: theme.axis-label-size, fill: theme.text-color)[#calc.round(max-val, digits: 1)]))
     // Min label (below bar)
     #place(left + top, dx: 0pt, dy: h + 2pt,
       box(width: bar-width, align(center, text(size: theme.axis-label-size, fill: theme.text-color)[#calc.round(min-val, digits: 1)])))

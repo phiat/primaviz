@@ -5,7 +5,7 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/legend.typ": draw-legend-auto
 #import "../primitives/axes.typ": draw-y-label
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/layout.typ": resolve-size, pin
 
 /// Renders a dumbbell chart showing range or before/after comparisons.
 ///
@@ -203,19 +203,19 @@
           let s-dy-adj = 0pt
           let e-dy-adj = 0pt
           if sv == ev {
-            s-dy-adj = -0.6em
-            e-dy-adj = 0.4em
+            s-dy-adj = -0.55 * t.value-label-size
+            e-dy-adj = 0.55 * t.value-label-size
           }
 
           place(left + top,
             dx: s-dx,
             dy: y,
-            move(dy: -0.5em + s-dy-adj, s-content)
+            move(dy: s-dy-adj, pin(s-content))
           )
           place(left + top,
             dx: e-dx,
             dy: y,
-            move(dy: -0.5em + e-dy-adj, e-content)
+            move(dy: e-dy-adj, pin(e-content))
           )
         }
       }

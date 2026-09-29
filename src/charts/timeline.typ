@@ -38,8 +38,11 @@
   // Center x position for the vertical spine
   let center-x = width / 2
 
-  // Content area for left/right text
-  let text-area-width = center-x - marker-size - 20pt
+  // Horizontal arm from the spine, then an 8pt gap before the text
+  let arm-length = 20pt
+  let text-gap = 8pt
+  // Content area for left/right text: from the chart edge (10pt margin) to the gap
+  let text-area-width = center-x - arm-length - text-gap - 10pt
 
   // Build category-to-color mapping for optional color coding
   let category-names = ()
@@ -80,9 +83,6 @@
         let marker-color = get-color(t, color-idx)
 
         // Connecting line from spine to marker (horizontal arm)
-        let arm-length = 20pt
-        let arm-start-x = if is-left { center-x - arm-length } else { center-x + arm-length }
-
         place(
           left + top,
           dx: if is-left { center-x - arm-length } else { center-x },
@@ -112,45 +112,29 @@
           10pt
         } else {
           // Left-align text to the right of the arm
-          center-x + arm-length + 8pt
+          center-x + arm-length + text-gap
         }
 
         let text-align = if is-left { right } else { left }
 
-        // Date label (small, muted)
-        place(
-          left + top,
-          dx: text-x,
-          dy: y-pos - 1em,
-          box(width: text-area-width, height: auto)[
-            #set align(text-align)
-            #text(size: t.axis-label-size, fill: t.text-color-light, weight: "medium")[#ev.date]
-          ],
+        // Date (small, muted), title (bold) and optional description, stacked
+        // as one block centred on the arm so long titles push lines apart
+        // instead of overlapping them
+        let lines = (
+          text(size: t.axis-label-size, fill: t.text-color-light, weight: "medium")[#ev.date],
+          text(size: t.value-label-size, fill: t.text-color, weight: "bold")[#ev.title],
         )
-
-        // Title (bold)
-        place(
-          left + top,
-          dx: text-x,
-          dy: y-pos + 2pt,
-          box(width: text-area-width, height: auto)[
-            #set align(text-align)
-            #text(size: t.value-label-size, fill: t.text-color, weight: "bold")[#ev.title]
-          ],
-        )
-
-        // Description (optional, smaller)
         if "description" in ev {
-          place(
-            left + top,
-            dx: text-x,
-            dy: y-pos + 1.5em,
-            box(width: text-area-width, height: auto)[
-              #set align(text-align)
-              #text(size: t.axis-label-size, fill: t.text-color-light)[#ev.description]
-            ],
-          )
+          lines.push(text(size: t.axis-label-size, fill: t.text-color-light)[#ev.description])
         }
+        let block-body = box(width: text-area-width,
+          stack(dir: ttb, spacing: t.axis-label-size * 0.45, ..lines.map(l => align(text-align, l))))
+        place(
+          left + top,
+          dx: text-x,
+          dy: y-pos + marker-size / 2 - measure(block-body).height / 2,
+          block-body,
+        )
       }
     ]
   ]

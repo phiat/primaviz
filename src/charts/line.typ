@@ -6,7 +6,7 @@
 #import "../primitives/axes.typ": cartesian-layout, draw-axis-lines, draw-grid, draw-axis-titles, draw-y-ticks, draw-x-category-labels, draw-x-even-labels, measure-y-tick-width, measure-x-tick-height
 #import "../primitives/legend.typ": draw-legend-auto
 #import "../primitives/annotations.typ": draw-annotations
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/layout.typ": resolve-size, pin
 
 #let _smooth-points(points, smooth-radius) = {
   let smoothed = ()
@@ -230,23 +230,24 @@
       }
 
       // Draw points and value labels
-      #if show-points {
-        for (i, pt) in points.enumerate() {
+      #for (i, pt) in points.enumerate() {
+        if show-points {
           place(
             left + top,
             dx: pt.at(0) - point-size / 2,
             dy: pt.at(1) - point-size / 2,
             circle(radius: point-size / 2, fill: get-color(t, 0), stroke: t.marker-stroke)
           )
+        }
 
-          if show-values {
-            place(
-              left + top,
-              dx: pt.at(0),
-              dy: pt.at(1) - 1.5em,
-              move(dx: -1em, dy: -0.5em, text(size: t.axis-label-size, fill: t.text-color)[#values.at(i)])
-            )
-          }
+        if show-values {
+          let lift = if show-points { point-size / 2 } else { 0pt }
+          place(
+            left + top,
+            dx: pt.at(0) - 20pt,
+            dy: pt.at(1) - lift - t.label-offset,
+            pin(width: 40pt, align: center + bottom, text(size: t.value-label-size, fill: t.text-color)[#values.at(i)])
+          )
         }
       }
 

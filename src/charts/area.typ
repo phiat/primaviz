@@ -54,7 +54,7 @@
   let values = norm.values
   let (width, height) = resolve-size(width, height, size, n: values.len(), theme: t)
 
-  let nt = nice-ticks(calc.min(0, ..values), calc.max(..values), count: t.tick-count)
+  let nt = nice-ticks(calc.min(0, ..values), calc.max(0, ..values), count: t.tick-count)
   let max-val = nt.max
   let min-val = nt.min
   let val-range = nonzero(max-val - min-val)

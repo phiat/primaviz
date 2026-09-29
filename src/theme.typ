@@ -5,7 +5,8 @@
 // any individual property, or change the seeds to scale everything at once.
 
 // Global theme state — set via with-theme(), read by chart functions
-#let _primaviz-theme = state("primaviz-theme", none)
+// Stack of active `with-theme` themes, innermost last
+#let _primaviz-theme = state("primaviz-theme", ())
 
 // Golden ratio constant
 #let _phi = 1.618
@@ -199,7 +200,7 @@
 /// - overrides (none, dictionary): Additional per-call overrides
 /// -> dictionary
 #let _resolve-ctx(user-theme, overrides: none) = {
-  let global = _primaviz-theme.get()  // may be none
+  let global = _primaviz-theme.get().last(default: none)
 
   // Step 1: Determine seed values from highest-priority source
   let bs = default-theme.base-size
@@ -258,9 +259,10 @@
 /// - body (content): Content whose charts inherit this theme
 /// -> content
 #let with-theme(theme, body) = {
-  _primaviz-theme.update(theme)
+  // Push/pop rather than reset, so nesting restores the outer theme
+  _primaviz-theme.update(s => s + (theme,))
   body
-  _primaviz-theme.update(none)
+  _primaviz-theme.update(s => s.slice(0, -1))
 }
 
 /// Returns a color from the theme palette, cycling if the index exceeds palette length.

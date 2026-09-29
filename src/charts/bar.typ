@@ -7,7 +7,7 @@
 #import "../primitives/legend.typ": draw-legend-auto
 #import "../primitives/annotations.typ": draw-annotations
 #import "../primitives/polar.typ": separator-stroke
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/layout.typ": resolve-size, pin
 
 /// Renders a horizontal bar chart with category labels on the y-axis.
 ///
@@ -90,7 +90,7 @@
             left + top,
             dx: origin-x + bar-w + t.label-offset,
             dy: y-pos + actual-bar-height / 2,
-            move(dy: -0.5em, text(size: t.value-label-size, fill: t.text-color)[#val])
+            pin(text(size: t.value-label-size, fill: t.text-color)[#val])
           )
         }
 
@@ -231,14 +231,14 @@
           // Push value label above error bar if present
           let label-y-offset = if errs != none {
             let err = errs.at(i)
-            -((err.high / max-val) * chart-height) - 1.2em
-          } else { -1.2em }
+            -((err.high / max-val) * chart-height) - t.label-offset
+          } else { -t.label-offset }
           place(
             left + top,
             dx: x-pos,
             dy: origin-y - bar-h + label-y-offset,
-            box(width: actual-bar-width,
-              align(center, text(size: t.value-label-size, fill: t.text-color)[#val]))
+            pin(width: actual-bar-width, align: center + bottom,
+              text(size: t.value-label-size, fill: t.text-color)[#val])
           )
         }
       }

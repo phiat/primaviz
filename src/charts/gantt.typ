@@ -46,7 +46,8 @@
   let tasks = data.tasks
 
   // Determine time range
-  let max-time = calc.max(..tasks.map(task => task.end))
+  // Columns are whole time units; round a fractional end up to include it
+  let max-time = int(calc.ceil(calc.max(..tasks.map(task => task.end))))
   let time-count = max-time
   let time-labels = if "time-labels" in data { data.time-labels } else {
     array.range(max-time).map(i => str(i))
