@@ -337,6 +337,21 @@
   ],
 )
 
+// Angular (party wedges, the default) and rows fill: few and many parties, a
+// 5-seat party, 600+ seats, a light and a dark theme.
+#let chamber(a, b, c, d, e) = (("A", a), ("B", b), ("C", c), ("D", d), ("E", e))
+#pagebreak()
+#cases(
+  parliament-chart(parties, size: 230pt, title: "fill-order: rows", fill-order: "rows"),
+  parliament-chart(parties, size: 230pt, title: "fill-order: rows, dark", fill-order: "rows", theme: themes.dark),
+  parliament-chart((("A", 60), ("B", 40)), size: 230pt, title: "2 parties"),
+  parliament-chart((("A", 60), ("B", 40)), size: 230pt, title: "2 parties, rows", fill-order: "rows"),
+  parliament-chart((chamber(30, 25, 20, 15, 10)), size: 230pt, title: "5 parties"),
+  parliament-chart((chamber(5, 5, 5, 5, 5)), size: 230pt, title: "5 parties of 5 seats", dot-size: 8pt, gap: 2pt),
+  parliament-chart((("A", 300), ("Tiny", 5), ("B", 200), ("C", 90), ("D", 12)), size: 250pt, dot-size: 3pt, title: "600+ seats, a 5-seat party mid-chamber"),
+  parliament-chart((("A", 300), ("B", 200), ("C", 90), ("D", 12), ("Tiny", 5)), size: 250pt, dot-size: 3pt, title: "600+ seats, dark", theme: themes.dark),
+)
+
 // ── Chord ────────────────────────────────────────────────────────────────
 
 = Chord

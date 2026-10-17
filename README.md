@@ -119,7 +119,7 @@ just demo       # Compile the comprehensive demo
 ### Proportional & Hierarchical
 - `waffle-chart` - 10×10 grid of colored squares for proportions
 - `sunburst-chart` - Multi-level hierarchical pie with nested rings
-- `parliament-chart` - Semicircle dot layout for seat visualization
+- `parliament-chart` - Semicircle dot layout for seat visualization; each party takes one wedge (`fill-order: "rows"` fills the concentric rows instead)
 
 ### Comparison & Ranking
 - `bump-chart` - Multi-period ranking chart

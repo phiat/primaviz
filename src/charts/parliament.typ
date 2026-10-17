@@ -9,13 +9,17 @@
 
 /// Renders a parliament (hemicycle) chart — a semicircle of dots showing seat distribution.
 ///
-/// Each dot represents one seat. Parties fill dots in order along concentric
-/// semicircular rows from inner to outer radius, left to right.
+/// Each dot represents one seat. By default the parties take the seats in
+/// angular blocks: the first party gets a wedge at the left end of the
+/// hemicycle, the next one the wedge after it, and so on over the top to the
+/// right end, so a party reads as one block across all rows. Every row keeps
+/// its seat count either way.
 ///
 /// - data (dictionary, array): Label-value pairs where values are seat counts
 /// - size (length): Width of the chart area
 /// - dot-size (length): Diameter of each seat dot
 /// - gap (length): Gap between dots
+/// - fill-order (str): How parties take the seats. `"angular"` (default): one wedge per party, left to right. `"rows"`: along the concentric rows from the innermost to the outermost (the layout before wedges became the default), which gives one band per party
 /// - title (none, content): Optional chart title
 /// - show-legend (bool): Show the party legend (where the theme's `legend-position` puts it)
 /// - theme (none, dictionary): Theme overrides
@@ -25,10 +29,13 @@
   size: 250pt,
   dot-size: 4pt,
   gap: 1pt,
+  fill-order: "angular",
   title: none,
   show-legend: true,
   theme: none,
 ) = context {
+  assert(fill-order in ("angular", "rows"),
+    message: "parliament-chart: fill-order must be \"angular\" or \"rows\", got " + repr(fill-order))
   layout(avail => {
   validate-simple-data(data, "parliament-chart")
   let t = _resolve-ctx(theme)
@@ -118,10 +125,10 @@
     row-seats = new-seats
   }
 
-  // Build flat list of dot positions
+  // Build flat list of seats: position, angle (0 = right end, 180 = left end) and row
   let cx = radius
   let cy = radius
-  let dots = ()
+  let seats = ()
 
   for (ri, r) in row-radii.enumerate() {
     let n = row-seats.at(ri)
@@ -130,21 +137,30 @@
       let angle = if n == 1 { 90.0 } else { 180.0 * di / (n - 1) }
       let x = cx + r * calc.cos(angle * 1deg)
       let y = cy - r * calc.sin(angle * 1deg)
-      dots.push((x, y))
+      seats.push((x: x, y: y, angle: calc.round(angle, digits: 6), row: ri))
     }
   }
 
-  // Assign party colors to dots (fill in order)
+  // The order seats are handed out in. "rows" is the layout order (row by row,
+  // inner to outer); "angular" sweeps the hemicycle from the left end over the
+  // top to the right end, so each party gets one wedge (ties, seats at the same
+  // angle in different rows, go inner to outer).
+  if fill-order == "angular" {
+    seats = seats.sorted(key: s => (-s.angle, s.row))
+  }
+
+  // Assign party colors to seats (fill in order)
   let dot-colors = ()
   let seat-idx = 0
   for (pi, count) in values.enumerate() {
     for _ in range(count) {
-      if seat-idx < dots.len() {
+      if seat-idx < seats.len() {
         dot-colors.push(get-color(t, pi))
       }
       seat-idx = seat-idx + 1
     }
   }
+  let dots = seats.map(s => (s.x, s.y))
 
   let chart-height = radius + dot-r
 
