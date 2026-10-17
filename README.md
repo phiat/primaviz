@@ -11,15 +11,14 @@ A charting library for [Typst](https://github.com/typst/typst) built entirely wi
 
 All 50+ chart types across 8 pages — see [`examples/showcase.typ`](examples/showcase.typ) for the source:
 
-![Showcase: bar, line, area, pie, radar, and scatter chart variations](screenshots/showcase/showcase-1.png)
-![Showcase: gauges, progress indicators, dual-axis, histogram, waterfall, funnel, box-plot, and heatmap charts](screenshots/showcase/showcase-2.png)
-![Showcase: calendar heatmap, treemap, sankey, lollipop, diverging, slope, and bullet charts](screenshots/showcase/showcase-3.png)
-![Showcase: grouped-stacked bars, gantt, waffle, bump, dumbbell, radial-bar, and sunburst charts](screenshots/showcase/showcase-4.png)
-![Showcase: violin plot, timeline, parliament, and chord diagram](screenshots/showcase/showcase-5.png)
-![Showcase: dashboard components including metric cards, alerts, badges, and compact tables](screenshots/showcase/showcase-6.png)
-![Showcase: additional chart layouts and variations](screenshots/showcase/showcase-7.png)
-![Showcase: golden-ratio φ-scaling demo with bar and line charts at 0.5×, 1×, and 2× base size](screenshots/showcase/showcase-8.png)
-![Showcase: full-page word cloud of data visualization vocabulary](screenshots/showcase/showcase-9.png)
+![Showcase: bar, horizontal bar, grouped bar, stacked bar, line, multi-line, area, and stacked area charts](screenshots/showcase/showcase-1.png)
+![Showcase: pie, donut, radar, scatter, multi-scatter, bubble, gauge, progress-bar, and circular-progress charts](screenshots/showcase/showcase-2.png)
+![Showcase: ring progress, dual-axis, histogram, waterfall, funnel, box-plot, heatmap, and correlation-matrix charts](screenshots/showcase/showcase-3.png)
+![Showcase: calendar heatmap, progress bars, sparklines, treemap, sankey, lollipop, horizontal lollipop, and diverging bar charts](screenshots/showcase/showcase-4.png)
+![Showcase: slope, bullet, grouped-stacked bar, gantt, waffle, bump, dumbbell, and radial-bar charts](screenshots/showcase/showcase-5.png)
+![Showcase: sunburst, metric cards, violin plot, timeline, parliament, chord diagram, and dashboard components (card, table, alert, badge)](screenshots/showcase/showcase-6.png)
+![Showcase: golden-ratio φ-scaling demo with bar and line charts at 0.5×, 1×, and 2× base size](screenshots/showcase/showcase-7.png)
+![Showcase: full-page word cloud of data visualization vocabulary](screenshots/showcase/showcase-8.png)
 
 ## Examples
 

@@ -72,7 +72,7 @@
 
   // 11. radar-chart — League: player skill profiles
   radar-chart(league.player-stats,
-    size: 100pt, title: "radar-chart", fill-opacity: 15%, theme: dk,
+    size: 150pt, title: "radar-chart", fill-opacity: 15%, theme: dk,
   ),
 
   // 12. scatter-plot — RPG: HP vs Kills
@@ -287,7 +287,7 @@
 
   // 41. sunburst-chart — RPG: class → subclass → specialization
   sunburst-chart(rpg.class-tree,
-    size: 120pt, inner-radius: 20pt, ring-width: 25pt, title: "sunburst-chart", theme: dk,
+    size: 120pt, inner-radius: 18pt, ring-width: 22pt, title: "sunburst-chart", theme: dk,
   ),
 
   // 42. metric-card + metric-row — Sales: KPIs
@@ -302,12 +302,12 @@
 
   // 43. violin-plot — League: player ratings by position
   violin-plot(league.ratings,
-    width: W, height: 115pt, title: "violin-plot", x-label: "Position", y-label: "Rating", theme: dk,
+    width: W, height: 100pt, title: "violin-plot", x-label: "Position", y-label: "Rating", theme: dk,
   ),
 
   // 44. timeline-chart — League: season milestones
   timeline-chart(league.season-timeline,
-    width: W, event-gap: 45pt, title: "timeline-chart", theme: dk,
+    width: W, event-gap: 30pt, title: "timeline-chart", theme: dk,
   ),
 
   // 45. parliament-chart — Codebase: contributor types

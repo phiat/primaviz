@@ -56,10 +56,9 @@
   let (cx, cy) = (size / 2, size / 2)
 
   // Axis labels: the name, and with one series, its value under it
-  // (dense charts use the smaller type; a long name wraps instead of shrinking the plot)
+  // (a long name wraps instead of shrinking the plot)
   let angle-of(i) = -90 + i / n * 360
-  let label-size = if n > 12 { t.axis-label-size } else { t.legend-size }
-  let axis-items = labels.enumerate().map(((i, lbl)) => {
+  let axis-items-at(label-size) = labels.enumerate().map(((i, lbl)) => {
     let name = text(size: label-size, fill: t.text-color, top-edge: "cap-height", bottom-edge: "descender")[#lbl]
     let name = wrap-label(name, calc.max(60pt, size * 0.3), angle-of(i))
     let body = if single and show-value-labels {
@@ -69,7 +68,23 @@
     } else { name }
     (angle: angle-of(i), body: body)
   })
-  let radius = polar-fit-radius(axis-items, cx, cy, size, size, gap: 5pt, pad: 1pt)
+  // The largest type that still leaves the plot most of the box (a small
+  // chart gets smaller labels rather than a small plot), down to the theme's floor
+  let floor-size = t.at("category-label-min-size", default: 5pt)
+  let sizes = (if n > 12 { () } else { (t.legend-size,) }) + (t.axis-label-size, t.axis-label-size * 0.85, floor-size)
+  let sizes = sizes.filter(sz => sz >= floor-size).dedup()
+  let (axis-items, radius, label-size) = {
+    let best = none
+    for sz in sizes {
+      let items = axis-items-at(sz)
+      let r = polar-fit-radius(items, cx, cy, size, size, gap: 5pt, pad: 1pt)
+      if best == none or r > best.at(1) { best = (items, r, sz) }
+      if r >= 0.3 * size { break }
+    }
+    best
+  }
+  // The scale is read after the axis names, never in larger type
+  let scale-size = calc.min(t.axis-label-size, label-size)
   // The labels may leave the plot wider than tall: trim the empty height
   let box-h = calc.min(size, 2 * polar-label-extent(axis-items, radius, gap: 5pt).y)
   let cy = box-h / 2
@@ -109,10 +124,12 @@
       // Scale, hanging just under each ring beside the first spoke, over the
       // data on a page-coloured plate so a series line never strikes a number
       #if show-value-labels {
-        for level in array.range(1, 5) {
+        // (every other ring when four would touch)
+        let step = if radius / 4 >= scale-size * 1.4 { 1 } else { 2 }
+        for level in array.range(1, 5).filter(l => calc.rem(4 - l, step) == 0) {
           place(left + top, dx: cx + 0.5pt, dy: cy - radius * level / 4 + 0.5pt,
             box(fill: bg.transparentize(10%), inset: (x: 1.5pt, y: 0.5pt), radius: 1pt,
-              text(size: t.axis-label-size, fill: t.text-color-light, top-edge: "cap-height", bottom-edge: "baseline")[#scale-label(level)]))
+              text(size: scale-size, fill: t.text-color-light, top-edge: "cap-height", bottom-edge: "baseline")[#scale-label(level)]))
         }
       }
 
