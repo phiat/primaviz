@@ -9,6 +9,7 @@
 //   page 4  legend positions: bottom, right, top, left
 //   page 5  surrounding `#set text(size: 14pt)`
 //   page 6  bubble charts: overlapping labelled bubbles, extremes, short and narrow, dense, themes
+//   page 7  box-plot value labels on 12 and 24 boxes, markers of smooth lines with fill
 #import "../src/lib.typ": *
 
 #set page(paper: "a3", flipped: true, margin: 14pt)
@@ -248,5 +249,38 @@
       (name: "A", points: ((1, 2, 5), (2, 3, 25))),
       (name: "B", points: ((3, 1, 60), (4, 4, 15))),
     )), width: W, height: H, title: "multi-bubble, legend right", theme: (legend-position: "right")),
+  )
+})
+
+// ---- page 7: value labels and markers --------------------------------------
+// Box plot value labels move aside or drop out where they would touch a neighbouring
+// box, whisker, outlier or label; markers of a smooth line sit on the drawn curve.
+#let boxes-out(n) = (
+  labels: range(n).map(i => "G" + str(i + 1)),
+  boxes: range(n).map(i => (
+    min: calc.round(10 + 3 * calc.sin(i * 1.1), digits: 1), q1: calc.round(30 + 5 * calc.sin(i * 0.7), digits: 1),
+    median: calc.round(45 + 6 * calc.cos(i * 0.9), digits: 1), q3: calc.round(62 + 5 * calc.sin(i * 1.3), digits: 1),
+    max: calc.round(85 + 4 * calc.cos(i * 0.5), digits: 1),
+    outliers: if calc.rem(i, 3) == 0 { (4, 96) } else { () },
+  )),
+)
+#page({
+  text(weight: "bold")[Value labels and markers]
+  v(4pt)
+  rows(
+    box-plot(boxes(12), width: W, height: H, title: "12 boxes, show-values", y-label: "Value", show-values: true),
+    box-plot(boxes(12), width: W, height: 220pt, title: "12 boxes, taller", y-label: "Value", show-values: true),
+    box-plot(boxes-out(12), width: W, height: H, title: "12 boxes with outliers", y-label: "Value", show-values: true),
+    box-plot(boxes(5), width: W, height: H, title: "5 boxes, show-values", y-label: "Value", show-values: true),
+    box-plot(boxes(24), width: W, height: H, title: "24 boxes, show-values", y-label: "Value", show-values: true),
+    box-plot(boxes(12, scale: 1000), width: W, height: H, title: "12 boxes, thousands", y-label: "Value", show-values: true),
+    box-plot(boxes(12), width: W, height: H, title: "12 boxes, dark", y-label: "Value", show-values: true, theme: themes.dark),
+    box-plot(boxes(12), width: W, height: H, title: "12 boxes, wide boxes", y-label: "Value", show-values: true, box-width: 0.8),
+    line-chart(simple(months, wave(8)), width: W, height: H, title: "smooth + fill + markers", y-label: "Value", line-interpolation: "smooth", fill-area: true, show-points: true),
+    line-chart(simple(months, wave(8)), width: W, height: H, title: "smooth r=3, values", y-label: "Value", line-interpolation: "smooth", smooth-radius: 3, show-points: true, show-values: true, fill-area: true),
+    line-chart(simple(months, wave(8)), width: W, height: H, title: "smooth, error bars", y-label: "Value", line-interpolation: "smooth", show-points: true, errors: range(8).map(i => 4 + i)),
+    line-chart(simple(months, wave(8)), width: W, height: H, title: "catmull-rom + fill + markers", y-label: "Value", line-interpolation: "catmull-rom", fill-area: true, show-points: true),
+    multi-line-chart(series2(months), width: W, height: H, title: "multi-line smooth + markers", y-label: "Value", line-interpolation: "smooth", show-points: true),
+    multi-line-chart(series2(months), width: W, height: H, title: "multi-line smooth r=2", y-label: "Value", line-interpolation: "smooth", smooth-radius: 2, show-points: true, theme: themes.dark),
   )
 })
