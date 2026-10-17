@@ -13,7 +13,9 @@
 /// - height (length): Chart height
 /// - title (none, content): Optional chart title
 /// - box-width (float): Box width as fraction of slot (0 to 1)
-/// - show-values (bool): Display five-number summary labels beside each box
+/// - show-values (bool): Display five-number summary labels beside each box. Where boxes sit
+///   too close for all five, the labels shrink (to a legible floor), then thin out to the
+///   median and extremes, then to the median alone, then none: they never touch a box or each other
 /// - show-grid (auto, bool): Draw background grid lines; `auto` uses theme default
 /// - stroke-width (auto, length): Stroke width for box outlines and whiskers; `auto` uses the theme's `stroke-mid`
 /// - outlier-radius (length): Radius of outlier marker dots
@@ -84,14 +86,61 @@
           place(left + top, dx: cx - outlier-radius, dy: py(o) - outlier-radius,
             circle(radius: outlier-radius, fill: color, stroke: none))
         }
+      }
 
-        // Five-number summary beside the box, nudged apart where values are close
-        if show-values {
-          let vals = (b.max, b.q3, b.median, b.q1, b.min)
-          let ys = spread-positions(vals.map(py), t.value-label-size * 1.1, p.y0, p.y1)
-          for (v, y) in vals.zip(ys) {
-            place(left + top, dx: cx + half-box + 3pt, dy: y,
-              box(height: 0pt, align(horizon, text(size: t.value-label-size, fill: t.text-color)[#value-text(v, t)])))
+      // Five-number summary beside each box, nudged apart where values are close. The
+      // gap to the neighbouring box sets how much fits: all five values, else the median
+      // and the extremes, else the median alone, in the text size that fits the gap
+      // (down to a legible floor; nothing is drawn when even that is too wide). What
+      // is drawn is also checked against every box, whisker, outlier and label, and
+      // moves to the box's other side or drops out rather than touch one.
+      if show-values {
+        let base = t.value-label-size
+        let sums = boxes.map(b => (b.max, b.q3, b.median, b.q1, b.min))
+        let gap-room = p.X.pitch - half-box * 2 - 3.5pt
+        let pick = none
+        for kinds in ((2, 0, 4, 1, 3), (2, 0, 4), (2,)) {
+          let w = kinds.map(k => sums.map(s => measure(text(size: base)[#value-text(s.at(k), t)]).width)).flatten().fold(0pt, calc.max)
+          let size = if w > 0pt { calc.min(base, base * (gap-room / w)) } else { base }
+          if size >= calc.min(5.5pt, base * 0.8) {
+            pick = (kinds: kinds, size: size)
+            break
+          }
+        }
+        if pick != none {
+          let lbl-size = pick.size
+          let lbl-h = lbl-size * 1.1
+          let hit(a, b) = a.x < b.x + b.w and b.x < a.x + a.w and a.y < b.y + b.h and b.y < a.y + a.h
+          let sw = stroke-width
+          let solids = ()  // what labels must stay clear of: boxes, whiskers with caps, outliers
+          for (i, b) in boxes.enumerate() {
+            let cx = px(i)
+            solids.push((x: cx - half-box, y: py(b.q3), w: half-box * 2, h: py(b.q1) - py(b.q3)))
+            solids.push((x: cx - sw / 2, y: py(b.max), w: sw, h: py(b.min) - py(b.max)))
+            for y in (py(b.min), py(b.max)) {
+              solids.push((x: cx - half-cap, y: y - sw / 2, w: half-cap * 2, h: sw))
+            }
+            for o in b.at("outliers", default: ()) {
+              solids.push((x: cx - outlier-radius, y: py(o) - outlier-radius, w: outlier-radius * 2, h: outlier-radius * 2))
+            }
+          }
+          let ys = sums.map(vals => spread-positions(vals.map(py), lbl-h, p.y0, p.y1))
+          let placed = ()
+          for k in pick.kinds {
+            for (i, vals) in sums.enumerate() {
+              let v = vals.at(k)
+              let w = measure(text(size: lbl-size)[#value-text(v, t)]).width
+              let (cx, y) = (px(i), ys.at(i).at(k))
+              for x in (cx + half-box + 2.5pt, cx - half-box - 2.5pt - w) {
+                let r = (x: x - 0.5pt, y: y - lbl-h / 2, w: w + 1pt, h: lbl-h)
+                if r.x < p.x0 or r.x + r.w > width { continue }
+                if solids.any(o => hit(o, r)) or placed.any(o => hit(o, r)) { continue }
+                placed.push(r)
+                place(left + top, dx: x, dy: y,
+                  box(height: 0pt, align(horizon, text(size: lbl-size, fill: t.text-color)[#value-text(v, t)])))
+                break
+              }
+            }
           }
         }
       }

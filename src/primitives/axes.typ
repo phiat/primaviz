@@ -26,9 +26,14 @@
 /// - pad (dictionary): `(lo: length, hi: length)`: room the axis must keep beyond
 ///   the extreme values, for labels set past the end of a bar. The axis range
 ///   widens (to the next nice tick) until that room is there.
+/// - marks (array): `(value, radius)` pairs: marks centred on `value` that reach
+///   `radius` to either side (bubbles). The axis range widens (to the next nice
+///   tick) until every mark lies inside it, so the axis line, the ticks and the
+///   plot extent stay one and the same.
 /// -> dictionary
-#let value-axis(lo, hi, title: none, color: auto, inset: 0pt, ticks: auto, labelled: true, pad: (:)) = (
-  kind: "value", lo: lo, hi: hi, title: title, color: color, inset: inset, ticks: ticks, labelled: labelled, pad: pad,
+#let value-axis(lo, hi, title: none, color: auto, inset: 0pt, ticks: auto, labelled: true, pad: (:), marks: ()) = (
+  kind: "value", lo: lo, hi: hi, title: title, color: color, inset: inset, ticks: ticks, labelled: labelled,
+  pad: pad, marks: marks,
 )
 
 /// A categorical axis with one label per category.
@@ -109,9 +114,9 @@
 }
 
 // Largest nice tick list (up to theme.tick-count targets) whose labels fit.
-#let _pick-ticks(lo, hi, room, vertical, t) = {
+#let _pick-ticks(lo, hi, room, vertical, t, most: auto) = {
   let nt = nice-ticks(lo, hi, count: 2)
-  for c in range(calc.max(t.tick-count, 2), 1, step: -1) {
+  for c in range(calc.max(if most == auto { t.tick-count } else { most }, 2), 1, step: -1) {
     nt = nice-ticks(lo, hi, count: c)
     if _ticks-fit(nt, room, vertical, t) { break }
   }
@@ -129,15 +134,39 @@
 #let resolve-value-axis(ax, extent, vertical, t) = {
   let room = extent - 2 * ax.inset
   let (pad-lo, pad-hi) = (ax.pad.at("lo", default: 0pt), ax.pad.at("hi", default: 0pt))
-  let nt = if ax.ticks == auto {
-    let nt = _pick-ticks(ax.lo, ax.hi, room, vertical, t)
-    // Widen the range by what the ends are short of (a few rounds: the ticks snap outward)
-    for _ in range(4) {
+  // Widens the range by what the ends are short of (a few rounds: the ticks snap
+  // outward). Returns the ticks and whether every mark and pad found its room.
+  let widen(most) = {
+    let nt = _pick-ticks(ax.lo, ax.hi, room, vertical, t, most: most)
+    let ok = false
+    for _ in range(6) {
       let span = nt.max - nt.min
-      let short-lo = calc.max(pad-lo - (ax.lo - nt.min) / span * room, 0pt)
-      let short-hi = calc.max(pad-hi - (nt.max - ax.hi) / span * room, 0pt)
-      if short-lo < 0.5pt and short-hi < 0.5pt { break }
-      nt = _pick-ticks(nt.min - short-lo / room * span, nt.max + short-hi / room * span, room, vertical, t)
+      let (short-lo, short-hi) = (pad-lo - (ax.lo - nt.min) / span * room, pad-hi - (nt.max - ax.hi) / span * room)
+      for (v, r) in ax.marks {
+        short-lo = calc.max(short-lo, r - (v - nt.min) / span * room)
+        short-hi = calc.max(short-hi, r - (nt.max - v) / span * room)
+      }
+      if short-lo < 0.5pt and short-hi < 0.5pt {
+        ok = true
+        break
+      }
+      nt = _pick-ticks(
+        nt.min - calc.max(short-lo, 0pt) / room * span, nt.max + calc.max(short-hi, 0pt) / room * span,
+        room, vertical, t, most: most)
+    }
+    (nt, ok)
+  }
+  let nt = if ax.ticks == auto {
+    let (nt, ok) = widen(auto)
+    // Marks (bubbles) that need room on a coarse tick step would waste a whole step:
+    // a finer step (labels permitting) that holds them in a narrower range wins
+    if ax.marks.len() > 0 {
+      for most in (t.tick-count + 2, t.tick-count + 4) {
+        let (alt, alt-ok) = widen(most)
+        if alt-ok and alt.ticks.len() <= 2 * t.tick-count + 3 and (not ok or alt.max - alt.min < (nt.max - nt.min) * 0.9) {
+          (nt, ok) = (alt, alt-ok)
+        }
+      }
     }
     nt
   } else if ax.ticks.at("thin", default: false) {

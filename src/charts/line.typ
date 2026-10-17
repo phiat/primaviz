@@ -87,6 +87,13 @@
   )
 }
 
+// Where a series' markers, value labels and error bars sit. A smooth line passes
+// through the smoothed points, not the data points, so its markers go there too
+// (otherwise they float beside the line and its fill).
+#let _on-curve(points, line-interpolation, smooth-radius) = {
+  if line-interpolation == "smooth" { _smooth-points(points, smooth-radius) } else { points }
+}
+
 // A marker on a series point.
 #let _dot(pt, size, fill, t) = place(left + top, dx: pt.at(0) - size / 2, dy: pt.at(1) - size / 2,
   circle(radius: size / 2, fill: fill, stroke: t.marker-stroke))
@@ -183,11 +190,16 @@
 
       draw-line-series(points, line-width + color, line-interpolation, smooth-radius)
 
+      // What sits on the line sits on the drawn curve
+      let raw = points
+      let points = _on-curve(points, line-interpolation, smooth-radius)
+
       // Error bars (under the points, so the marker sits on top)
       if errs != none {
         let err-stroke = t.stroke-thin + if error-color != auto { error-color } else { color }
         for (i, pt) in points.enumerate() {
-          let (y-low, y-high) = (py(values.at(i) - errs.at(i).low), py(values.at(i) + errs.at(i).high))
+          let lift = pt.at(1) - raw.at(i).at(1)
+          let (y-low, y-high) = (py(values.at(i) - errs.at(i).low) + lift, py(values.at(i) + errs.at(i).high) + lift)
           let cx = pt.at(0)
           place(left + top, line(start: (cx, y-low), end: (cx, y-high), stroke: err-stroke))
           for y in (y-low, y-high) {
@@ -267,7 +279,7 @@
         let points = s.values.enumerate().map(((i, v)) => (px(i), py(v)))
         draw-line-series(points, line-width + color, line-interpolation, smooth-radius)
         if show-points {
-          for pt in points { _dot(pt, point-size, color, t) }
+          for pt in _on-curve(points, line-interpolation, smooth-radius) { _dot(pt, point-size, color, t) }
         }
       }
     },
