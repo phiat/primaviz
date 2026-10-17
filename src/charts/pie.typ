@@ -5,7 +5,7 @@
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/polar.typ": place-wedge, separator-stroke
-#import "../primitives/polar-labels.typ": label-ink, fit-wedge-label, place-centred, place-outside-labels
+#import "../primitives/polar-labels.typ": label-ink, fit-wedge-label, place-centred, place-outside-labels, polar-label-extent
 #import "../primitives/radial.typ": side-legend, split-width, title-slack
 
 /// Renders a pie or donut chart from label-value data.
@@ -102,6 +102,14 @@
     let my-h = if ms.len() > 0 { calc.max(..ms.map(m => m.height)) + 8pt } else { 0pt }
     let my-top = if outside.any(o => calc.sin(o.angle * 1deg) < -0.5) { my-h } else { 0pt }
     let my-bot = if outside.any(o => calc.sin(o.angle * 1deg) > 0.5) { my-h } else { 0pt }
+    // Labels of a crowd are fanned along the circle, which can take them
+    // somewhere other than where they started: make room for where they land
+    if outside.len() > 0 {
+      let ext = polar-label-extent(outside, pie-r, gap: 4pt)
+      mx = calc.max(mx, ext.x - pie-r + 3pt)
+      if ext.top > pie-r + 0.5pt { my-top = calc.max(my-top, ext.top - pie-r + 4pt) }
+      if ext.bottom > pie-r + 0.5pt { my-bot = calc.max(my-bot, ext.bottom - pie-r + 4pt) }
+    }
     (inside: inside, outside: outside, mx: mx, my-top: my-top, my-bot: my-bot)
   }
   let pl = plan(size / 2)

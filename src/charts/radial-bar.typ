@@ -97,13 +97,6 @@
           get-color(t, i), stroke: separator-stroke(t))
       }
 
-      // The same circles again over the bars, in the page colour, so a bar's
-      // length can be read against the scale where the bars hide the hairlines
-      #for v in scale.ticks.filter(v => v > 0) {
-        let rr = radius-of(v)
-        place(left + top, dx: cx - rr, dy: cy - rr, circle(radius: rr, stroke: 0.5pt + bg))
-      }
-
       // Scale values, at 12 o'clock just inside their circle, on the page colour
       #for v in scale.ticks.filter(v => v > 0 and v <= scale-max) {
         let label = box(fill: bg, inset: (x: 1.5pt, y: 0.5pt), radius: 1pt,
