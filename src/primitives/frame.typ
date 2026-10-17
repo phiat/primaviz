@@ -233,7 +233,7 @@
   }
 
   chart-container(
-    width, height, title, t, fit: true, legend: legend, legend-width: legend-w,
+    width, height, title, t, legend: legend, legend-width: legend-w,
     extra-legend-separation: extra-legend-separation, subtitle: subtitle, radius: radius,
     box(width: width, height: height, {
       grid()

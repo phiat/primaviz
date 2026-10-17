@@ -4,7 +4,7 @@
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/legend.typ": draw-legend
-#import "../primitives/radial.typ": legend-room, side-legend, split-width, title-slack
+#import "../primitives/radial.typ": legend-room, side-legend, split-width
 #import "../primitives/layout.typ": resolve-size
 
 /// Renders a parliament (hemicycle) chart — a semicircle of dots showing seat distribution.
@@ -170,14 +170,10 @@
   let lg = if side-lg != none {
     side-lg
   } else if legend-on {
-    let legend = draw-legend(entries, t)
-    // Measured as the container lays it out: a paragraph gap from the hemicycle
-    let height = measure(box(width: size)[#set text(size: 11pt); #box(width: size, height: 0pt)#legend]).height
-    (legend: legend, width: 120pt, height: height, theme: t)
-  } else { (legend: none, width: 0pt, height: 0pt, theme: t) }
+    (legend: draw-legend(entries, t), width: auto, theme: t)
+  } else { (legend: none, width: 0pt, theme: t) }
 
   align(center, chart-container(size, chart-height, title, lg.theme,
-    extra-height: title-slack(title, none, lg.theme, size) + if beside { calc.max(0pt, lg.height - chart-height) } else { lg.height },
     legend: lg.legend, legend-width: lg.width)[
     #box(width: size, height: chart-height)[
       #for (i, pos) in dots.enumerate() {

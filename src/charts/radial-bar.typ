@@ -5,7 +5,6 @@
 #import "../primitives/container.typ": chart-container, container-inset
 #import "../primitives/polar.typ": place-wedge, separator-stroke
 #import "../primitives/polar-labels.typ": place-centred, place-outside-labels, polar-fit-radius, polar-label-extent, wrap-label
-#import "../primitives/radial.typ": title-slack
 #import "../primitives/layout.typ": resolve-size
 
 /// Renders a radial bar chart where each category occupies an equal angular
@@ -83,7 +82,7 @@
   let r-in = r-out * inner-radius
   let radius-of(v) = r-in + (r-out - r-in) * frac-of(v)
 
-  align(center, chart-container(box-w, box-h, title, t, extra-height: title-slack(title, none, t, box-w))[
+  align(center, chart-container(box-w, box-h, title, t)[
     #box(width: box-w, height: box-h)[
       // Scale: a hairline circle per tick, the first being the baseline
       #for v in scale.ticks {

@@ -6,7 +6,7 @@
 #import "../primitives/container.typ": chart-container, container-inset
 #import "../primitives/polar.typ": place-wedge, separator-stroke
 #import "../primitives/polar-labels.typ": label-ink, fit-wedge-label, place-centred, place-outside-labels, polar-label-extent
-#import "../primitives/radial.typ": legend-left, legend-room, side-legend, split-width, title-slack
+#import "../primitives/radial.typ": legend-left, legend-room, side-legend, split-width
 
 /// Renders a pie or donut chart from label-value data.
 ///
@@ -136,7 +136,7 @@
   // the pie's top instead of leaving it floating mid-column
   let body-h = if lg.height > 1.5 * box-h { lg.height } else { box-h }
 
-  align(center, chart-container(box-w, body-h, title, lg.theme, extra-height: title-slack(title, subtitle, lg.theme, box-w) + calc.max(0pt, lg.height - body-h), legend: lg.legend, legend-width: lg.width, subtitle: subtitle, radius: radius)[
+  align(center, chart-container(box-w, body-h, title, lg.theme, legend: lg.legend, legend-width: lg.width, subtitle: subtitle, radius: radius)[
     #box(width: box-w, height: body-h)[
       // Wedges first, then every label on top
       #if values.all(v => v == 0) {

@@ -4,7 +4,6 @@
 #import "../validate.typ": validate-wordcloud-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/polar-labels.typ": legible
-#import "../primitives/radial.typ": title-slack
 #import "../primitives/layout.typ": resolve-size
 
 // (the `color` parameter shadows the type inside the chart)
@@ -241,7 +240,7 @@
   }
 
   // Render all placed words
-  chart-container(width, height, title, t, extra-height: title-slack(title, none, t, width))[
+  chart-container(width, height, title, t)[
     #box(width: width, height: height, clip: true, inset: padding)[
       #for p in placed {
         let wd = p.word

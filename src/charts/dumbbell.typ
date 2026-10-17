@@ -3,10 +3,9 @@
 #import "../util.typ": nonzero, nice-ticks
 #import "../validate.typ": validate-dumbbell-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/legend.typ": draw-legend-auto
+#import "../primitives/legend.typ": draw-legend-auto, legend-max-width
 #import "../primitives/layout.typ": resolve-size, max-text-width
 #import "../primitives/rows.typ": row-layout, row-y, end-reserves, end-label, row-value-size, value-str, linear-x-ticks, draw-x-axis, x-axis-extent, tick-label-width
-#import "../primitives/reserve.typ": container-extra
 
 /// Renders a dumbbell chart showing range or before/after comparisons.
 ///
@@ -85,14 +84,14 @@
   let start-color = get-color(t, 0)
   let end-color = get-color(t, 1)
 
-  // The legend keys the marks, so its swatches are as big as the dots
+  // The legend keys the marks, so its swatches are the dots' size (the theme's
+  // `legend-swatch-size`; `legend-swatch-size()` caps it at 3/4 of the legend text)
   let legend-content = draw-legend-auto(
     ((name: start-label, color: start-color), (name: end-label-name, color: end-color)),
-    (..t, legend-swatch-size: dot-d), swatch-type: "circle",
+    (..t, legend-swatch-size: dot-d), swatch-type: "circle", fit-width: true, max-width: legend-max-width(width, t),
   )
-  let extra = container-extra(width, height, title, t, legend: legend-content, extra-legend-separation: extra-legend-separation)
 
-  chart-container(width, height, title, t, extra-height: extra, legend: legend-content, extra-legend-separation: extra-legend-separation)[
+  chart-container(width, height, title, t, legend: legend-content, extra-legend-separation: extra-legend-separation)[
     #box(width: width, height: height)[
       // Light row guides carry the eye from label to dots
       #for i in range(n) {

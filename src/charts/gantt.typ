@@ -3,9 +3,8 @@
 #import "../validate.typ": validate-gantt-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/layout.typ": resolve-size, text-width, text-height, label-stride, max-text-width, place-centered
-#import "../primitives/legend.typ": draw-legend
+#import "../primitives/legend.typ": draw-legend-auto, legend-max-width
 #import "../primitives/rows.typ": row-layout, row-y, draw-x-axis, x-axis-extent
-#import "../primitives/reserve.typ": container-extra
 
 /// Renders a Gantt chart — a timeline bar chart for project scheduling.
 ///
@@ -108,11 +107,10 @@
     if spots.all(sp => sp.x != none) { spots } else { none }
   } else { none }
   let legend = if show-legend and has-groups and direct == none {
-    draw-legend(group-names.enumerate().map(((i, g)) => (name: g, color: get-color(t, i))), t)
+    draw-legend-auto(group-names.enumerate().map(((i, g)) => (name: g, color: get-color(t, i))), t, fit-width: true, max-width: legend-max-width(width, t))
   } else { none }
-  let extra = container-extra(width, body-height, title, t, legend: legend, extra-legend-separation: extra-legend-separation)
 
-  chart-container(width, body-height, title, t, extra-height: extra, legend: legend, extra-legend-separation: extra-legend-separation)[
+  chart-container(width, body-height, title, t, legend: legend, extra-legend-separation: extra-legend-separation)[
     #box(width: width, height: body-height)[
       // Column boundaries as light grid lines, thinned when columns are narrow
       #if show-grid {

@@ -88,7 +88,7 @@
   let x-of(v) = x0 + (v - alo) / span * lay.plot-w
   let vsize = if show-values { fit-row-size(lay.row-h, t.value-label-size) }
 
-  chart-container(width, height, title, t, fit: true, extra-legend-separation: extra-legend-separation,
+  chart-container(width, height, title, t, extra-legend-separation: extra-legend-separation,
     box(width: width, height: height, place(left + top, dx: band, box(width: inner-w, height: height, {
       draw-x-axis(linear-x-ticks(nt, alo, ahi, x0, x1, t), lay.y1, t, x0: x0, x1: x1, grid-top: lay.y0, title: x-label)
       // The zero line is the category axis

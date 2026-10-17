@@ -6,7 +6,7 @@
 #import "../primitives/layout.typ": resolve-size
 #import "../primitives/polar.typ": polar-pt
 #import "../primitives/polar-labels.typ": legible, polar-fit-radius, polar-label-extent, place-outside-labels, wrap-label
-#import "../primitives/radial.typ": side-legend, split-width, title-slack
+#import "../primitives/radial.typ": side-legend, split-width
 
 /// Renders a radar (spider) chart for comparing series across multiple axes.
 ///
@@ -80,7 +80,7 @@
     str(calc.round(v, digits: if max-val >= 20 { 0 } else if max-val >= 2 { 1 } else { 2 }))
   }
 
-  align(center, chart-container(size, box-h, title, lg.theme, extra-height: title-slack(title, none, lg.theme, size) + calc.max(0pt, lg.height - box-h),
+  align(center, chart-container(size, box-h, title, lg.theme,
     legend: lg.legend, legend-width: lg.width, extra-legend-separation: extra-legend-separation)[
     #box(width: size, height: box-h)[
       // Grid rings

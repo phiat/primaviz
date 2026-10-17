@@ -4,7 +4,6 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/polar.typ": arc-points, place-wedge, polar-pt, separator-stroke
 #import "../primitives/polar-labels.typ": place-outside-labels, polar-fit-radius, wrap-label
-#import "../primitives/radial.typ": title-slack
 #import "../primitives/layout.typ": resolve-size
 
 /// Renders a chord diagram showing relationships and flows between entities
@@ -52,7 +51,7 @@
 
   // Nothing to draw if all flows are zero
   if grand-total == 0 {
-    return align(center, chart-container(size, size, title, t, extra-height: title-slack(title, none, t, size))[
+    return align(center, chart-container(size, size, title, t)[
       #box(width: size, height: size)[
         #place(center + horizon, text(size: t.axis-label-size, fill: t.text-color-light)[No flow data])
       ]
@@ -118,7 +117,7 @@
     (..arc-points(cx, cy, inner-r, c.src.at(0), c.dst.at(1), steps: 14),
      ..curve(c.dst.at(1), c.src.at(0), via: polar-pt(cx, cy, inner-r * 0.3, mid)))
   }
-  align(center, chart-container(size, size, title, t, extra-height: title-slack(title, none, t, size))[
+  align(center, chart-container(size, size, title, t)[
     #box(width: size, height: size)[
       // Chords, largest first, behind the arcs: translucent tints of their
       // source colour, so crossings stay readable and no outline is needed
