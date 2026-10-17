@@ -249,3 +249,51 @@
   [#set text(size: 14pt)
    #waffle-chart((labels: ("Yes", "No"), values: (72, 28)), size: 130pt, title: "waffle 14pt")],
 ))
+
+#pagebreak()
+= Dense rows, funnel sweep
+
+// Funnel: every stage count from 2 to 20 in the harness size (a 354pt by 150pt
+// body). Outside labels get their measured column; none wraps into a sliver,
+// none overlaps, a stage is left unlabelled only when no label could fit.
+#let fn-stages(n) = (labels: range(n).map(i => "Stage " + str(i + 1)), values: range(n).map(i => calc.round(10000 * calc.pow(0.8, i))))
+#two-col((2, 3, 5, 8, 12, 16, 20).map(n => funnel-chart(fn-stages(n), width: 354pt, height: 150pt, title: str(n) + " stages, 150pt high")))
+#two-col((
+  funnel-chart(fn-stages(12), width: 354pt, height: 150pt, title: "12 stages, compact", theme: themes.compact),
+  funnel-chart(fn-stages(12), width: 354pt, height: 150pt, title: "12 stages, dark", theme: themes.dark),
+  funnel-chart(fn-stages(12), width: 354pt, title: "12 stages, auto height"),
+  funnel-chart((labels: ("Visited the marketing website", "Started a free trial of the product", "Invited at least one teammate", "Entered payment details", "Converted to a paid plan"), values: (9000, 3400, 1800, 760, 410)),
+    width: 354pt, height: 150pt, title: "long labels"),
+  funnel-chart((labels: ("Visited the marketing website", "Started a free trial of the product", "Invited at least one teammate", "Entered payment details", "Converted to a paid plan"), values: (9000, 3400, 1800, 760, 410)),
+    width: 170pt, height: 190pt, title: "long labels, narrow"),
+  funnel-chart(fn-stages(8), width: 354pt, height: 150pt, title: "no values", show-values: false, show-percentages: false),
+))
+
+// Dense row charts in a short body: labels shrink with the pitch before any is
+// dropped, then thin evenly (first and last always shown).
+#let cities-d = ("Austin", "Boston", "Chicago", "Denver", "El Paso", "Fresno", "Galway", "Houston", "Irvine", "Juneau",
+  "Kansas", "Lisbon", "Madrid", "Nashville", "Oslo", "Paris", "Quito", "Rome", "Seoul", "Tokyo", "Utrecht", "Vienna",
+  "Warsaw", "Xian", "York", "Zurich", "Accra", "Berlin", "Cairo", "Dakar", "Essen", "Faro", "Graz", "Hanoi", "Izmir",
+  "Jaipur", "Kyoto", "Lagos", "Milan", "Nice")
+#let dense-rows(n) = (labels: cities-d.slice(0, n), start-values: range(n).map(i => calc.rem(i * 7, 41) + 10),
+  end-values: range(n).map(i => calc.rem(i * 11, 47) + 30), start-label: "2023", end-label: "2024")
+#two-col((
+  dumbbell-chart(dense-rows(24), width: 354pt, height: 150pt, title: "dumbbell, 24 rows"),
+  dumbbell-chart(dense-rows(40), width: 354pt, height: 150pt, title: "dumbbell, 40 rows (thinned)"),
+  diverging-bar-chart((labels: cities-d.slice(0, 25), left-values: range(25).map(i => calc.rem(i * 7, 23) + 5), right-values: range(25).map(i => calc.rem(i * 11, 29) + 12), left-label: "Disagree", right-label: "Agree"),
+    width: 354pt, height: 150pt, title: "diverging, 25 rows"),
+  diverging-bar-chart((labels: cities-d.slice(0, 40), left-values: range(40).map(i => calc.rem(i * 7, 23) + 5), right-values: range(40).map(i => calc.rem(i * 11, 29) + 12)),
+    width: 354pt, height: 150pt, title: "diverging, 40 rows (thinned)"),
+  gantt-chart((tasks: range(24).map(i => (name: "Task " + str(i + 1) + " " + cities-d.at(i), start: calc.rem(i * 3, 22), end: calc.rem(i * 3, 22) + 2 + calc.rem(i * 5, 6), group: ("Plan", "Build", "QA", "Ship").at(calc.rem(i, 4))))),
+    width: 354pt, height: 150pt, bar-height: 6pt, gap: 2pt, title: "gantt, 24 tasks", show-legend: true),
+  gantt-chart((tasks: range(40).map(i => (name: "Task " + str(i + 1), start: calc.rem(i * 3, 22), end: calc.rem(i * 3, 22) + 3))),
+    width: 354pt, height: 150pt, bar-height: 4pt, gap: 1pt, title: "gantt, 40 tasks (thinned)"),
+  heatmap((rows: range(20).map(i => "R" + str(i + 1)), cols: range(20).map(i => "C" + str(i + 1)), values: range(20).map(i => range(20).map(j => calc.rem(i * 7 + j * 13, 100)))),
+    cell-size: 9pt, title: "heatmap 20 x 20"),
+  heatmap((rows: range(30).map(i => "R" + str(i + 1)), cols: range(30).map(i => "C" + str(i + 1)), values: range(30).map(i => range(30).map(j => calc.rem(i * 7 + j * 13, 100)))),
+    cell-size: 7pt, title: "heatmap 30 x 30 (vertical columns)"),
+  heatmap((rows: range(60).map(i => "R" + str(i + 1)), cols: range(60).map(i => "C" + str(i + 1)), values: range(60).map(i => range(60).map(j => calc.rem(i * 7 + j * 13, 100)))),
+    cell-size: 4pt, title: "heatmap 60 x 60 (thinned)"),
+  correlation-matrix((labels: range(20).map(i => "V" + str(i + 1)), values: range(20).map(i => range(20).map(j => if i == j { 1.0 } else { calc.round(calc.pow(0.85, calc.abs(i - j)), digits: 2) }))),
+    cell-size: 9pt, title: "correlation 20 x 20"),
+))

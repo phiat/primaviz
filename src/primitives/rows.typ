@@ -18,7 +18,7 @@
 
 #import "../theme.typ": *
 #import "../util.typ": nice-ticks, format-number
-#import "fonts.typ": text-width, text-height, max-text-width, fit-font-size, label-stride, pin, place-centered
+#import "fonts.typ": text-width, text-height, max-text-width, fit-font-size, label-stride, thin-indices, fit-pitch, pin, place-centered
 #import "axes.typ": draw-axis-titles, measure-x-tick-height
 
 // ---------------------------------------------------------------------------
@@ -112,14 +112,25 @@
 ///
 /// The label column is as wide as the widest label *measured* at the label
 /// size, never wider than `label-frac` of the chart. A label that is wider
-/// shrinks (down to 75% of its size, never under 6pt), then wraps. When rows
-/// are so tight that a readable label does not fit its row, only every Nth
-/// label is drawn (`label-stride`).
+/// shrinks (down to 75% of its size, never under 6pt), then wraps.
+///
+/// Dense rows follow one policy, in this order, so a label is never dropped
+/// while a smaller one would do:
+///
+/// 1. the row pitch is the caller's (`resolve-size(rows: true)` grows the
+///    natural height with the row count, so `height: auto` stays legible);
+/// 2. the label size shrinks with the pitch (one line of text per row, room
+///    for descenders), down to `min-label-size`;
+/// 3. only when even that does not fit are labels thinned: spread evenly
+///    over all rows, the first and the last always shown (`thin-indices`).
 ///
 /// Returns a dictionary:
 /// - `labels`: content to place at the origin of the chart box, the row labels
 ///   right-aligned against the column, each centred on its row
-/// - `label-w`, `label-size`, `label-stride`: what was resolved
+/// - `label-w`, `label-size`: what was resolved
+/// - `label-stride`: 1 when every row is labelled, else the least number of rows
+///   between two labels
+/// - `shown`: indices of the rows that are labelled
 /// - `x0`, `x1`, `plot-w`: horizontal extent of the plot area (after the label
 ///   column, the gap and the insets)
 /// - `y0`, `y1`, `row-h`: vertical extent of the rows and the height of one row;
@@ -139,6 +150,7 @@
 /// - pad-bottom (length): Band reserved below the rows (axis)
 /// - pitch (auto, length): Fixed row height; `auto` shares `height - pad-top - pad-bottom` among the rows
 /// - label-fill (auto, color): Label colour (`auto` is the theme's `text-color`)
+/// - min-label-size (length): Smallest label size before labels are thinned out
 /// -> dictionary
 #let row-layout(
   width,
@@ -155,6 +167,7 @@
   pad-bottom: 0pt,
   pitch: auto,
   label-fill: auto,
+  min-label-size: 5pt,
 ) = {
   let n = labels.len()
   let gap = if gap == auto { theme.axis-label-gap } else { gap }
@@ -162,17 +175,15 @@
   let fill = if label-fill == auto { theme.text-color } else { label-fill }
   let row-h = if pitch == auto { (height - pad-top - pad-bottom) / calc.max(n, 1) } else { pitch }
 
-  // A label has to fit its row: cap the size, and past a readable floor thin out
-  let floor-size = 5pt
-  let size = calc.min(base, row-h * 0.85)
-  let stride = 1
-  if size < floor-size {
-    size = floor-size
-    stride = int(calc.ceil(size * 1.3 / row-h))
-  }
+  // A label has to fit its row: shrink with the pitch, thin out past the floor
+  let floor-size = min-label-size
+  let fit = fit-pitch(row-h, base, floor: floor-size)
+  let size = fit.size
+  let stride = fit.stride
+  let kept = thin-indices(n, stride)
 
   // Widest shown label, measured; shrink, then wrap
-  let shown = labels.enumerate().filter(((i, _)) => calc.rem(i, stride) == 0).map(((_, l)) => l)
+  let shown = labels.enumerate().filter(((i, _)) => i in kept).map(((_, l)) => l)
   let cap = width * label-frac
   let widest = if shown.len() > 0 { shown.fold(shown.first(), (a, b) => if text-width(b, size, weight: label-weight) > text-width(a, size, weight: label-weight) { b } else { a }) } else { "" }
   let w = text-width(widest, size, weight: label-weight)
@@ -193,7 +204,7 @@
   let y1 = y0 + n * row-h
 
   let drawn = for (i, l) in labels.enumerate() {
-    if calc.rem(i, stride) != 0 { continue }
+    if i not in kept { continue }
     place-centered(0pt, y0 + (i + 0.5) * row-h,
       text(size: size, weight: label-weight, fill: fill)[#l], width: label-w, align: right)
   }
@@ -203,6 +214,7 @@
     label-w: label-w,
     label-size: size,
     label-stride: stride,
+    shown: kept,
     gap: gap,
     x0: x0,
     x1: x1,
