@@ -2,6 +2,26 @@
 
 #import "../theme.typ": *
 
+/// Room annotations need outside the plot: `right` for the labels beside
+/// horizontal lines, `top` for those above vertical lines (already within the
+/// frame's top margin).
+///
+/// - annotations (none, array): Annotation descriptors
+/// - theme (dictionary): Resolved theme
+/// -> dictionary
+#let annotation-reserve(annotations, theme) = {
+  let right = 0pt
+  if annotations != none {
+    for ann in annotations {
+      let label = ann.at("label", default: none)
+      if ann.at("type", default: "h-line") == "h-line" and label != none {
+        right = calc.max(right, measure(text(size: theme.axis-label-size * 0.85)[#label]).width + 5pt)
+      }
+    }
+  }
+  (right: right, top: 0pt)
+}
+
 // Draw annotations on a cartesian chart.
 // Annotations are drawn relative to the chart coordinate system.
 // Parameters:
@@ -61,9 +81,11 @@
         line(start: (px, y-start), end: (px, y-start + chart-height), stroke: stroke-style)
       )
       if ann-label != none {
-        place(left + top, dx: px - 10pt, dy: y-start - 12pt,
-          text(size: theme.axis-label-size * 0.85, fill: ann-color)[#ann-label]
-        )
+        // Centred over the line, kept inside the plot's width
+        let lbl = text(size: theme.axis-label-size * 0.85, fill: ann-color)[#ann-label]
+        let w = measure(lbl).width
+        let x0 = calc.max(x-start, calc.min(px - w / 2, x-start + chart-width - w))
+        place(left + top, dx: x0, dy: y-start - 12pt, lbl)
       }
     } else if ann-type == "h-band" {
       let from-val = ann.from
@@ -83,10 +105,11 @@
       }
     } else if ann-type == "label" {
       let (px, py) = to-px(ann.x, ann.y)
-      let label-text = ann.text
-      place(left + top, dx: px + 3pt, dy: py - 8pt,
-        text(size: theme.axis-label-size, fill: ann-color, weight: "bold")[#label-text]
-      )
+      let lbl = text(size: theme.axis-label-size, fill: ann-color, weight: "bold")[#ann.text]
+      let w = measure(lbl).width
+      // Beside the dot, on its left when it would run past the plot's right edge
+      let flip = px + 3pt + w > x-start + chart-width and px - 3pt - w >= x-start
+      place(left + top, dx: if flip { px - 3pt - w } else { px + 3pt }, dy: py - 8pt, lbl)
       // Small dot at the point
       place(left + top, dx: px - 2pt, dy: py - 2pt,
         circle(radius: 2pt, fill: ann-color)
@@ -120,9 +143,10 @@
         circle(radius: radius, fill: fill-color, stroke: stroke-val)
       )
       if ann-label != none {
-        place(left + top, dx: px + radius + 2pt, dy: py - 6pt,
-          text(size: theme.axis-label-size * 0.85, fill: ann-color)[#ann-label]
-        )
+        let lbl = text(size: theme.axis-label-size * 0.85, fill: ann-color)[#ann-label]
+        let w = measure(lbl).width
+        let flip = px + radius + 2pt + w > x-start + chart-width and px - radius - 2pt - w >= x-start
+        place(left + top, dx: if flip { px - radius - 2pt - w } else { px + radius + 2pt }, dy: py - 6pt, lbl)
       }
     } else if ann-type == "errorbar" {
       // Error bar at anchor with cap lines at each end.

@@ -7,9 +7,18 @@
 /// Charts should use theme.container-inset instead.
 #let container-inset = 8pt
 
+/// Space between a chart and a legend beside it.
+#let legend-gap = 10pt
+
 // Wraps chart body in a box with optional background/border and title.
 // Adds inset padding so light and dark themes render at the same outer size.
-#let chart-container(width, height, title, theme, extra-height: 0pt, legend: none, legend-width: 120pt, extra-legend-separation: 0pt, subtitle: none, radius: 0pt, body) = {
+//
+// By default the outer height is `height + extra-height + title-overhead`, an
+// estimate the caller has to get right. With `fit: true` the container instead
+// takes the height of what it holds (title, legend and a `height`-tall body), so
+// nothing has to be guessed and nothing can overflow. In fit mode
+// `legend-width: auto` sizes a side legend to its content.
+#let chart-container(width, height, title, theme, extra-height: 0pt, legend: none, legend-width: 120pt, extra-legend-separation: 0pt, subtitle: none, radius: 0pt, fit: false, body) = {
   let has-bg = theme.background != none
   let pad = theme.at("container-inset", default: container-inset)
   let has-subtitle = subtitle != none
@@ -17,10 +26,10 @@
   let title-overhead = if title != none { theme.title-size + theme.title-gap + 4pt + subtitle-overhead } else { if has-subtitle { subtitle-overhead + theme.title-gap + 4pt } else { 0pt } }
   let lp = theme.legend-position
   let side-legend = (lp == "right" or lp == "left") and legend != none
-  let legend-gap = if side-legend { 10pt } else { 0pt }
-  box(
-    width: if side-legend { width + legend-gap + legend-width + 2 * pad } else { width + 2 * pad },
-    height: height + extra-height + title-overhead + 2 * pad,
+  let gap = if side-legend { legend-gap } else { 0pt }
+  let build(legend-width) = box(
+    width: if side-legend { width + gap + legend-width + 2 * pad } else { width + 2 * pad },
+    height: if fit { auto } else { height + extra-height + title-overhead + 2 * pad },
     fill: theme.background,
     stroke: theme.border,
     inset: pad,
@@ -70,4 +79,9 @@
       }
     }
   ]
+  if fit and side-legend and legend-width == auto {
+    context build(measure(legend).width)
+  } else {
+    build(legend-width)
+  }
 }
