@@ -3,7 +3,7 @@
 #import "../util.typ": normalize-data, nonzero, contrast-text
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/layout.typ": resolve-size, text-width, fit-font-size, spread-1d, place-centered, spread-indices
+#import "../primitives/layout.typ": resolve-size, text-width, fit-font-size, spread-labels, place-centered
 #import "../primitives/rows.typ": value-str
 #import "../primitives/reserve.typ": container-extra
 
@@ -186,16 +186,12 @@
     (body: b, h: measure(box(width: out-w, b)).height)
   })
 
-  // The column is spread by the tallest label; if they cannot all fit even
-  // so, keep as many as fit, spread evenly (first and last kept), rather than
-  // let them overlap
+  // The column is spread by the tallest label, with room for descenders; if
+  // they cannot all fit even so, as many as fit are kept, spread evenly (first
+  // and last kept), rather than let them overlap
   let h-out = out-bodies.fold(0pt, (acc, b) => calc.max(acc, b.h))
-  let sep = h-out + 0.3 * st.size  // room for descenders
-  let cap-n = calc.max(1, int(calc.floor((height - h-out) / sep)) + 1)
-  let keep = spread-indices(outs.len(), cap-n)
-  let out-ys = spread-1d(
-    keep.map(j => mid-y(outs.at(j))), sep,
-    lo: h-out / 2, hi: height - h-out / 2)
+  let desc = 0.3 * st.size
+  let out-ys = spread-labels(outs.map(mid-y), sizes: h-out, gap: desc, min-gap: desc, lo: 0pt, hi: height)
 
   let extra = container-extra(width, height, title, t)
   chart-container(width, height, title, t, extra-height: extra)[
@@ -227,10 +223,10 @@
       }
 
       // Outside labels: one column, joined to their stage by a leader
-      #for (kk, j) in keep.enumerate() {
-        let i = outs.at(j)
+      #for (j, i) in outs.enumerate() {
+        let ly = out-ys.at(j)
+        if ly == none { continue }
         let edge = cx + (tops.at(i) + bots.at(i)) / 2 + 3pt
-        let ly = out-ys.at(kk)
         place(left + top, line(start: (edge, mid-y(i)), end: (out-x - 3pt, ly), stroke: t.stroke-thin + t.text-color-light))
         place-centered(out-x, ly, out-bodies.at(j).body, width: out-w, align: left)
       }

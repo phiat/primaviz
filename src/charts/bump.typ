@@ -2,9 +2,9 @@
 #import "../theme.typ": _resolve-ctx, get-color
 #import "../validate.typ": validate-series-data
 #import "../primitives/frame.typ": cartesian-frame
-#import "../primitives/axes.typ": value-axis, category-axis, spread-apart
+#import "../primitives/axes.typ": value-axis, category-axis
 #import "../primitives/legend.typ": draw-legend-auto, legend-max-width
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/layout.typ": resolve-size, spread-labels
 #import "../primitives/paths.typ": draw-polyline
 
 /// Renders a bump chart showing how items change ranking over time periods.
@@ -80,7 +80,8 @@
       let (px, py) = (p.px, p.py)
 
       // End labels: where each series ends, nudged apart so none touch (ties share a
-      // position). Labels of the first period and of the last are spread separately.
+      // position). Labels of the first period and of the last are spread separately; the
+      // room grows (`extra`) so that every label has a place.
       // The text shrinks (to a floor) when the series are more than the plot's height holds
       let lbl-h0 = measure(text(size: t.axis-label-size, weight: "bold", top-edge: "ascender", bottom-edge: "descender")[Ag]).height
       let lbl-size = calc.max(
@@ -90,7 +91,7 @@
       let spread(ranks) = {
         let need = (ranks.len() - 1) * lbl-h
         let extra = calc.max(0pt, need - (p.y1 - p.y0)) / 2
-        spread-apart(ranks.map(r => py(-r)), lbl-h, p.y0 - extra, p.y1 + extra)
+        spread-labels(ranks.map(r => py(-r)), gap: lbl-h, lo: p.y0 - extra, hi: p.y1 + extra)
       }
       let first-ys = spread(series.map(s => s.values.first()))
       let last-ys = spread(series.map(s => s.values.last()))

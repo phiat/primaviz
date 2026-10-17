@@ -2,8 +2,8 @@
 #import "../theme.typ": _resolve-ctx, get-color
 #import "../validate.typ": validate-boxplot-data
 #import "../primitives/frame.typ": cartesian-frame
-#import "../primitives/axes.typ": value-axis, category-axis, spread-apart, value-text, compact-text
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/axes.typ": value-axis, category-axis, value-text, compact-text
+#import "../primitives/layout.typ": resolve-size, spread-labels
 
 /// Renders a box-and-whisker plot for comparing distributions.
 ///
@@ -137,7 +137,7 @@
           // Beside a box, the values of that box keep clear of each other
           let ys = sums.map(vals => {
             let ks = kinds.sorted()
-            let spread = spread-apart(ks.map(k => py(vals.at(k))), lbl-h, p.y0, p.y1)
+            let spread = spread-labels(ks.map(k => py(vals.at(k))), gap: lbl-h, lo: p.y0, hi: p.y1)
             let out = (:)
             for (j, k) in ks.enumerate() { out.insert(str(k), spread.at(j)) }
             out
@@ -156,6 +156,7 @@
               )
               if k == 0 or k == 4 { spots.push((cx - w / 2, v-edge, if k == 0 { "above" } else { "below" })) }
               for (x0, yc, pos) in spots {
+                if yc == none { continue }  // no room beside the box for this value
                 // above or below a whisker the label may slide to stay inside the plot
                 let x = if pos == "beside" { x0 } else { calc.min(calc.max(x0, p.x0 + 1.5pt), width - w - 1.5pt) }
                 let r = (x: x - 0.5pt, y: yc - lbl-h / 2, w: w + 1pt, h: lbl-h)

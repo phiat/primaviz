@@ -1,7 +1,7 @@
 // annotations.typ - Overlay annotations for cartesian charts
 
 #import "../theme.typ": *
-#import "axes.typ": spread-apart
+#import "fonts.typ": spread-labels
 
 // Whether two `(x, y, w, h)` boxes overlap.
 #let _hit(a, b) = a.x < b.x + b.w and b.x < a.x + a.w and a.y < b.y + b.h and b.y < a.y + a.h
@@ -77,8 +77,8 @@
     let heights = h-idx.map(i => _line-h(small))
     let cap = h-idx.map(i => measure(small-label(annotations.at(i))).height)
     let centres = h-idx.enumerate().map(((k, i)) => to-px(0, annotations.at(i).value).at(1) - 5pt + cap.at(k) / 2)
-    let spread = spread-apart(centres, 0pt, y-start - 3pt, y-start + chart-height + 3pt, sizes: heights)
-    for (k, i) in h-idx.enumerate() { h-top.insert(str(i), spread.at(k) - cap.at(k) / 2) }
+    let spread = spread-labels(centres, sizes: heights, lo: y-start - 3pt, hi: y-start + chart-height + 3pt)
+    for (k, i) in h-idx.enumerate() { if spread.at(k) != none { h-top.insert(str(i), spread.at(k) - cap.at(k) / 2) } }
   }
   // Labels above vertical lines: spread along the top, kept inside the plot's width
   let v-idx = annotations.enumerate().filter(((_, a)) => kind-of(a) == "v-line" and a.at("label", default: none) != none).map(((i, _)) => i)
@@ -89,8 +89,8 @@
       let px = to-px(annotations.at(i).value, 0).at(0)
       calc.max(x-start + widths.at(k) / 2, calc.min(px, right-edge - widths.at(k) / 2))
     })
-    let spread = spread-apart(centres, 3pt, x-start, right-edge, sizes: widths)
-    for (k, i) in v-idx.enumerate() { v-left.insert(str(i), spread.at(k) - widths.at(k) / 2) }
+    let spread = spread-labels(centres, sizes: widths, gap: 3pt, lo: x-start, hi: right-edge)
+    for (k, i) in v-idx.enumerate() { if spread.at(k) != none { v-left.insert(str(i), spread.at(k) - widths.at(k) / 2) } }
   }
 
   // Free-standing text (`label`, `content`): boxes as first placed, then moved up or
@@ -176,7 +176,7 @@
       place(left + top,
         line(start: (x-start, py), end: (x-start + chart-width, py), stroke: stroke-style)
       )
-      if ann-label != none {
+      if ann-label != none and str(idx) in h-top {
         let lbl-top = h-top.at(str(idx))
         // A label that had to move off its line keeps a leader to it
         if calc.abs(lbl-top - (py - 5pt)) > 1.5pt {
@@ -191,7 +191,7 @@
       place(left + top,
         line(start: (px, y-start), end: (px, y-start + chart-height), stroke: stroke-style)
       )
-      if ann-label != none {
+      if ann-label != none and str(idx) in v-left {
         // Over the line (or as near as its neighbours allow), in the room above the plot
         let lbl = text(size: small, fill: ann-color, top-edge: "ascender", bottom-edge: "descender")[#ann-label]
         let (w, lh) = (measure(lbl).width, measure(lbl).height)

@@ -385,3 +385,21 @@
   dumbbell-chart((labels: range(30).map(i => "Row " + str(i + 1)), start-values: range(30).map(i => calc.rem(i * 7, 41) + 10), end-values: range(30).map(i => calc.rem(i * 11, 47) + 30)),
     width: 354pt, height: 150pt, title: "dumbbell, 30 rows", show-values: true),
 ))
+
+#pagebreak()
+= Direct labels that find no room: smaller, then thinned, never overlapping
+
+#let slope-n(n) = (labels: range(n).map(i => "Item " + str(i + 1)), start-values: range(n).map(i => calc.rem(i * 37, 61) + 10),
+  end-values: range(n).map(i => calc.rem(i * 53, 67) + 25), start-label: "2023", end-label: "2024")
+#let fan(n) = (
+  nodes: ("Total",) + range(n).map(i => "Destination " + str(i + 1)),
+  flows: range(n).map(i => (from: 0, to: i + 1, value: n - i + 2)),
+)
+#two-col((
+  slope-chart(slope-n(20), width: 354pt, height: 150pt, title: "slope, 20 rows: smaller type, every label"),
+  slope-chart(slope-n(45), width: 354pt, height: 150pt, title: "slope, 45 rows: labels thinned"),
+  waffle-chart((labels: range(12).map(i => "Category " + str(i + 1)), values: range(12).map(i => 12 - i)), size: 120pt, title: "waffle, 12 names: legend"),
+  waffle-chart((labels: range(5).map(i => "Cat " + str(i + 1)), values: (40, 30, 15, 10, 5)), size: 90pt, title: "waffle, 5 names in 90pt"),
+  sankey-chart(fan(18), width: 354pt, height: 150pt, title: "sankey, 18 outputs in 150pt: smallest left out"),
+  sankey-chart(fan(8), width: 354pt, height: 150pt, title: "sankey, 8 outputs"),
+))

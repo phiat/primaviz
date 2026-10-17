@@ -4,7 +4,7 @@
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/legend.typ": draw-legend-vertical
-#import "../primitives/layout.typ": resolve-size, max-text-width, text-height, spread-1d, place-centered
+#import "../primitives/layout.typ": resolve-size, max-text-width, text-height, spread-labels, place-centered
 #import "../primitives/reserve.typ": container-extra
 
 /// Renders a waffle chart — a grid of squares where each square represents
@@ -68,7 +68,8 @@
   let lsz = t.legend-size
   let sw = lsz * 0.8
   let direct-w = if show-legend and n > 0 { sw + 4pt + max-text-width(legend-entries, lsz) + 2pt } else { 0pt }
-  let direct = show-legend and n > 0 and (avail-w == none or direct-w <= avail-w * 0.4)
+  let lh = calc.max(sw, text-height("Mg", lsz)) + 3pt
+  let direct = show-legend and n > 0 and (avail-w == none or direct-w <= avail-w * 0.4) and n * lh <= size
   let legend-w = if show-legend and n > 0 and not direct {
     let natural = t.legend-swatch-size + 3pt + max-text-width(legend-entries, t.legend-size) + 2pt
     if avail-w != none { calc.min(natural, avail-w * 0.4) } else { natural }
@@ -150,8 +151,7 @@
       let bot-row = row-of(a)
       ((top-row + bot-row + 1) / 2) * pitch - gap / 2
     })
-    let lh = calc.max(sw, text-height("Mg", lsz)) + 3pt
-    let ys = spread-1d(centres, lh, lo: lh / 2, hi: grid-height - lh / 2)
+    let ys = spread-labels(centres, sizes: lh, lo: 0pt, hi: grid-height, priority: cell-counts)
     let body-w = grid-width + 10pt + direct-w
     let extra = container-extra(body-w, grid-height, title, wt, extra-legend-separation: extra-legend-separation)
     align(center, chart-container(body-w, grid-height, title, wt, extra-height: extra, extra-legend-separation: extra-legend-separation)[
@@ -159,9 +159,9 @@
         #place(left + top, cells)
         #for k in range(n) {
           let pct = str(percentages.at(k)) + "%"
-          place-centered(grid-width + 10pt, ys.at(k), grid(columns: (auto, auto), column-gutter: 4pt, align: horizon,
+          if ys.at(k) != none { place-centered(grid-width + 10pt, ys.at(k), grid(columns: (auto, auto), column-gutter: 4pt, align: horizon,
             rect(width: sw, height: sw, fill: get-color(t, k), radius: 1pt),
-            text(size: lsz, fill: t.text-color)[#labels.at(k)#if show-values [ #text(fill: t.text-color-light)[#pct]]]))
+            text(size: lsz, fill: t.text-color)[#labels.at(k)#if show-values [ #text(fill: t.text-color-light)[#pct]]])) }
         }
       ]
     ])

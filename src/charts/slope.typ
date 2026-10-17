@@ -3,7 +3,7 @@
 #import "../util.typ": nonzero
 #import "../validate.typ": validate-slope-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/layout.typ": resolve-size, pin, text-width, text-height, fit-font-size, spread-1d
+#import "../primitives/layout.typ": resolve-size, pin, text-width, text-height, fit-font-size, spread-labels
 #import "../primitives/rows.typ": value-str
 #import "../primitives/reserve.typ": container-extra
 
@@ -59,7 +59,13 @@
   let dot-r = dot-size / 2
   let stem = dot-r + 6pt  // dot centre to label edge; the leader crosses it
 
-  // Label size: shrink so each side's longest label takes at most 30% of the chart
+  // Column headers over each axis
+  let head-size = t.axis-title-size
+  let head-h = text-height(start-label, head-size, weight: "bold")
+  let pad-top = head-h + t.axis-label-gap * 1.5
+
+  // Label size: shrink so each side's longest label takes at most 30% of the chart,
+  // and so that all the rows fit the height (a label is 1.05 em at its tightest)
   let side-cap = width * 0.34 - stem
   let widest(side) = array.range(n).fold(none, (best, i) => {
     let cur = side(i)
@@ -70,22 +76,23 @@
   let lbl-size = calc.min(
     fit-font-size(w-left, side-cap, t.axis-label-size, min: 6.5pt),
     fit-font-size(w-right, side-cap, t.axis-label-size, min: 6.5pt),
+    calc.max(5.5pt, (height - pad-top) / (1.06 * n + 0.3)),
   )
   let left-w = calc.min(text-width(w-left, lbl-size), side-cap)
   let right-w = calc.min(text-width(w-right, lbl-size), side-cap)
   let axis-x-left = left-w + stem
   let axis-x-right = width - right-w - stem
 
-  // Column headers over each axis
-  let head-size = t.axis-title-size
-  let head-h = text-height(start-label, head-size, weight: "bold")
-  let pad-top = head-h + t.axis-label-gap * 1.5
   // One label's height, with leading: the tallest of all, so that labels which
   // wrap in a narrow gutter still clear each other
-  let lh = calc.max(lbl-size * 1.3, ..array.range(n).map(i => calc.max(
+  let tall = calc.max(0pt, ..array.range(n).map(i => calc.max(
     measure(box(width: left-w + 1pt, text(size: lbl-size)[#left-text(i)])).height,
     measure(box(width: right-w + 1pt, text(size: lbl-size)[#right-text(i)])).height,
-  )) .map(h => h * 1.15))
+  )))
+  let lh = calc.max(lbl-size * 1.3, tall * 1.15)
+  // Crowded labels may close up to their ink and a hair (a line of text is about 1.05 em)
+  // before any is left out (more names than the height holds)
+  let lh-min = calc.max(lbl-size * 1.05, tall * 1.05)
   let y-top = pad-top + lh / 2
   let y-bot = height - lh / 2
   let y-of(v) = if val-range == 0 { (y-top + y-bot) / 2 } else {
@@ -93,8 +100,8 @@
   }
   let ys-start = start-values.map(y-of)
   let ys-end = end-values.map(y-of)
-  let ly-start = spread-1d(ys-start, lh, lo: y-top, hi: y-bot)
-  let ly-end = spread-1d(ys-end, lh, lo: y-top, hi: y-bot)
+  let ly-start = spread-labels(ys-start, sizes: lh, min-gap: lh-min - lh, lo: pad-top, hi: height)
+  let ly-end = spread-labels(ys-end, sizes: lh, min-gap: lh-min - lh, lo: pad-top, hi: height)
 
   let axis-stroke = t.stroke-thin + t.text-color-light.transparentize(50%)
   let extra = container-extra(width, height, title, t)
@@ -121,17 +128,21 @@
 
         // Left label, right-aligned against its axis
         let (yl, yr) = (ly-start.at(i), ly-end.at(i))
-        if calc.abs(yl - y0) > 0.5pt {
+        if yl != none and calc.abs(yl - y0) > 0.5pt {
           place(left + top, line(start: (axis-x-left - dot-r, y0), end: (axis-x-left - stem + 1pt, yl), stroke: 0.5pt + color))
         }
-        place(left + top, dx: axis-x-left - stem - left-w - 1pt, dy: yl,
-          box(width: left-w + 1pt, height: 0pt, align(right + horizon, text(size: lbl-size, fill: t.text-color)[#left-text(i)])))
+        if yl != none {
+          place(left + top, dx: axis-x-left - stem - left-w - 1pt, dy: yl,
+            box(width: left-w + 1pt, height: 0pt, align(right + horizon, text(size: lbl-size, fill: t.text-color)[#left-text(i)])))
+        }
         // Right label
-        if calc.abs(yr - y1) > 0.5pt {
+        if yr != none and calc.abs(yr - y1) > 0.5pt {
           place(left + top, line(start: (axis-x-right + dot-r, y1), end: (axis-x-right + stem - 1pt, yr), stroke: 0.5pt + color))
         }
-        place(left + top, dx: axis-x-right + stem, dy: yr,
-          box(width: right-w + 1pt, height: 0pt, align(left + horizon, text(size: lbl-size, fill: t.text-color)[#right-text(i)])))
+        if yr != none {
+          place(left + top, dx: axis-x-right + stem, dy: yr,
+            box(width: right-w + 1pt, height: 0pt, align(left + horizon, text(size: lbl-size, fill: t.text-color)[#right-text(i)])))
+        }
       }
     ]
   ]
