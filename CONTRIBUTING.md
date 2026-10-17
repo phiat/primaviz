@@ -33,7 +33,7 @@ primaviz/
   src/
     lib.typ                  # Public entrypoint — re-exports everything
     theme.typ                # Theme system and preset themes
-    util.typ                 # Shared utilities
+    util.typ                 # Shared utilities (colour ramps, WCAG contrast-text, number formatting, nice ticks)
     validate.typ             # Input validation helpers
     charts/                  # One module per chart family
       bar.typ                # bar, horizontal, grouped, stacked, grouped-stacked
@@ -70,14 +70,24 @@ primaviz/
       parliament.typ         # semicircle seat chart
       chord.typ              # circular flow diagram
       wordcloud.typ          # spiral-placement word cloud
-    primitives/              # Low-level drawing helpers
-      axes.typ               # axis lines, ticks, labels, grid, cartesian-layout
-      layout.typ             # resolve-size, density-skip, font-for-space, page-grid, label placement, deconfliction
-      annotations.typ        # reference lines, bands, labels
-      container.typ          # chart container wrapper
-      legend.typ             # horizontal, vertical, draw-legend-auto
-      polar.typ              # shared polar/radial helpers (arcs, slices, labels)
+    primitives/              # Low-level drawing helpers; a fix here lands in every chart that uses it
+      frame.typ              # cartesian-frame: measured margins, ticks, grid, axis titles, annotations (every cartesian chart)
+      axes.typ               # value/category axis specs, tick selection, category label policy, scales
+      annotations.typ        # reference lines, bands, labels, content (spread apart, never overlapping)
+      rows.typ               # row-layout, draw-x-axis, end labels: label column + value axis of horizontal charts
+      row-chart.typ          # scaffold of horizontal-bar-chart / horizontal-lollipop-chart
+      matrix.typ             # row/column-labelled grids (heatmap family)
+      container.typ          # chart container: measures its own title, subtitle and legend
+      legend.typ             # horizontal / vertical / gradient / size legends (pin their own type size)
       title.typ              # title rendering
+      fonts.typ              # text measuring, size fitting, label stride, spread-labels (the one 1-D label spreader)
+      sizing.typ             # resolve-size (rows: true grows with the row count), page-grid
+      layout.typ             # re-export hub for sizing.typ + fonts.typ
+      paths.typ              # polylines with round joins
+      polar.typ              # wedges, arc bands, polar points
+      polar-labels.typ       # label ink and contrast, wedge-label fitting, outside labels with leaders
+      radial.typ             # side legend (multi-column), width split for the radial charts
+      status.typ             # semantic colours of the dashboard pieces
   examples/
     demos/                   # Per-chart demo files (21 files, 2×2 grids)
       demo-bar.typ           # bar-chart, horizontal-bar-chart

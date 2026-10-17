@@ -52,3 +52,7 @@
 #include "stress-linear-grid.typ"
 #pagebreak()
 #include "stress-radial.typ"
+#pagebreak()
+#include "test-spread.typ"
+#pagebreak()
+#include "stress-spread.typ"
