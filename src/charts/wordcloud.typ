@@ -3,13 +3,17 @@
 #import "../util.typ": nonzero
 #import "../validate.typ": validate-wordcloud-data
 #import "../primitives/container.typ": chart-container
+#import "../primitives/polar-labels.typ": legible
+#import "../primitives/radial.typ": title-slack
 #import "../primitives/layout.typ": resolve-size
 
 /// Renders a word cloud using spiral placement (Wordle-style algorithm).
 ///
 /// Words are placed largest-first, spiraling outward from the center.
 /// Each word is tested for AABB collision with all previously placed words
-/// and shape boundary containment before being committed.
+/// and shape boundary containment before being committed. Words that do not
+/// fit are left out, smallest first. Palette colours too pale to read on the
+/// background are darkened (or lightened on a dark one).
 ///
 /// - data (dictionary): Must contain a `words` array of dictionaries,
 ///   each with `text` (string) and `weight` (number) keys.
@@ -52,6 +56,7 @@
   // Font weight alternation for visual variety
   let font-weights = ("bold", "regular", "bold", "medium", "regular")
 
+  let bg = if t.background != none { t.background } else { white }
   let inner-w = width - 2 * padding
   let inner-h = height - 2 * padding
   let cx = inner-w / 2
@@ -94,9 +99,10 @@
 
   // Pre-compute word data with measured dimensions
   let word-data = sorted-words.enumerate().map(((i, w)) => {
-    let frac = (w.weight - min-weight) / weight-range
+    // (equal weights are all middle-sized, not all the smallest)
+    let frac = if max-weight == min-weight { 0.5 } else { (w.weight - min-weight) / weight-range }
     let sz = min-size + frac * (max-size - min-size)
-    let color = get-color(t, i)
+    let color = legible(get-color(t, i), bg)
     let fw = font-weights.at(calc.rem(i, font-weights.len()))
     let content = text(size: sz, weight: fw)[#w.text]
     let dims = measure(content)
@@ -151,7 +157,7 @@
   }
 
   // Render all placed words
-  chart-container(width, height, title, t, extra-height: 10pt)[
+  chart-container(width, height, title, t, extra-height: title-slack(title, none, t, width))[
     #box(width: width, height: height, clip: true, inset: padding)[
       #for p in placed {
         let wd = p.word
