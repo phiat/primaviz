@@ -1,12 +1,27 @@
 // gauge.typ - Gauge/dial and progress indicators
 #import "../theme.typ": _resolve-ctx, get-color, _shade
-#import "../util.typ": nonzero, clamp
+#import "../util.typ": nonzero, clamp, normalize-data
 #import "../validate.typ": validate-number, validate-simple-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/polar.typ": pie-slice-points, place-donut-hole
-#import "../primitives/layout.typ": font-for-space, resolve-size, pin
+#import "../primitives/title.typ": draw-title
+#import "../primitives/polar.typ": place-wedge, place-arc-band, separator-stroke
+#import "../primitives/polar-labels.typ": label-ink, fit-text-size
+#import "../primitives/radial.typ": title-for-size, title-slack
+#import "../primitives/layout.typ": resolve-size
+
+// The empty part of a progress indicator: a step off the background
+#let _track(t, background) = {
+  if background != auto { background }
+  else if t.background != none { _shade(t, 20%) }
+  else { luma(230) }
+}
 
 /// Renders a semicircular gauge/dial chart with a needle indicator.
+///
+/// Without `segments` the dial is a quiet track filled up to the value; with
+/// `segments` it is a set of flat coloured bands and the needle alone marks
+/// the value. The title scales down on a small dial so it never outshouts
+/// the heading of whatever the dial sits in.
 ///
 /// - value (int, float): Current value to display on the gauge
 /// - min-val (int, float): Minimum scale value
@@ -36,119 +51,80 @@
   let t = _resolve-ctx(theme)
   let size = resolve-size(size, size, avail).width
   let needle-color = if needle-color == auto { t.text-color } else { needle-color }
-  let margin = calc.max(3pt, size * 0.07)
-  let radius = size / 2 - margin
-  let cx = size / 2
-  let cy = size / 2 + margin
+  let (r, hole) = (size / 2, size / 2 * 0.6)
+  let (cx, cy) = (size / 2, size / 2)
 
   let val-range = nonzero(max-val - min-val)
-  let normalized = (value - min-val) / val-range
-  normalized = clamp(normalized, 0, 1)
+  let normalized = clamp((value - min-val) / val-range, 0, 1)
+  // The dial runs from -180 (left) to 0 (right)
+  let at-deg(v) = -180 + clamp((v - min-val) / val-range, 0, 1) * 180
 
-  // Angle: -180deg (left) to 0deg (right)
-  let needle-angle = -180deg + normalized * 180deg
+  // Text under the hub: value, caption; scale ends sit under the band
+  let cap-r = calc.max(2pt, size * 0.04)
+  let value-text(sz) = text(size: sz, weight: "bold", fill: t.text-color, top-edge: "cap-height", bottom-edge: "baseline")[#calc.round(value, digits: 1)]
+  let scale-text(v) = text(size: t.axis-label-size, fill: t.text-color-light, top-edge: "cap-height", bottom-edge: "baseline")[#v]
+  let scale-w = calc.max(measure(scale-text(min-val)).width, measure(scale-text(max-val)).width)
+  // The value must stay clear of the scale ends either side of it
+  let value-size = fit-text-size(value-text, calc.max(r * 0.5, 2 * (r * 0.8 - scale-w / 2 - 3pt)),
+    calc.max(t.value-label-size, calc.min(size * 0.15, 14pt)), t.axis-label-size)
+  let value-h = if show-value { measure(value-text(value-size)).height } else { 0pt }
+  let caption = if label != none {
+    text(size: t.axis-label-size, fill: t.text-color-light, top-edge: "cap-height", bottom-edge: "descender")[#label]
+  }
+  let caption-h = if caption != none { measure(caption).height } else { 0pt }
+  let below = calc.max(
+    cap-r + 3pt + (if show-value { value-h + 3pt } else { 0pt }) + (if caption != none { caption-h + 1pt } else { 0pt }),
+    2pt + measure(scale-text(max-val)).height)
+  let total-h = cy + below
 
-  let value-size-est = calc.max(5pt, size * 0.07)
-  let sub-label-est = calc.max(5pt, size * 0.05)
-  let extra-height = calc.max(10pt, value-size-est + sub-label-est + 15pt)
-  chart-container(size, size / 2 + margin + 5pt, title, t, extra-height: extra-height)[
-    #box(width: size, height: size / 2 + margin + extra-height)[
-      // Draw segments or default arc
+  let ts = title-for-size(t, size)
+  chart-container(size, total-h, title, ts, extra-height: title-slack(title, none, ts, size))[
+    #box(width: size, height: total-h)[
+      // The dial: a flat track, then either the bands or the filled value
+      #place-wedge(cx, cy, hole, r, -180, 0, _track(t, auto))
       #if segments != none {
-        let prev-threshold = min-val
-        for (i, seg) in segments.enumerate() {
-          let threshold = seg.at(0)
-          let seg-color = seg.at(1)
-
-          let start-norm = (prev-threshold - min-val) / val-range
-          let end-norm = (threshold - min-val) / val-range
-          let start-deg = -180 + start-norm * 180
-          let end-deg = -180 + end-norm * 180
-
-          let pts = pie-slice-points(cx, cy, radius, start-deg, end-deg)
-          place(left + top, polygon(fill: seg-color, stroke: t.marker-stroke, ..pts))
-
-          prev-threshold = threshold
+        let prev = min-val
+        for seg in segments {
+          place-wedge(cx, cy, hole, r, at-deg(prev), at-deg(seg.at(0)), seg.at(1),
+            stroke: separator-stroke(t, thickness: 0.75pt))
+          prev = seg.at(0)
+        }
+      } else if "gauge-low-color" in t or "gauge-mid-color" in t or "gauge-high-color" in t {
+        // Opt-in zones through the theme: thirds of the dial
+        let zones = (
+          t.at("gauge-low-color", default: get-color(t, 4)),
+          t.at("gauge-mid-color", default: get-color(t, 5)),
+          t.at("gauge-high-color", default: get-color(t, 2)),
+        )
+        for (i, zc) in zones.enumerate() {
+          place-wedge(cx, cy, hole, r, -180 + i * 60, -180 + (i + 1) * 60, zc,
+            stroke: separator-stroke(t, thickness: 0.75pt))
         }
       } else {
-        // Default gradient arc (36 slices with color gradient)
-        for i in array.range(36) {
-          let start-deg = -180 + (i / 36) * 180
-          let end-deg = -180 + ((i + 1) / 36) * 180
-
-          let seg-progress = i / 36
-          let gauge-low = if "gauge-low-color" in t { t.gauge-low-color } else { get-color(t, 4) }
-          let gauge-mid = if "gauge-mid-color" in t { t.gauge-mid-color } else { get-color(t, 5) }
-          let gauge-high = if "gauge-high-color" in t { t.gauge-high-color } else { get-color(t, 2) }
-          let seg-color = if seg-progress < 0.5 {
-            color.mix((gauge-low, 100% - seg-progress * 200%), (gauge-mid, seg-progress * 200%))
-          } else {
-            color.mix((gauge-mid, 100% - (seg-progress - 0.5) * 200%), (gauge-high, (seg-progress - 0.5) * 200%))
-          }
-
-          let pts = pie-slice-points(cx, cy, radius, start-deg, end-deg)
-          place(left + top, polygon(fill: seg-color, stroke: none, ..pts))
-        }
+        place-wedge(cx, cy, hole, r, -180, -180 + normalized * 180, get-color(t, 0))
       }
 
-      // Inner circle (donut effect)
-      #let inner-radius = radius * 0.6
-      #place-donut-hole(cx, cy, inner-radius, t)
+      // Needle and hub
+      #let needle-angle = (-180 + normalized * 180) * 1deg
+      #place(left + top, line(start: (cx, cy),
+        end: (cx + r * 0.85 * calc.cos(needle-angle), cy + r * 0.85 * calc.sin(needle-angle)),
+        stroke: needle-color + calc.max(1pt, size * 0.016)))
+      #place(left + top, dx: cx - cap-r, dy: cy - cap-r,
+        circle(radius: cap-r, fill: needle-color, stroke: none))
 
-      // Needle — scale thickness with chart size
-      #let needle-len = radius * 0.85
-      #let needle-end-x = cx + needle-len * calc.cos(needle-angle)
-      #let needle-end-y = cy + needle-len * calc.sin(needle-angle)
-      #let needle-w = calc.max(1pt, size * 0.016)
+      // Scale ends, centred under the band
+      #for (v, sign) in ((min-val, -1), (max-val, 1)) {
+        place(left + top, dx: cx + sign * r * 0.8 - 20pt, dy: cy + 2pt,
+          box(width: 40pt, align(center, scale-text(v))))
+      }
 
-      #place(
-        left + top,
-        line(
-          start: (cx, cy),
-          end: (needle-end-x, needle-end-y),
-          stroke: needle-color + needle-w
-        )
-      )
-
-      // Center cap — scale with chart size
-      #let cap-r = calc.max(2pt, size * 0.04)
-      #place(
-        left + top,
-        dx: cx - cap-r,
-        dy: cy - cap-r,
-        circle(radius: cap-r, fill: needle-color, stroke: t.marker-stroke)
-      )
-
-      // Min/max labels — scale font with chart size
-      #let scale-label-size = font-for-space(size, t.axis-label-size, min-size: 5pt, ratio: 0.07)
-      #let band-mid = radius * 0.8
-      #place(left + top, dx: cx - band-mid - 20pt, dy: cy + 2pt,
-        pin(width: 40pt, align: center + top, text(size: scale-label-size, fill: t.text-color)[#min-val]))
-      #place(left + top, dx: cx + band-mid - 20pt, dy: cy + 2pt,
-        pin(width: 40pt, align: center + top, text(size: scale-label-size, fill: t.text-color)[#max-val]))
-
-      // Value display — below the semicircle, in the open space
-      #let value-size = font-for-space(size, 14pt, min-size: 7pt, ratio: 0.15)
+      // Value and caption, centred under the hub
       #if show-value {
-        place(
-          left + top,
-          dx: cx - size * 0.2,
-          dy: cy + cap-r + 2pt,
-          box(width: size * 0.4, align(center,
-            text(size: value-size, weight: "bold", fill: t.text-color)[#calc.round(value, digits: 1)]))
-        )
+        place(left + top, dx: cx - r, dy: cy + cap-r + 3pt, box(width: 2 * r, align(center, value-text(value-size))))
       }
-
-      // Label below value
-      #let sub-label-size = font-for-space(size, t.value-label-size, min-size: 5pt, ratio: 0.06)
-      #if label != none {
-        place(
-          left + top,
-          dx: cx - size * 0.3,
-          dy: cy + cap-r + value-size + 4pt,
-          box(width: size * 0.6, align(center,
-            text(size: sub-label-size, fill: t.text-color-light)[#label]))
-        )
+      #if caption != none {
+        place(left + top, dx: cx - r, dy: cy + cap-r + 3pt + (if show-value { value-h + 3pt } else { 0pt }),
+          box(width: 2 * r, align(center, caption)))
       }
     ]
   ]
@@ -156,6 +132,9 @@
 }
 
 /// Renders a horizontal progress bar.
+///
+/// The percentage sits inside the fill when it fits, and just past the end
+/// of the fill, on the track, when it does not.
 ///
 /// - value (int, float): Current progress value
 /// - max-val (int, float): Maximum value (100% fill)
@@ -187,49 +166,32 @@
   let (width, height) = resolve-size(width, height, size, container: false)
   let progress = clamp(value / nonzero(max-val), 0, 1)
   let bar-color = if color != none { color } else { get-color(t, 0) }
-  let background = if background != auto { background } else if t.background != none { _shade(t, 20%) } else { luma(230) }
-  let radius = if rounded { height / 2 } else { 0pt }
+  let corner = if rounded { height / 2 } else { 0pt }
 
-  box(width: width, height: height + (if title != none { 20pt } else { 0pt }))[
-    #if title != none {
-      text(size: t.value-label-size, fill: t.text-color)[#title]
-      v(3pt)
-    }
+  // Digits are about 0.7 em tall: as big as the bar allows, never below the
+  // theme's smallest type, and no label at all in a bar too thin to hold one
+  let pct-size = calc.max(t.axis-label-size, calc.min(t.value-label-size, (height - 3pt) / 0.7))
+  let pct-text(ink) = text(size: pct-size, weight: "bold", fill: ink,
+    top-edge: "cap-height", bottom-edge: "baseline")[#calc.round(progress * 100, digits: 0)%]
+  let pct-w = measure(pct-text(black)).width
+  let pad = calc.max(4pt, corner * 0.8)
+  let fill-w = width * progress
+  let inside = progress > 0 and fill-w >= pct-w + 2 * pad
+  let pct-x = if inside { fill-w - pad - pct-w } else { calc.min(fill-w + pad, width - pad - pct-w) }
+  let pct-ink = if inside { label-ink(bar-color, t) } else { t.text-color }
 
-    #box(width: width, height: height)[
-      // Background
-      #place(
-        left + top,
-        rect(
-          width: width,
-          height: height,
-          fill: background,
-          radius: radius,
-        )
-      )
-
-      // Progress fill
-      #if progress > 0 {
-        place(
-          left + top,
-          rect(
-            width: width * progress,
-            height: height,
-            fill: bar-color,
-            radius: radius,
-          )
-        )
-      }
-
-      // Value label — centered in bar
-      #if show-value {
-        place(center + horizon,
-          text(size: t.value-label-size, weight: "bold", fill: if progress > 0.5 { t.text-color-inverse } else { t.text-color })[
-            #calc.round(progress * 100, digits: 0)%
-          ]
-        )
-      }
-    ]
+  box(width: width)[
+    #stack(dir: ttb, spacing: 3pt,
+      if title != none { text(size: t.value-label-size, fill: t.text-color, bottom-edge: "descender")[#title] },
+      box(width: width, height: height)[
+        #place(left + top, rect(width: width, height: height, fill: _track(t, background), radius: corner))
+        #if progress > 0 {
+          place(left + top, rect(width: fill-w, height: height, fill: bar-color, radius: corner))
+        }
+        #if show-value and height >= 6pt {
+          place(left + horizon, dx: pct-x, pct-text(pct-ink))
+        }
+      ])
   ]
   })
 }
@@ -264,87 +226,31 @@
   let size = resolve-size(size, size, avail, container: false).width
   let progress = clamp(value / nonzero(max-val), 0, 1)
   let bar-color = if color != none { color } else { get-color(t, 0) }
-  let background = if background != auto { background } else if t.background != none { _shade(t, 20%) } else { luma(230) }
-  let radius = size / 2 - stroke-width / 2
-  let cx = size / 2
-  let cy = size / 2
+  let sw = calc.min(stroke-width, size * 0.3)
+  let (cx, cy) = (size / 2, size / 2)
+  let ring-r = size / 2 - sw / 2
 
-  box(width: size, height: size + (if title != none { 25pt } else { 0pt }))[
-    #if title != none {
-      align(center, text(size: t.value-label-size, fill: t.text-color)[#title])
-      v(3pt)
-    }
+  // The percentage, as big as the hole allows
+  let pct-text(sz) = text(size: sz, weight: "bold", fill: t.text-color, top-edge: "cap-height", bottom-edge: "baseline")[#calc.round(progress * 100, digits: 0)%]
+  let pct-size = fit-text-size(pct-text, (ring-r - sw / 2) * 1.5, t.value-label-size, t.axis-label-size)
 
-    #box(width: size, height: size)[
-      // Background circle
-      #place(
-        left + top,
-        dx: stroke-width / 2,
-        dy: stroke-width / 2,
-        circle(
-          radius: radius,
-          fill: none,
-          stroke: background + stroke-width
-        )
-      )
-
-      // Progress arc (approximated with line segments)
-      #if progress > 0 {
-        let n-segments = calc.max(int(progress * 60), 1)
-        let end-angle = -90deg + progress * 360deg
-
-        for i in array.range(n-segments) {
-          let a1 = -90deg + (i / n-segments) * progress * 360deg
-          let a2 = -90deg + ((i + 1) / n-segments) * progress * 360deg
-
-          let x1 = cx + radius * calc.cos(a1)
-          let y1 = cy + radius * calc.sin(a1)
-          let x2 = cx + radius * calc.cos(a2)
-          let y2 = cy + radius * calc.sin(a2)
-
-          place(
-            left + top,
-            line(
-              start: (x1, y1),
-              end: (x2, y2),
-              stroke: bar-color + stroke-width
-            )
-          )
+  box(width: size)[
+    #stack(dir: ttb, spacing: 3pt,
+      if title != none { align(center, text(size: t.value-label-size, fill: t.text-color)[#title]) },
+      box(width: size, height: size)[
+        #place-arc-band(cx, cy, ring-r, sw, -90, 270, _track(t, background))
+        #place-arc-band(cx, cy, ring-r, sw, -90, -90 + progress * 360, bar-color, round: true)
+        #if show-value {
+          place(center + horizon, pct-text(pct-size))
         }
-
-        // Round end cap
-        let end-x = cx + radius * calc.cos(end-angle)
-        let end-y = cy + radius * calc.sin(end-angle)
-        place(
-          left + top,
-          dx: end-x - stroke-width / 2,
-          dy: end-y - stroke-width / 2,
-          circle(radius: stroke-width / 2, fill: bar-color, stroke: none)
-        )
-
-        // Round start cap
-        place(
-          left + top,
-          dx: cx - stroke-width / 2,
-          dy: cy - radius - stroke-width / 2,
-          circle(radius: stroke-width / 2, fill: bar-color, stroke: none)
-        )
-      }
-
-      // Center value — centered in ring
-      #if show-value {
-        place(center + horizon,
-          text(size: t.value-label-size, weight: "bold", fill: t.text-color)[#calc.round(progress * 100, digits: 0)%]
-        )
-      }
-    ]
+      ])
   ]
   })
 }
 
 /// Renders multiple labeled progress bars for comparing values.
 ///
-/// - data (dictionary): Dict with `labels` and `values` arrays
+/// - data (dictionary, array): Dict with `labels` and `values` arrays, or an array of label-value pairs
 /// - width (length): Overall width
 /// - bar-height (length): Height of each bar
 /// - title (none, content): Optional title above the bars
@@ -368,35 +274,33 @@
   let t = _resolve-ctx(theme)
   set text(size: 11pt)  // sized by the theme, not the document font
   let width = resolve-size(width, 0pt, size, container: false).width
-  let background = if background != auto { background } else if t.background != none { _shade(t, 20%) } else { luma(230) }
-  let labels = data.labels
-  let values = data.values
-  let n = labels.len()
-
+  let norm = normalize-data(data)
+  let (labels, values) = (norm.labels, norm.values)
   let actual-max = nonzero(if max-val == auto { calc.max(..values) } else { max-val })
 
-  box(width: width)[
-    #if title != none {
-      align(center, text(size: t.title-size, weight: t.title-weight, fill: t.text-color)[#title])
-      v(8pt)
-    }
+  // Names are as wide as they are, up to 40% of the whole: past that they wrap
+  // rather than squeeze the bars to stubs
+  let name-w = calc.min(width * 0.4,
+    calc.max(..labels.map(l => measure(text(size: t.value-label-size)[#l]).width)))
 
+  box(width: width)[
+    #draw-title(title, t)
     #grid(
-      columns: (auto, 1fr, if show-values { auto } else { 0pt }),
+      columns: if show-values { (name-w, 1fr, auto) } else { (name-w, 1fr) },
       column-gutter: 6pt,
       row-gutter: 6pt,
-      align: horizon,
+      align: (right + horizon, left + horizon, left + horizon),
       ..labels.enumerate().map(((i, lbl)) => {
-        let val = values.at(i)
-        let progress = clamp(val / actual-max, 0, 1)
-        (
-          text(size: t.axis-label-size, fill: t.text-color)[#lbl],
+        let progress = clamp(values.at(i) / actual-max, 0, 1)
+        let row = (
+          text(size: t.value-label-size, fill: t.text-color)[#lbl],
           box(width: 100%, height: bar-height)[
-            #rect(width: 100%, height: 100%, fill: background, radius: 3pt)
-            #place(left + top, rect(width: 100% * progress, height: 100%, fill: get-color(t, i), radius: 3pt))
+            #rect(width: 100%, height: 100%, fill: _track(t, background), radius: bar-height / 2)
+            #place(left + top, rect(width: 100% * progress, height: 100%, fill: get-color(t, i), radius: bar-height / 2))
           ],
-          if show-values { text(size: t.value-label-size, fill: t.text-color, weight: "bold")[#val] },
         )
+        if show-values { row.push(text(size: t.value-label-size, fill: t.text-color, weight: "bold")[#values.at(i)]) }
+        row
       }).flatten()
     )
   ]
