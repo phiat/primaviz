@@ -446,7 +446,7 @@
 })
 
 #let _marks(items, sizes, r) = items.zip(sizes).enumerate().map(((i, (it, (w, h)))) => (
-  idx: i, angle: it.angle, ar: it.at("r", default: r), w: w, h: h,
+  idx: i, angle: it.angle, ar: it.at("r", default: r), w: w, h: h, src: it.at("from", default: none),
   priority: it.at("priority", default: 0), body: it.body))
 
 /// The box, centred on the chart, that holds a circle of radius `r` and every
@@ -511,8 +511,10 @@
 /// first).
 ///
 /// - items (array): Dictionaries with `angle` (degrees), `body` (content),
-///   and optionally `r` (where the mark ends, default `r`) and `priority`
-///   (default 0; higher survives)
+///   and optionally `r` (where the mark ends, default `r`), `priority`
+///   (default 0; higher survives) and `from` (a radius: the mark lies there,
+///   deeper inside the chart than its label, so the label always gets a
+///   leader line from that point)
 /// - cx (length): Centre x
 /// - cy (length): Centre y
 /// - r (length): Default radius of the marks
@@ -525,9 +527,9 @@
   let marks = _marks(items, _sizes(items), r)
   for p in _layout-outside(marks, cx, cy, gap, bounds: bounds) {
     let c = calc.cos(p.phi * 1deg)
-    let (ax, ay) = polar-pt(cx, cy, p.ar, p.angle)
+    let (ax, ay) = polar-pt(cx, cy, if p.src == none { p.ar } else { p.src }, p.angle)
     let home = _rect(p, p.th, p.th, 0, cx, cy, gap)
-    let moved = calc.abs(p.ly - home.ly) > tol or calc.abs(p.lx - home.lx) > tol
+    let moved = p.src != none or calc.abs(p.ly - home.ly) > tol or calc.abs(p.lx - home.lx) > tol
     let h-align = if c < -0.3 { right } else if c > 0.3 { left } else { center }
     place(left + top, dx: p.lx, dy: p.ly,
       box(width: p.w, height: p.h, align(h-align + horizon, p.body)))
@@ -537,6 +539,10 @@
     let len = calc.sqrt(dx * dx + dy * dy)
     if moved and len > 3 {
       place(left + top, line(start: (ax, ay), end: (tx - dx / len * 1.5pt, ty - dy / len * 1.5pt), stroke: leader-stroke))
+      // A mark inside the chart, away from its edge, gets a dot to say where it starts
+      if p.src != none {
+        place(left + top, dx: ax - 1pt, dy: ay - 1pt, circle(radius: 1pt, fill: stroke(leader-stroke).paint, stroke: none))
+      }
     }
   }
 }

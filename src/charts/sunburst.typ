@@ -176,10 +176,20 @@
         let ink = label-ink(seg.color, t)
         let make(sz) = text(size: sz, weight: weight, fill: ink, top-edge: "cap-height", bottom-edge: "descender")[#seg.name]
         let fit = fit-wedge-label(make, seg.mid, seg.span / 2, seg.r-inner, seg.r-outer, t.value-label-size, t.axis-label-size, rotate: true)
+        // A sunburst has no legend to carry a name that does not fit. On the
+        // outermost ring it goes outside; on an inner ring (where outside
+        // means a leader across the rings beyond) it shrinks further first
+        // and only then goes outside, with a leader
+        let outer = seg.r-outer >= rim - 0.01pt
+        if fit == none and not outer {
+          fit = fit-wedge-label(make, seg.mid, seg.span / 2, seg.r-inner, seg.r-outer, t.axis-label-size, t.axis-label-size * 0.65, rotate: true)
+        }
         if fit != none {
           inside.push((seg: seg, fit: fit, body: make(fit.size)))
-        } else if seg.r-outer >= rim - 0.01pt {
-          outside.push((angle: seg.mid, priority: seg.span,
+        } else {
+          // Inner rings first when there is no room for everything
+          outside.push((angle: seg.mid, priority: seg.span + 20 * (total-depth - seg.depth),
+            from: if outer { none } else { (seg.r-inner + seg.r-outer) / 2 },
             body: text(size: t.axis-label-size, fill: t.text-color, top-edge: "cap-height", bottom-edge: "descender")[#seg.name]))
         }
       }
