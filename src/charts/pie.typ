@@ -1,13 +1,18 @@
 // pie.typ - Pie and donut charts
 #import "../theme.typ": _resolve-ctx, get-color
 #import "../util.typ": normalize-data, nonzero
-#import "../primitives/layout.typ": font-for-space, try-fit-label, resolve-size, pin
+#import "../primitives/layout.typ": resolve-size
 #import "../validate.typ": validate-simple-data
-#import "../primitives/container.typ": chart-container, container-inset
-#import "../primitives/legend.typ": draw-legend-vertical
-#import "../primitives/polar.typ": pie-slice-points, place-donut-hole, separator-stroke
+#import "../primitives/container.typ": chart-container
+#import "../primitives/polar.typ": place-wedge, separator-stroke
+#import "../primitives/polar-labels.typ": label-ink, fit-wedge-label, place-centred, place-outside-labels
+#import "../primitives/radial.typ": side-legend, split-width, title-slack
 
 /// Renders a pie or donut chart from label-value data.
+///
+/// Percentages sit inside their slice when they fit (shrinking a little if
+/// need be); a slice too small for its label gets it just outside, with a
+/// leader line if neighbouring labels push it away.
 ///
 /// - data (dictionary, array): Label-value pairs as dict or array of tuples
 /// - size (length): Diameter of the pie
@@ -37,134 +42,99 @@
   let t = _resolve-ctx(theme)
   let size = resolve-size(size, size, avail).width
   let norm = normalize-data(data)
-  let labels = norm.labels
-  let values = norm.values
-
+  let (labels, values) = (norm.labels, norm.values)
   let total = nonzero(values.sum())
-  let n = values.len()
+  let pcts = values.map(v => calc.round(v / total * 100, digits: 1))
 
-  // Respect both show-legend param and theme legend-position
-  let show-legend = show-legend and t.legend-position != "none"
-
-  // Calculate legend width — ensure enough room for label text + percentages
-  let legend-gap = if show-legend { 20pt } else { 0pt }
-  let legend-width = if not show-legend { 0pt } else if size < 120pt { calc.max(100pt, calc.min(150pt, n * 18pt + 30pt)) } else { calc.max(130pt, calc.min(180pt, n * 20pt + 40pt)) }
-
-  // Total width: pie + gap + legend — clamp to available width
-  // Subtract container inset (2×padding) since chart-container adds it to the outer box
-  let container-inset = 2 * container-inset
-  let avail-w = if type(avail.width) == length and avail.width > 0pt { avail.width } else { none }
-  let total-width = size + legend-gap + legend-width
-  if avail-w != none and total-width + container-inset > avail-w {
-    let budget = avail-w - container-inset
-    // Shrink pie to fit, keeping legend width
-    let pie-budget = budget - legend-gap - legend-width
-    if pie-budget >= 80pt {
-      size = pie-budget
-    } else {
-      // Both need shrinking — give pie 60% of space
-      size = budget * 0.55
-      legend-width = budget - size - legend-gap
+  // Each slice's angular span, resolved once for wedges and labels alike
+  let slices = {
+    let out = ()
+    let cur = 0
+    for (i, v) in values.enumerate() {
+      let span = v / total * 360
+      out.push((i: i, start: cur, span: span, mid: cur + span / 2, pct: pcts.at(i)))
+      cur += span
     }
-    total-width = budget
+    out
   }
 
-  let pie-radius = size / 2
-
-  // Build legend content
-  let legend-entries = if show-legend {
-    labels.enumerate().map(((i, lbl)) => {
-      let pct = calc.round((values.at(i) / total) * 100, digits: 1)
-      [#lbl (#pct%)]
-    })
-  } else { () }
-  let legend-content = if show-legend {
-    draw-legend-vertical(legend-entries, t, width: legend-width)
+  // Legend column; the pie shrinks first if the container is narrow
+  let legend-entries = labels.enumerate().map(((i, lbl)) => [#lbl (#pcts.at(i)%)])
+  let legend-on = show-legend and t.legend-position != "none"
+  let lg = side-legend(legend-entries, t, enabled: legend-on)
+  let legend-side = if lg.legend != none { 10pt + lg.width } else { 0pt }
+  let (size, side) = split-width(size, legend-side, avail.width, t)
+  if side != legend-side {
+    lg = side-legend(legend-entries, t, enabled: legend-on, min-width: side - 10pt, max-width: side - 10pt)
   }
 
-  // Compute legend height — grow container if legend is taller than pie
-  let swatch-size = t.legend-swatch-size
-  let legend-height = if show-legend { n * (swatch-size + 4pt) + 10pt } else { 0pt }
-  let extra-height = calc.max(40pt, legend-height - size + 40pt)
-
-  // Use chart-container's built-in side legend support for proper vertical centering
-  let legend-pos-override = if show-legend { "right" } else { "none" }
-  let t-with-legend = if show-legend {
-    let d = t
-    d.insert("legend-position", legend-pos-override)
-    d
-  } else { t }
-
-  align(center, chart-container(size, size, title, t-with-legend, extra-height: extra-height, legend: if show-legend { legend-content }, legend-width: legend-width, subtitle: subtitle, radius: radius)[
-    // Pie chart
-    #box(width: size, height: size)[
-      #let center-x = pie-radius
-      #let center-y = pie-radius
-
-      // Resolve each slice's angular span once, so the wedges, the donut hole
-      // and the labels can be drawn in three separate passes below.
-      #let slices = {
-        let current-deg = 0
-        let out = ()
-        for (i, val) in values.enumerate() {
-          let slice-deg = (val / total) * 360
-          out.push((index: i, value: val, start-deg: current-deg, span-deg: slice-deg))
-          current-deg = current-deg + slice-deg
-        }
-        out
-      }
-
-      // Pass 1 — every wedge
-      #for slice in slices {
-        place(
-          left + top,
-          polygon(
-            fill: get-color(t, slice.index),
-            stroke: separator-stroke(t, thickness: 1pt),
-            ..pie-slice-points(center-x, center-y, pie-radius, slice.start-deg, slice.start-deg + slice.span-deg),
-          )
-        )
-      }
-
-      // Pass 2 — donut hole, before the labels. Labels sit at 0.75 of the
-      // radius, which a large donut-ratio punches straight through.
-      #if donut {
-        place-donut-hole(center-x, center-y, pie-radius * donut-ratio, t)
-      }
-
-      // Pass 3 — percentage labels, on top of every wedge and the hole
-      #if show-percentages {
-        for slice in slices {
-          let mid-deg = slice.start-deg + slice.span-deg / 2
-          let pct = calc.round((slice.value / total) * 100, digits: 1)
-          let pct-text = str(pct) + "%"
-          let pct-len = pct-text.len()
-          // Sit the label in the middle of the ring band, whatever the hole
-          // takes out of it — a fixed 0.75 falls inside the hole once
-          // donut-ratio passes it, leaving the text on the hole's fill.
-          let label-dist = pie-radius * (if donut { (donut-ratio + 1) / 2 } else { 0.7 })
-          // Approximate available width from arc at label distance
-          let arc-w = (label-dist / 1pt) * slice.span-deg / 360 * 2 * calc.pi * 1pt
-          // Radial height available — never more than the band itself
-          let arc-h = if donut {
-            calc.min(pie-radius * 0.3, pie-radius * (1 - donut-ratio))
-          } else {
-            pie-radius * 0.3
-          }
-          let fit = try-fit-label(arc-w, arc-h, t.value-label-size, pct-len, shrink-min: 5pt)
-          if fit.fits {
-            let lx = center-x + label-dist * calc.cos(mid-deg * 1deg)
-            let ly = center-y + label-dist * calc.sin(mid-deg * 1deg)
-            place(
-              left + top,
-              dx: lx - 40pt,
-              dy: ly,
-              pin(width: 80pt, align: center + horizon,
-                text(size: fit.size, fill: t.text-color-inverse, weight: "bold")[#pct-text])
-            )
-          }
+  // Percentage labels: inside the slice when they fit, outside when not
+  let label-text(s) = if s.pct > 0 and s.pct < 0.1 { "<0.1%" } else { str(s.pct) + "%" }
+  let r-hole = if donut { donut-ratio } else { 0 }
+  let plan(pie-r) = {
+    let inside = ()
+    let outside = ()
+    if show-percentages {
+      for s in slices.filter(s => s.span > 0) {
+        let ink = label-ink(get-color(t, s.i), t)
+        let make(sz) = text(size: sz, weight: "bold", fill: ink, top-edge: "cap-height", bottom-edge: "baseline")[#label-text(s)]
+        let r-in = pie-r * r-hole
+        let fit = fit-wedge-label(make, s.mid, s.span / 2, r-in, pie-r, t.value-label-size, t.axis-label-size,
+          r-pref: if donut { (r-in + pie-r) / 2 } else { pie-r * 0.7 })
+        if fit != none {
+          inside.push((s: s, fit: fit, body: make(fit.size)))
+        } else {
+          outside.push((angle: s.mid, priority: s.span,
+            body: text(size: t.value-label-size, weight: "bold", fill: t.text-color, top-edge: "cap-height", bottom-edge: "baseline")[#label-text(s)]))
         }
       }
+    }
+    // Only the larger of the small slices get an outside label: a dozen of
+    // them would shrink the pie to make room, and the legend lists every
+    // percentage anyway
+    let cap = if legend-on { 8 } else { 14 }
+    outside = outside.sorted(key: o => -o.priority).slice(0, calc.min(outside.len(), cap))
+    // Room the outside labels need around the pie
+    let ms = outside.map(o => measure(o.body))
+    let mx = if outside.len() > 0 { calc.max(..ms.map(m => m.width)) + 12pt } else { 0pt }
+    // Above / below the pie only where a label actually sits there
+    let my-h = if ms.len() > 0 { calc.max(..ms.map(m => m.height)) + 8pt } else { 0pt }
+    let my-top = if outside.any(o => calc.sin(o.angle * 1deg) < -0.5) { my-h } else { 0pt }
+    let my-bot = if outside.any(o => calc.sin(o.angle * 1deg) > 0.5) { my-h } else { 0pt }
+    (inside: inside, outside: outside, mx: mx, my-top: my-top, my-bot: my-bot)
+  }
+  let pl = plan(size / 2)
+  if pl.mx > 0pt {
+    let (shrunk, _) = split-width(size, side + 2 * pl.mx, avail.width, t)
+    if shrunk < size {
+      size = shrunk
+      pl = plan(size / 2)
+    }
+  }
+
+  let (box-w, box-h) = (size + 2 * pl.mx, size + pl.my-top + pl.my-bot)
+  let (cx, cy) = (box-w / 2, pl.my-top + size / 2)
+  let pie-r = size / 2
+  // A legend far taller than the pie (dozens of entries) starts level with
+  // the pie's top instead of leaving it floating mid-column
+  let body-h = if lg.height > 1.5 * box-h { lg.height } else { box-h }
+
+  align(center, chart-container(box-w, body-h, title, lg.theme, extra-height: title-slack(title, subtitle, lg.theme, box-w) + calc.max(0pt, lg.height - body-h), legend: lg.legend, legend-width: lg.width, subtitle: subtitle, radius: radius)[
+    #box(width: box-w, height: body-h)[
+      // Wedges first, then every label on top
+      #if values.all(v => v == 0) {
+        place(left + top, dx: cx - pie-r, dy: cy - pie-r, circle(radius: pie-r, stroke: t.grid-stroke))
+      }
+      #for s in slices {
+        place-wedge(cx, cy, pie-r * r-hole, pie-r, s.start, s.start + s.span, get-color(t, s.i),
+          stroke: separator-stroke(t, thickness: 1pt))
+      }
+      #for l in pl.inside {
+        let (x, y) = (cx + l.fit.r * calc.cos(l.s.mid * 1deg), cy + l.fit.r * calc.sin(l.s.mid * 1deg))
+        place-centred(x, y, l.fit.w, l.fit.h, l.body)
+      }
+      #place-outside-labels(pl.outside, cx, cy, pie-r, (left: 0pt, right: box-w, top: 0pt, bottom: box-h),
+        leader-stroke: 0.5pt + t.text-color-light)
     ]
   ])
   })
