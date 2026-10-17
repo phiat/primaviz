@@ -13,9 +13,8 @@
 /// Each entity is drawn as an arc whose length is proportional to its total
 /// flow (sum of outgoing and incoming values). Curved bands (chords) connect
 /// pairs of entities, with the band width at each end proportional to the
-/// individual flow value. Chords are tints of the source entity's color; the
-/// largest are drawn first so small flows stay visible on top, and each has a
-/// thin outline in the page colour so overlaps stay distinct.
+/// individual flow value. Chords are translucent tints of the source entity's
+/// color; the largest are drawn first so small flows stay visible on top.
 ///
 /// - data (dictionary): Must contain `labels` (array of strings) and `matrix`
 ///   (square array of arrays — `matrix.at(i).at(j)` is the flow from entity
@@ -119,23 +118,14 @@
     (..arc-points(cx, cy, inner-r, c.src.at(0), c.dst.at(1), steps: 14),
      ..curve(c.dst.at(1), c.src.at(0), via: polar-pt(cx, cy, inner-r * 0.3, mid)))
   }
-  // The page-colour outline separates overlapping chords, but on a hair-thin
-  // chord it would eat the fill: only chords wide enough carry one
-  let outline(c) = if calc.min(c.src.at(1) - c.src.at(0), c.dst.at(1) - c.dst.at(0)) * calc.pi / 180 * inner-r >= 2.5pt {
-    separator-stroke(t)
-  } else { none }
-
-  // Chords are tints of their source colour, opaque: stacked transparency
-  // turns to mud where ribbons cross, a tint does not
-  let page = if t.background != none { t.background } else { white }
-
   align(center, chart-container(size, size, title, t, extra-height: title-slack(title, none, t, size))[
     #box(width: size, height: size)[
-      // Chords, largest first, behind the arcs
+      // Chords, largest first, behind the arcs: translucent tints of their
+      // source colour, so crossings stay readable and no outline is needed
       #for c in chords.sorted(key: c => -c.val) {
         place(left + top, polygon(
-          fill: color.mix((get-color(t, c.from), 75%), (page, 25%)),
-          stroke: outline(c),
+          fill: get-color(t, c.from).transparentize(55%),
+          stroke: none,
           ..if c.from == c.to { petal(c) } else {
             (..arc-points(cx, cy, inner-r, c.src.at(0), c.src.at(1), steps: 10),
              ..curve(c.src.at(1), c.dst.at(0)),
