@@ -15,6 +15,7 @@
 // All functions measure text, so call them from inside `context`.
 
 #import "polar.typ": polar-pt
+#import "fonts.typ": spread-labels
 
 // ── Colour ──────────────────────────────────────────────────────────────
 
@@ -226,23 +227,6 @@
   (x, y)
 }
 
-// Fits `qs` with the nearest non-decreasing sequence (pool adjacent violators:
-// a run that runs backwards is replaced by its mean, until none does).
-#let _isotonic(qs) = {
-  let blocks = ()
-  for q in qs {
-    blocks.push((q, 1))
-    while blocks.len() > 1 {
-      let (a, b) = (blocks.at(blocks.len() - 2), blocks.at(blocks.len() - 1))
-      if a.at(0) / a.at(1) <= b.at(0) / b.at(1) { break }
-      blocks = blocks.slice(0, blocks.len() - 2) + ((a.at(0) + b.at(0), a.at(1) + b.at(1)),)
-    }
-  }
-  let out = ()
-  for b in blocks { out += (b.at(0) / b.at(1),) * b.at(1) }
-  out
-}
-
 // Length of the vector (dx, dy)
 #let _dist(dx, dy) = calc.sqrt((dx / 1pt) * (dx / 1pt) + (dy / 1pt) * (dy / 1pt)) * 1pt
 
@@ -355,7 +339,8 @@
       for row in range(rows) {
         let idx = range(n).filter(k => lv.at(k) == row)
         if idx.len() < 2 { continue }
-        let offs = (0.0,)
+        // Degrees each label needs beyond the one before it
+        let steps = (0.0,)
         for j in range(1, idx.len()) {
           let (ka, kb) = (idx.at(j - 1), idx.at(j))
           if round > 0 and tight.at(kb) { grow.at(kb) *= 1.25 }
@@ -364,10 +349,11 @@
           let along(m) = m.w * calc.abs(calc.sin(psi)) + m.h * calc.abs(calc.cos(psi))
           let reach = calc.max(1pt, (_dist(a.lx + a.w / 2 - cx, a.ly + a.h / 2 - cy) + _dist(b.lx + b.w / 2 - cx, b.ly + b.h / 2 - cy)) / 2)
           let need = ((along(a) + along(b)) / 2 + sep) / (2 * reach)
-          offs.push(offs.last() + 2 * calc.asin(calc.min(1.0, need)).deg() * grow.at(kb))
+          steps.push(2 * calc.asin(calc.min(1.0, need)).deg() * grow.at(kb))
         }
-        let fit = _isotonic(idx.enumerate().map(((j, k)) => th.at(k) - offs.at(j)))
-        for (j, k) in idx.enumerate() { phi.at(k) = fit.at(j) + offs.at(j) }
+        // The nearest layout with that room between neighbours (degrees as points)
+        let at = spread-labels(idx.map(k => th.at(k) * 1pt), need: (a, b) => steps.at(b) * 1pt)
+        for (j, k) in idx.enumerate() { phi.at(k) = at.at(j) / 1pt }
       }
     }
 

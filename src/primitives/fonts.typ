@@ -80,65 +80,6 @@
   result
 }
 
-/// Single-pass greedy label deconfliction.
-///
-/// Takes an array of proposal dicts, each with keys `cx`, `cy`, `lx`, `ly`, `w`, `h`
-/// (plus any extra keys which are preserved). Sorts by `ly`, then nudges overlapping
-/// labels, trying both upward and downward and picking the direction that keeps the
-/// label closest to its original proposed position.
-///
-/// - proposals (array): Array of label-position dicts
-/// - bounds (dictionary): Dict with `left`, `right`, `top`, `bottom` keys
-/// - gap (length): Minimum vertical gap between labels
-/// -> array
-#let greedy-deconflict(proposals, bounds, gap: 2pt) = {
-  // Sort by ly (top position)
-  let sorted = proposals.sorted(key: p => p.ly)
-  let placed = ()
-  for p in sorted {
-    let ly = p.ly
-    let orig-ly = p.ly
-    // Check against all already-placed labels for overlaps
-    let has-overlap = true
-    let iters = 0
-    // Iteratively resolve overlaps (max 10 iterations to avoid infinite loops)
-    while has-overlap and iters < 10 {
-      has-overlap = false
-      iters += 1
-      for prev in placed {
-        let overlap-v = prev.ly + prev.h + gap - ly
-        let overlap-h = not (p.lx + p.w <= prev.lx or prev.lx + prev.w <= p.lx)
-        if overlap-h and overlap-v > 0pt {
-          // Try nudging down
-          let ly-down = prev.ly + prev.h + gap
-          // Try nudging up (above the conflicting label)
-          let ly-up = prev.ly - p.h - gap
-          // Pick the direction closer to the original proposed position
-          let dist-down = calc.abs((ly-down - orig-ly) / 1pt)
-          let dist-up = calc.abs((ly-up - orig-ly) / 1pt)
-          if ly-up >= bounds.top and dist-up <= dist-down {
-            ly = ly-up
-          } else {
-            ly = ly-down
-          }
-          has-overlap = true
-        }
-      }
-    }
-    // Clamp to bounds
-    let ly = calc.max(bounds.top, calc.min(bounds.bottom - p.h, ly))
-    let lx = calc.max(bounds.left, calc.min(bounds.right - p.w, p.lx))
-    let entry = (:)
-    for (k, v) in p.pairs() {
-      if k == "lx" { entry.insert(k, lx) }
-      else if k == "ly" { entry.insert(k, ly) }
-      else { entry.insert(k, v) }
-    }
-    placed.push(entry)
-  }
-  placed
-}
-
 /// Places a label near a Cartesian point with quadrant-aware alignment.
 ///
 /// Clamps the label position to stay within the given bounds rectangle.
@@ -308,54 +249,97 @@
   }
 }
 
-/// Spreads labels along one axis so none overlaps another, moving each as
-/// little as possible and never reordering them.
+/// Lays labels out along one axis (a column of names, a row of them, the ends
+/// of lines, an arc read as a line) so that none overlaps another. The one
+/// spreader every chart uses.
 ///
-/// Labels that collide are grouped and the group is centred on where its
-/// members wanted to be (pool-adjacent-violators); the result is clamped into
-/// `[lo, hi]`. If the labels cannot all fit, the spacing shrinks evenly.
+/// Each label is wanted at `wants.at(i)` (its centre). The result moves the
+/// labels as little as it can (least squares), never reorders them (equal
+/// wishes keep their input order) and keeps neighbours `gap` apart, clear
+/// space between their extents. Labels that collide form a cluster that is
+/// centred on where its members wanted to be, then clamped into `lo..hi`.
+/// A solution inside `lo..hi` is found whenever one exists.
 ///
-/// - ys (array): Wanted centre of each label (lengths), in any order
-/// - sep (length): Minimum distance between neighbouring centres (label height + gap)
-/// - lo (none, length): Lowest allowed centre
-/// - hi (none, length): Highest allowed centre
-/// -> array of lengths, same order as `ys`
-#let spread-1d(ys, sep, lo: none, hi: none) = {
-  let n = ys.len()
+/// When the labels cannot all fit, in this order: the `gap` is squeezed (down
+/// to `min-gap`, 0 by default: extents touch); then labels are left out,
+/// those of the lowest `priority` first, and among equals the one whose
+/// removal leaves the smallest hole, the first and last last, so the rest
+/// are thinned evenly. The labels that remain never overlap. A label left
+/// out has `none` for its place: the caller does not draw it.
+///
+/// All positions are lengths along the axis (an angle can be passed as
+/// points, one point per degree). `lo` and `hi` bound the labels' extents
+/// (their edges), which are their centres when `sizes` is 0.
+///
+/// - wants (array): Wanted centre of each label, in any order
+/// - sizes (length, array): Extent of the label along the axis; one length for all or one each
+/// - gap (length): Clear space wanted between neighbours
+/// - min-gap (length): Least clear space accepted before labels are left out; negative
+///   when `sizes` carry air around the text, which crowded labels may then use
+/// - lo (none, length): Start of the room; none: unbounded
+/// - hi (none, length): End of the room; none: unbounded
+/// - priority (none, array): Higher survives when labels must be left out
+/// - need (none, function): `(a, b) => length`, the least distance between the centres of
+///   neighbours `a` then `b` (indices into `wants`); replaces `sizes` and `gap` for spacing
+/// -> array, in the order of `wants`, of lengths (centres) or `none` (left out)
+#let spread-labels(wants, sizes: 0pt, gap: 0pt, min-gap: 0pt, lo: none, hi: none, priority: none, need: none) = {
+  let n = wants.len()
   if n == 0 { return () }
-  let sep = if lo != none and hi != none and n > 1 and (n - 1) * sep > hi - lo {
-    (hi - lo) / (n - 1)
-  } else { sep }
-  let order = array.range(n).sorted(key: i => ys.at(i))
-  let clamp-pos(pos, count) = {
-    let p = pos
-    if hi != none { p = calc.min(p, hi - (count - 1) * sep) }
-    if lo != none { p = calc.max(p, lo) }
-    p
+  let size-of(i) = if type(sizes) == array { sizes.at(i) } else { sizes }
+  let dist(g, a, b) = if need != none { need(a, b) } else { (size-of(a) + size-of(b)) / 2 + g }
+  // What `ls` take up with no space between neighbours (and the space each gap adds)
+  let base(ls) = {
+    let t = (size-of(ls.first()) + size-of(ls.last())) / 2
+    for k in range(1, ls.len()) { t += dist(0pt, ls.at(k - 1), ls.at(k)) }
+    t
   }
-  // A block is a run of labels stacked `sep` apart; `sum` is the sum of its
-  // members' wanted positions less their offset inside the block, so the
-  // block's best position is sum / count.
-  let blocks = ()
-  for (k, i) in order.enumerate() {
-    let blk = (count: 1, sum: ys.at(i), pos: clamp-pos(ys.at(i), 1))
-    while blocks.len() > 0 {
-      let prev = blocks.last()
-      if prev.pos + prev.count * sep > blk.pos + 0.001pt {
-        let _ = blocks.pop()
-        let count = prev.count + blk.count
-        let sum = prev.sum + blk.sum - blk.count * prev.count * sep
-        blk = (count: count, sum: sum, pos: clamp-pos(sum / count, count))
-      } else { break }
+  let live = range(n).sorted(key: i => (wants.at(i), i))
+  let g = gap
+  if lo != none and hi != none {
+    let room = hi - lo + 0.01pt
+    while live.len() > 1 and base(live) + (live.len() - 1) * min-gap > room {
+      let m = live.len()
+      let key(j) = {
+        let end = j == 0 or j == m - 1
+        (if priority == none { 0 } else { priority.at(live.at(j)) }, if end { 1 } else { 0 },
+          if end { 0pt } else { wants.at(live.at(j + 1)) - wants.at(live.at(j - 1)) }, -live.at(j))
+      }
+      let _ = live.remove(range(m).sorted(key: key).first())
     }
-    blocks.push(blk)
+    if live.len() > 1 and need == none {
+      g = calc.max(min-gap, calc.min(gap, (room - base(live)) / (live.len() - 1)))
+    }
   }
-  let sorted-pos = ()
-  for blk in blocks {
-    for j in array.range(blk.count) { sorted-pos.push(blk.pos + j * sep) }
+  // Labels stacked as tightly as allowed, `offs` from the first: the nearest layout is the
+  // nearest non-decreasing fit (pool adjacent violators) to the wishes less those offsets
+  let offs = (0pt,)
+  for k in range(1, live.len()) { offs.push(offs.last() + dist(g, live.at(k - 1), live.at(k))) }
+  let blocks = ()
+  for (k, i) in live.enumerate() {
+    blocks.push((wants.at(i) - offs.at(k), 1))
+    while blocks.len() > 1 {
+      let (a, b) = (blocks.at(-2), blocks.at(-1))
+      if a.at(0) / a.at(1) <= b.at(0) / b.at(1) { break }
+      let _ = blocks.pop()
+      blocks.at(-1) = (a.at(0) + b.at(0), a.at(1) + b.at(1))
+    }
   }
-  let out = array.range(n).map(_ => 0pt)
-  for (k, i) in order.enumerate() { out.at(i) = sorted-pos.at(k) }
+  let fit = ()
+  for (sum, count) in blocks { fit += (sum / count,) * count }
+  // Clamp into the room (the first label's start, the last one's end)
+  let lb = if lo == none { none } else { lo + size-of(live.first()) / 2 }
+  let ub = if hi == none { none } else { hi - size-of(live.last()) / 2 - offs.last() }
+  let out = (none,) * n
+  for (k, i) in live.enumerate() {
+    let z = fit.at(k)
+    z = if lb != none and ub != none and lb > ub { (lb + ub) / 2 } else {
+      if lb != none { z = calc.max(z, lb) }
+      if ub != none { z = calc.min(z, ub) }
+      z
+    }
+    // A label nothing moved keeps its wish exactly
+    out.at(i) = if z == wants.at(i) - offs.at(k) { wants.at(i) } else { z + offs.at(k) }
+  }
   out
 }
 

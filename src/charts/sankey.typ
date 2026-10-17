@@ -3,7 +3,7 @@
 #import "../util.typ": nonzero, format-number
 #import "../validate.typ": validate-sankey-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/layout.typ": resolve-size, text-width, place-centered, spread-1d, fit-font-size
+#import "../primitives/layout.typ": resolve-size, text-width, place-centered, spread-labels, fit-font-size
 #import "../primitives/reserve.typ": container-extra
 
 /// Renders a Sankey (flow) diagram showing quantities flowing between nodes.
@@ -220,10 +220,12 @@
           let heights = col-nodes.enumerate().map(((k, i)) =>
             measure(box(width: avail, text(size: sizes.at(k))[#label-of(i)])).height)
           let sep = heights.fold(0pt, calc.max) + 1pt
-          let ys = spread-1d(
-            col-nodes.map(i => node-y.at(i) + node-h.at(i) / 2), sep,
-            lo: pad-y + sep / 2, hi: height - pad-y - sep / 2)
+          // The names of the biggest nodes win when a column has more than it holds
+          let ys = spread-labels(
+            col-nodes.map(i => node-y.at(i) + node-h.at(i) / 2), sizes: sep,
+            lo: pad-y, hi: height - pad-y, priority: col-nodes.map(i => node-value.at(i)))
           for (k, i) in col-nodes.enumerate() {
+            if ys.at(k) == none { continue }
             let ink = text(size: sizes.at(k), fill: t.text-color)[#label-of(i)]
             // Labels of middle columns sit on the flows: a halo in the page
             // colour keeps them legible on any band

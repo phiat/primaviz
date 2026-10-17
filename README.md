@@ -48,7 +48,7 @@ just demo       # Compile the comprehensive demo
 - **JSON data input** — load data directly from JSON files
 - **Theme system** — golden-ratio proportional scaling from two seeds (`base-size`, `base-gap`), preset themes, custom overrides, and `with-theme()` for document-wide defaults
 - **Nice ticks** — D3-style axis tick algorithm produces round, evenly-spaced values; auto-detects decimal precision from step size
-- **Smart label placement** — automatic fit detection, font shrinking, and greedy deconfliction for overlapping labels
+- **Smart label placement** — automatic fit detection, font shrinking, and spreading of overlapping labels
 - **Layout primitives** — shared utilities for label density, font scaling, and label placement
 - **Annotations** — overlay reference lines, bands, labels, content, points, error bars, and rectangles on any Cartesian chart
 - **Error bars** — native `errors:` parameter on bar and line charts (symmetric or asymmetric)
