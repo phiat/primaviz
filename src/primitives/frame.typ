@@ -34,7 +34,7 @@
 /// - height (length): Height of the chart box
 /// - t (dictionary): Resolved theme
 /// - x (dictionary): x axis (`value-axis` or `category-axis`)
-/// - y (dictionary): y axis; a category axis here lays categories top to bottom
+/// - y (dictionary): y axis (`value-axis`; horizontal bars use the row primitives, `row-chart`)
 /// - y2 (none, dictionary): Optional second value axis on the right, aligned to
 ///   the grid of `y` when the two can share one
 /// - title (none, content): Chart title
@@ -85,8 +85,7 @@
     )[#ax.title]
   }
   let thick(c) = if c == none { 0pt } else { measure(c).height }
-  let label-w(ax) = if ax == none or not ax.labelled { 0pt }
-    else if ax.kind == "value" { widest-label(ax.labels, t) } else { ax.col }
+  let label-w(ax) = if ax == none or not ax.labelled { 0pt } else { widest-label(ax.labels, t) }
   let text-of(ax, i) = ax.at("texts", default: ax.labels).at(i)
 
   // ── y axes: their tick labels and titles set the side margins ──────────────
@@ -97,7 +96,7 @@
   let (ya, y2a) = if y.kind == "value" and y2 != none {
     resolve-value-pair(y, y2, est, t)
   } else {
-    (if y.kind == "value" { resolve-value-axis(y, est, true, t) } else { resolve-category-axis-v(y, est, 0.38 * width, t) },
+    (resolve-value-axis(y, est, true, t),
      if y2 == none { none } else { resolve-value-axis(y2, est, true, t) })
   }
   let y-title = title-of(ya)
@@ -128,7 +127,6 @@
 
   let pad-bottom = g + xa.block + x-title-h + rsv("bottom")
   let plot-h = calc.max(height - pad-top - pad-bottom, 24pt)
-  let ya = if ya.kind == "category" { resolve-category-axis-v(y, plot-h, 0.38 * width, t) } else { ya }
 
   let (x0, y0) = (pad-left, pad-top)
   let (x1, y1) = (x0 + plot-w, y0 + plot-h)
@@ -151,25 +149,28 @@
   // y tick labels: right-aligned against the axis (left) or left-aligned (right)
   let y-labels(ax, pos, left-side) = if ax.labelled {
     let w = label-w(ax)
-    let ticks = if ax.kind == "value" { ax.nt.ticks } else { range(ax.n) }
-    for (i, v) in ticks.enumerate() {
-      if ax.kind == "category" and calc.rem(i, ax.skip) != 0 { continue }
+    for (i, v) in ax.nt.ticks.enumerate() {
       place(left + top, dx: if left-side { x0 - g - w } else { x1 + g }, dy: pos(v),
         pin(width: w, align: (if left-side { right } else { left }) + horizon,
-          label-text(text-of(ax, i), t, fill: axis-color(ax), size: ax.at("size", default: auto))))
+          label-text(text-of(ax, i), t, fill: axis-color(ax))))
     }
   }
 
   // x tick labels: flat and centred, or tilted so the text ends at its mark
   let x-labels() = if xa.labelled {
-    let lh = label-line-height(t)
     let ticks = if xa.kind == "value" { xa.nt.ticks } else { xa.shown }
     for (k, v) in ticks.enumerate() {
       let i = if xa.kind == "value" { k } else { v }
       let cx = px(v)
-      let lbl = label-text(text-of(xa, i), t)
+      let lbl = label-text(text-of(xa, i), t, size: if xa.kind == "category" { xa.size } else { auto })
       let w = measure(lbl).width
-      if xa.kind == "category" and xa.rotate {
+      if xa.kind == "category" and xa.angle == 90 {
+        // Upright: reads upward and ends at its mark, centred on it
+        let lh = label-line-height(t) * (xa.size / t.axis-label-size)
+        place(left + top, dx: cx - w, dy: y1 + g - lh / 2,
+          rotate(-90deg, origin: right + horizon, box(width: w, height: lh, lbl)))
+      } else if xa.kind == "category" and xa.rotate {
+        let lh = label-line-height(t) * (xa.size / t.axis-label-size)
         place(left + top, dx: cx - w, dy: y1 + g - 0.15 * lh,
           rotate(-45deg, origin: right + horizon, box(width: w, height: lh, lbl)))
       } else {
@@ -182,8 +183,7 @@
 
   let tick-marks() = if show-ticks {
     let tl = t.tick-length
-    let ys-ticks = if ya.kind == "value" { ya.nt.ticks } else { range(ya.n) }
-    for v in ys-ticks { rule((x0 - tl, py(v)), (x0, py(v)), t.axis-stroke) }
+    for v in ya.nt.ticks { rule((x0 - tl, py(v)), (x0, py(v)), t.axis-stroke) }
     if y2s != none { for v in y2a.nt.ticks { rule((x1, y2s.pos(v)), (x1 + tl, y2s.pos(v)), t.axis-stroke) } }
     let xs-ticks = if xa.kind == "value" { xa.nt.ticks } else { xa.shown }
     for v in xs-ticks { rule((px(v), y1), (px(v), y1 + tl), t.axis-stroke) }

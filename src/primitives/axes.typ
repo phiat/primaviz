@@ -40,10 +40,11 @@
 ///
 /// `mode: "slots"` gives every category an equal slot and centres its mark in it
 /// (bars). `mode: "points"` spreads marks evenly with just enough room at the
-/// ends for the end labels (lines). When labels do not fit horizontally,
-/// `overflow: "rotate"` tilts them 45 degrees (thinning only if still too dense)
-/// and `overflow: "thin"` shows every k-th; `auto` picks rotate for slots, and
-/// for points thin, unless thinning would leave fewer than four labels.
+/// ends for the end labels (lines). Labels that do not fit flat are all kept
+/// as long as that is possible at a legible size: tilted 45 degrees (the type
+/// shrinking toward the theme's `category-label-min-size`, 6pt by default), then
+/// upright, and only then thinned (see `resolve-category-axis`). `overflow: "thin"`
+/// skips the tilting and shows every k-th flat label; `rotate` and `auto` both tilt.
 ///
 /// - labels (array): Category labels (strings, numbers or content)
 /// - title (none, content): Axis title
@@ -204,21 +205,32 @@
 // ── Category axes ───────────────────────────────────────────────────────────
 
 /// Resolves a horizontal category axis over `len`: slot geometry and the label
-/// policy. Labels that fit are shown flat; otherwise they are thinned or rotated
-/// as the axis asks, so no two labels ever overlap. Thinning keeps the fewest
-/// labels that stay clear of each other, measured pair by pair (one long label
-/// does not thin the short ones). Rotated labels never take more than
-/// `max-block` of height: longer text is cut with an ellipsis.
+/// policy. Every label is shown whenever that is physically possible at a legible
+/// size, so the policy runs down a ladder and thins only at the very end:
+///
+/// 1. flat, at full size;
+/// 2. tilted 45 degrees, at full size;
+/// 3. tilted 45 degrees, the type shrinking toward a floor;
+/// 4. upright (90 degrees), at the largest size from the floor up that fits;
+/// 5. upright at the floor, thinned evenly (first and last always kept).
+///
+/// The floor is the theme key `category-label-min-size` (6pt unless set; never
+/// above the axis label size). `overflow: "thin"` skips the tilted steps and keeps
+/// the fewest flat labels that stay clear of each other, measured pair by pair
+/// (one long label does not thin the short ones). Tilted labels never take more
+/// than `max-block` of height: longer text is cut with an ellipsis.
 ///
 /// Adds `n`, `pitch` (distance between marks), `inset`, `dlo`/`dhi` (index
-/// domain), `rotate`, `skip`, `shown` (indices of the labels drawn), `texts`
-/// (the labels as drawn, clipped where needed), `block` (height the label row
-/// needs) and `over-left` (how far a rotated first label reaches left of the plot).
+/// domain), `rotate` (whether tilted), `angle` (0, 45 or 90), `size` (type size
+/// of the labels), `skip`, `shown` (indices of the labels drawn), `texts` (the
+/// labels as drawn, clipped where needed), `block` (height the label row needs)
+/// and `over-left` (how far a tilted first label reaches left of the plot).
 #let resolve-category-axis(ax, len, t, max-block: none) = {
   let n = ax.labels.len()
+  let size0 = t.axis-label-size
   let width-of(l) = measure(label-text(l, t)).width
   let natural = ax.labels.map(width-of)
-  let lh = label-line-height(t)
+  let lh0 = label-line-height(t)
   // A single point has nothing to spread: it takes the middle, like a lone slot
   let slots = ax.mode == "slots" or n == 1
   let pitch-for(inset) = if slots { len / n } else if n > 1 { (len - 2 * inset) / (n - 1) } else { len }
@@ -226,7 +238,7 @@
   let flat-inset = if slots { 0pt } else {
     calc.min(calc.max(ax.inset, calc.max(natural.first(), natural.last()) / 2 + 1pt), len * 0.3)
   }
-  let gap = 0.6 * t.axis-label-size
+  let gap = 0.6 * size0
   // Whether every s-th label, set flat, stays clear of its neighbour
   let clear(s) = range(0, n, step: s).windows(2).all(ij => {
     let (a, b) = ij
@@ -234,53 +246,46 @@
   })
   let flat = clear(1)
   let thin-skip = if flat { 1 } else { range(2, n + 1).find(clear) }
-  // `auto`: slots rotate; points thin, unless thinning would leave under four labels
-  let rotate = not flat and (ax.overflow == "rotate" or (ax.overflow == auto and (slots or (n >= 4 and calc.ceil(n / thin-skip) < 4))))
+
   // Tilted labels end at their mark and reach left, not right: only the marker needs room
-  let inset = if rotate and not slots { calc.min(ax.inset, len * 0.3) } else { flat-inset }
+  let tilt-inset = if slots { 0pt } else { calc.min(ax.inset, len * 0.3) }
+  let tilt-pitch = pitch-for(tilt-inset)
+  // Fraction of the full size at which tilted labels, `k` line heights apart, fit the pitch
+  let floor = calc.min(t.at("category-label-min-size", default: 6pt), size0)
+  let fit-at(k) = calc.min(1, tilt-pitch / (k * lh0))
+  let (k45, k90) = (1.6, 1.15)
+  let (angle, size, skip) = if flat { (0, size0, 1) }
+    else if ax.overflow == "thin" { (0, size0, thin-skip) }
+    else if fit-at(k45) * size0 >= floor { (45, size0 * fit-at(k45), 1) }
+    else if fit-at(k90) * size0 >= floor { (90, size0 * fit-at(k90), 1) }
+    else { (90, floor, calc.ceil(k90 * lh0 * (floor / size0) / tilt-pitch)) }
+  let rotate = angle != 0
+  let inset = if rotate { tilt-inset } else { flat-inset }
   let pitch = pitch-for(inset)
-  let skip = if rotate { calc.max(1, calc.ceil(1.8 * lh / pitch)) } else { thin-skip }
-  let wcap = if rotate and max-block != none { calc.max(max-block / 0.7071 - lh, 3 * lh) }
-  let texts = if wcap == none { ax.labels } else {
-    ax.labels.map(l => _clip-label(l, c => width-of(c) <= wcap))
+  let lh = lh0 * (size / size0)
+  let width-at(l) = measure(label-text(l, t, size: size)).width
+  let wcap = if rotate and max-block != none {
+    if angle == 45 { calc.max(max-block / 0.7071 - lh, 3 * lh) } else { calc.max(max-block, 3 * lh) }
   }
-  let ws = if wcap == none { natural } else { texts.map(width-of) }
-  let shown = range(0, n, step: skip)
+  let texts = if wcap == none { ax.labels } else {
+    ax.labels.map(l => _clip-label(l, c => width-at(c) <= wcap))
+  }
+  let ws = if size == size0 and wcap == none { natural } else { texts.map(width-at) }
+  // Thinned upright labels are spread evenly with both ends kept; flat ones keep the pairs that were measured
+  let shown = if skip == 1 { range(n) }
+    else if angle == 90 {
+      let m = calc.floor((n - 1) / skip) + 1
+      if m >= 2 { range(m).map(j => int(calc.round((n - 1) * j / (m - 1)))) } else { (0,) }
+    } else { range(0, n, step: skip) }
   let wshown = shown.map(i => ws.at(i)).fold(0pt, calc.max)
   let first-x = if slots { pitch / 2 } else { inset }
   (
-    ..ax, n: n, ws: ws, texts: texts, pitch: pitch, inset: inset, rotate: rotate, skip: skip, shown: shown,
+    ..ax, n: n, ws: ws, texts: texts, pitch: pitch, inset: inset, rotate: rotate, angle: angle, size: size,
+    skip: skip, shown: shown,
     dlo: if slots { -0.5 } else { 0 }, dhi: if slots { n - 0.5 } else { calc.max(n - 1, 1) },
-    block: if rotate { 0.7071 * (wshown + lh) } else { label-row-height(t) },
-    over-left: if rotate { calc.max(0pt, 0.7071 * ws.first() + 0.354 * lh - first-x) } else { 0pt },
-  )
-}
-
-/// Resolves a vertical category axis over `len` (horizontal bars): the label
-/// column is as wide as the widest label up to `max-col`; wider labels wrap, and
-/// a label taller than its row is cut with an ellipsis. When the rows are too
-/// short for the type size it shrinks (to 75%), and only then are labels thinned.
-///
-/// Adds `n`, `pitch`, `dlo`/`dhi`, `col` (label column width), `size` (type
-/// size of the labels), `skip`, `texts`.
-#let resolve-category-axis-v(ax, len, max-col, t) = {
-  let n = ax.labels.len()
-  let pitch = len / n
-  let lh = label-line-height(t)
-  let fit = calc.min(1, pitch / (1.15 * lh))
-  let size = t.axis-label-size * calc.max(fit, 0.75)
-  let skip = if fit >= 0.75 { 1 } else { calc.ceil(1.15 * lh * 0.75 / pitch) }
-  let col = calc.min(ax.labels.map(l => measure(label-text(l, t, size: size)).width).fold(0pt, calc.max), max-col)
-  // A label may wrap onto as many lines as its row holds with air to spare
-  // (one line's height plus the descender room), and is cut with an ellipsis past that
-  let one = measure(label-text("A", t, size: size)).height
-  let step = measure(box(width: col, label-text([A \ A], t, size: size))).height - one
-  let lines = calc.max(1, calc.floor((pitch * skip * 0.95 - one - 0.3 * size) / step) + 1)
-  let room = one + (lines - 1) * step + 0.5pt
-  let texts = ax.labels.map(l => _clip-label(l, c => measure(box(width: col, label-text(c, t, size: size))).height <= room))
-  (
-    ..ax, n: n, pitch: pitch, inset: 0pt, dlo: -0.5, dhi: n - 0.5,
-    col: col, size: size, skip: skip, texts: texts,
+    block: if angle == 45 { 0.7071 * (wshown + lh) } else if angle == 90 { wshown + 0.2 * lh } else { label-row-height(t) },
+    over-left: if angle == 45 { calc.max(0pt, 0.7071 * ws.first() + 0.354 * lh - first-x) }
+      else if angle == 90 { calc.max(0pt, lh / 2 - first-x) } else { 0pt },
   )
 }
 

@@ -282,7 +282,10 @@ Pass a dictionary with only the keys you want to change. Unspecified keys fall b
 ```typst
 #bar-chart(data, theme: (show-grid: true, palette: (red, blue, green)))
 #bar-chart(data, theme: (tick-digits: 2))  // force 2 decimal places on axis ticks
+#bar-chart(data, theme: (category-label-min-size: 7pt))  // smallest type for crowded category labels (6pt, or 5pt on horizontal bar rows, unless set)
 ```
+
+Category labels are all kept whenever that is possible at a legible size: flat, then tilted 45 degrees, then shrinking down to `category-label-min-size`, then upright, and only then thinned evenly (first and last always shown). Horizontal bar and lollipop charts grow their rows with `height: auto`; with a fixed height they shrink the row labels to the floor before thinning.
 
 ### Theme from JSON
 
