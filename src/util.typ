@@ -38,7 +38,9 @@
 // Named palette definitions — arrays of color stops for N-stop interpolation.
 #let _named-palettes = (
   viridis: (rgb("#440154"), rgb("#3b528b"), rgb("#21918c"), rgb("#5ec962"), rgb("#fde725")),
-  heat: (rgb("#313695"), rgb("#74add1"), rgb("#a6d96a"), rgb("#fdae61"), rgb("#a50026")),
+  // Ordered, light to dark (ColorBrewer YlOrRd): more is always darker, so it
+  // reads as an amount. It used to run blue-green-red, a rainbow.
+  heat: (rgb("#ffffb2"), rgb("#fecc5c"), rgb("#fd8d3c"), rgb("#f03b20"), rgb("#bd0026")),
   blues: (rgb("#f7fbff"), rgb("#6baed6"), rgb("#08306b")),
   greens: (rgb("#f7fcf5"), rgb("#74c476"), rgb("#00441b")),
   reds: (rgb("#fff5f0"), rgb("#fb6a4a"), rgb("#67000d")),
