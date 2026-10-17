@@ -1,17 +1,47 @@
 // util.typ - Shared utilities for primaviz
 
-/// Returns white or black depending on the perceived luminance of a color.
-/// Uses the W3C relative luminance formula for good contrast.
+// sRGB channel (0..1) to linear light
+#let _lin(c) = if c <= 0.04045 { c / 12.92 } else { calc.pow((c + 0.055) / 1.055, 2.4) }
+
+/// WCAG relative luminance of a colour (0 = black, 1 = white).
 ///
-/// - c (color): Input color
+/// - c (color): Colour (alpha is ignored)
+/// -> float
+#let luminance(c) = {
+  let k = rgb(c).components()
+  0.2126 * _lin(k.at(0) / 100%) + 0.7152 * _lin(k.at(1) / 100%) + 0.0722 * _lin(k.at(2) / 100%)
+}
+
+/// WCAG contrast ratio between two colours (1 = identical, 21 = black on white).
+///
+/// - a (color): First colour
+/// - b (color): Second colour
+/// -> float
+#let contrast-ratio(a, b) = {
+  let (la, lb) = (luminance(a), luminance(b))
+  (calc.max(la, lb) + 0.05) / (calc.min(la, lb) + 0.05)
+}
+
+/// Text colour for a label drawn on a filled mark, chosen by WCAG contrast
+/// ratio rather than a luma guess (white on `#e15759` is 3.6:1, black 5.8:1).
+///
+/// Without a `theme` the answer is black or white, whichever has the higher
+/// contrast ratio against `c`. With a `theme` its own text colours are tried
+/// first, darker first, and the first with at least `min-ratio` contrast
+/// against the fill wins, so labels keep the theme's look (a dark theme's
+/// soft white, say); if neither reaches the ratio, black or white, whichever
+/// is stronger.
+///
+/// - c (color): The mark's fill
+/// - theme (none, dictionary): Resolved theme, to prefer its text colours
+/// - min-ratio (float): Contrast ratio worth keeping a theme colour for
 /// -> color
-#let contrast-text(c) = {
-  let comps = rgb(c).components()
-  let r = comps.at(0) / 100%
-  let g = comps.at(1) / 100%
-  let b = comps.at(2) / 100%
-  let lum = 0.299 * r + 0.587 * g + 0.114 * b
-  if lum > 0.55 { black } else { white }
+#let contrast-text(c, theme: none, min-ratio: 4.5) = {
+  let strongest = if contrast-ratio(black, c) >= contrast-ratio(white, c) { black } else { white }
+  if theme == none { return strongest }
+  let theirs = (theme.text-color-inverse, theme.text-color).sorted(key: k => luminance(k))
+  let ok = theirs.find(k => contrast-ratio(k, c) >= min-ratio)
+  if ok != none { ok } else { strongest }
 }
 
 /// Normalizes data input to a `(labels: array, values: array)` dictionary.
@@ -38,7 +68,9 @@
 // Named palette definitions — arrays of color stops for N-stop interpolation.
 #let _named-palettes = (
   viridis: (rgb("#440154"), rgb("#3b528b"), rgb("#21918c"), rgb("#5ec962"), rgb("#fde725")),
-  heat: (rgb("#313695"), rgb("#74add1"), rgb("#a6d96a"), rgb("#fdae61"), rgb("#a50026")),
+  // Ordered, light to dark (ColorBrewer YlOrRd): more is always darker, so it
+  // reads as an amount. It used to run blue-green-red, a rainbow.
+  heat: (rgb("#ffffb2"), rgb("#fecc5c"), rgb("#fd8d3c"), rgb("#f03b20"), rgb("#bd0026")),
   blues: (rgb("#f7fbff"), rgb("#6baed6"), rgb("#08306b")),
   greens: (rgb("#f7fcf5"), rgb("#74c476"), rgb("#00441b")),
   reds: (rgb("#fff5f0"), rgb("#fb6a4a"), rgb("#67000d")),
@@ -345,8 +377,10 @@
 /// - data-min (number): Minimum data value
 /// - data-max (number): Maximum data value
 /// - count (int): Target number of ticks (actual count may vary slightly)
+/// - step (auto, number): Use this step instead of picking one from `count` (the ticks
+///   still snap outward to multiples of it)
 /// -> dictionary
-#let nice-ticks(data-min, data-max, count: 5) = {
+#let nice-ticks(data-min, data-max, count: 5, step: auto) = {
   // A flat series (all values equal) would snap to a single tick; give it a
   // band around the value so the axis still has a scale.
   if data-min == data-max {
@@ -363,7 +397,8 @@
   let base = calc.pow(10, exp)
   let error = raw-step / base
   // D3 thresholds: sqrt(50), sqrt(10), sqrt(2) partition [1, 10) into step tiers
-  let step = if error >= calc.sqrt(50) { base * 10 }
+  let step = if step != auto { step }
+    else if error >= calc.sqrt(50) { base * 10 }
     else if error >= calc.sqrt(10) { base * 5 }
     else if error >= calc.sqrt(2) { base * 2 }
     else { base }

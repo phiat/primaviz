@@ -1,293 +1,470 @@
-// axes.typ - Axis drawing primitives
+// axes.typ - Axis specs, tick selection, label policy and scales
 
 #import "../theme.typ": *
-#import "../util.typ": format-number, nice-ceil, nice-floor, nice-ticks
-#import "layout.typ": density-skip, pin
+#import "../util.typ": format-number, nice-ticks
 
-/// Computes the standard Cartesian layout dimensions from theme padding.
-/// Returns a dictionary with: pad-left, pad-right, pad-top, pad-bottom,
-/// chart-width, chart-height, origin-x, origin-y.
+// ── Axis specs ──────────────────────────────────────────────────────────────
+//
+// An axis is described once (`value-axis`, `category-axis`), resolved against
+// the room it gets (`resolve-*`), and from then on every consumer — scale, grid,
+// tick marks, tick labels, annotations — reads the same resolved record. Nothing
+// re-derives ticks, so grid lines, tick marks and labels cannot disagree.
+
+/// A numeric axis over the data range `lo` to `hi`, snapped outward to a nice
+/// tick list.
 ///
-/// - width (length): Total available width
-/// - height (length): Total available height
-/// - theme (dictionary): Resolved theme
-/// - extra-left (length): Additional left padding beyond theme default
-/// - extra-right (length): Additional right padding beyond theme default
+/// - lo (int, float): Lowest value to cover
+/// - hi (int, float): Highest value to cover
+/// - title (none, content): Axis title
+/// - color (auto, color): Tick label and title color; `auto` uses the theme text color
+/// - inset (length): Room kept free at both ends of the axis, so marks centred on
+///   the extreme values (points, bubbles) stay inside the plot. The ticks stay at
+///   their values; the axis line moves out by `inset`.
+/// - ticks (auto, dictionary): A ready `nice-ticks`-style record (`min`, `max`,
+///   `ticks`, `step`, `digits`, optional `labels`) to use instead of picking one
+/// - labelled (bool): Draw the tick labels (the axis keeps its marks and grid)
+/// - pad (dictionary): `(lo: length, hi: length)`: room the axis must keep beyond
+///   the extreme values, for labels set past the end of a bar. The axis range
+///   widens (to the next nice tick) until that room is there.
+/// - marks (array): `(value, radius)` pairs: marks centred on `value` that reach
+///   `radius` to either side (bubbles). The axis range widens (to the next nice
+///   tick) until every mark lies inside it, so the axis line, the ticks and the
+///   plot extent stay one and the same.
 /// -> dictionary
-#let cartesian-layout(width, height, theme, extra-left: 0pt, extra-right: 0pt) = {
-  let pad-left = theme.axis-padding-left + extra-left
-  let pad-right = theme.axis-padding-right + extra-right
-  let pad-top = theme.axis-padding-top
-  let pad-bottom = theme.axis-padding-bottom
-  let chart-width = width - pad-left - pad-right
-  let chart-height = height - pad-top - pad-bottom
+#let value-axis(lo, hi, title: none, color: auto, inset: 0pt, ticks: auto, labelled: true, pad: (:), marks: ()) = (
+  kind: "value", lo: lo, hi: hi, title: title, color: color, inset: inset, ticks: ticks, labelled: labelled,
+  pad: pad, marks: marks,
+)
+
+/// A categorical axis with one label per category.
+///
+/// `mode: "slots"` gives every category an equal slot and centres its mark in it
+/// (bars). `mode: "points"` spreads marks evenly with just enough room at the
+/// ends for the end labels (lines). Labels that do not fit flat are all kept
+/// as long as that is possible at a legible size: tilted 45 degrees or upright,
+/// whichever keeps the larger type (down to the theme's `category-label-min-size`,
+/// 6pt by default), and only then thinned (see `resolve-category-axis`). `overflow: "thin"`
+/// skips the tilting and shows every k-th flat label; `rotate` and `auto` both tilt.
+///
+/// - labels (array): Category labels (strings, numbers or content)
+/// - title (none, content): Axis title
+/// - mode (str): `"slots"` or `"points"`
+/// - overflow (auto, str): `"rotate"` or `"thin"`
+/// - inset (length): Minimum room at the ends in `"points"` mode (marker radius)
+/// - labelled (bool): Draw the tick labels (the axis keeps its marks and grid)
+/// -> dictionary
+#let category-axis(labels, title: none, mode: "slots", overflow: auto, inset: 0pt, labelled: true) = (
+  kind: "category", labels: labels, title: title, mode: mode,
+  overflow: overflow, inset: inset, color: auto, labelled: labelled,
+)
+
+// ── Text metrics ────────────────────────────────────────────────────────────
+
+// A tick label as drawn. Metrics below measure exactly this.
+#let label-text(body, t, fill: auto, size: auto) = text(
+  size: if size == auto { t.axis-label-size } else { size }, fill: if fill == auto { t.text-color } else { fill },
+)[#body]
+
+// `label` cut to its longest prefix, closed with an ellipsis, for which
+// `fits(candidate)` holds. A label that already fits, and any label that is not
+// a string, is returned as it is.
+#let _clip-label(label, fits) = {
+  if type(label) != str or fits(label) { return label }
+  let cs = label.clusters()
+  let (lo, hi, best) = (1, cs.len() - 1, 1)
+  while lo <= hi {
+    let mid = calc.floor((lo + hi) / 2)
+    if fits(cs.slice(0, mid).join() + "…") { best = mid; lo = mid + 1 } else { hi = mid - 1 }
+  }
+  cs.slice(0, best).join().trim() + "…"
+}
+
+// Full line box (ascender to descender) of a tick label.
+#let label-line-height(t) = measure(text(size: t.axis-label-size, top-edge: "ascender", bottom-edge: "descender")[Ag]).height
+
+// Height of a row of horizontal labels: cap height plus room for descenders.
+#let label-row-height(t) = measure(text(size: t.axis-label-size)[0]).height + 0.3 * t.axis-label-size
+
+// Width of the widest of `strs` set as tick labels.
+#let widest-label(strs, t) = strs.fold(0pt, (m, s) => calc.max(m, measure(label-text(s, t)).width))
+
+// ── Value axes ──────────────────────────────────────────────────────────────
+
+// Tick labels for a tick record, formatted once for the whole axis.
+#let _tick-labels(nt, t) = {
+  if "labels" in nt { return nt.labels }
+  let td = t.at("tick-digits", default: auto)
+  let digits = if td != auto { td } else { nt.digits }
+  // One notation for the whole axis: once any tick needs SI (10k and up), all use it
+  let big = nt.ticks.fold(0, (m, v) => calc.max(m, calc.abs(v))) >= 10000
+  let mode = if t.number-format == "auto" and big { "si" } else { t.number-format }
+  nt.ticks.map(v => format-number(v, digits: digits, mode: mode, step: nt.step))
+}
+
+// Distance needed between neighbouring tick labels so they stay clear of each other
+// (`tight`: a little closer, still with a clear gap).
+#let _label-need(nt, vertical, t, tight: false) = if vertical {
+  measure(text(size: t.axis-label-size)[0]).height * if tight { 2.1 } else { 2.6 }
+} else if tight {
+  widest-label(_tick-labels(nt, t), t) * 1.2 + 0.7 * t.axis-label-size
+} else {
+  widest-label(_tick-labels(nt, t), t) * 1.4 + t.axis-label-size
+}
+
+// Whether the ticks of `nt` spread over `room` leave their labels clear of each other.
+#let _ticks-fit(nt, room, vertical, t, tight: false) = {
+  let n = nt.ticks.len()
+  n < 2 or room / (n - 1) >= _label-need(nt, vertical, t, tight: tight)
+}
+
+// Largest nice tick list (up to theme.tick-count targets) whose labels fit.
+#let _pick-ticks(lo, hi, room, vertical, t, most: auto) = {
+  let nt = nice-ticks(lo, hi, count: 2)
+  for c in range(calc.max(if most == auto { t.tick-count } else { most }, 2), 1, step: -1) {
+    nt = nice-ticks(lo, hi, count: c)
+    if _ticks-fit(nt, room, vertical, t) { break }
+  }
+  nt
+}
+
+// Ticks for an axis whose marks (bubbles) reach past their values. For each nice step
+// (1, 2 or 5 times a power of ten) the range runs from the first tick below the data to
+// the first tick above it, then grows by single steps at whichever end a mark is still
+// short of room. The steps that hold every mark, with labels that stay clear of each
+// other and no more than `2 * tick-count + 3` ticks, compete on the length of the range
+// (labels set a little closer than usual count as 25% longer): the shortest wins, and
+// among near-equal ranges the one nearest the usual tick count. A range is only ever as
+// wide as its marks need, never a step more. `none` when no step manages.
+#let _cover-ticks(ax, room, vertical, t) = {
+  let (pad-lo, pad-hi) = (ax.pad.at("lo", default: 0pt), ax.pad.at("hi", default: 0pt))
+  let (lo, hi) = (ax.lo, ax.hi)
+  if lo == hi {
+    // A flat extent gets a band around the value, as `nice-ticks` does
+    let pad = if lo == 0 { 1 } else { calc.abs(lo) * 0.1 }
+    (lo, hi) = (lo - pad, hi + pad)
+  }
+  let cap = 2 * t.tick-count + 3
+  let e0 = calc.floor(calc.log(hi - lo, base: 10))
+  let found = ()
+  for e in range(e0 - 2, e0 + 2) {
+    for m in (1, 2, 5) {
+      let step = calc.round(m * calc.pow(10, e), digits: 12)
+      let a = calc.round(calc.floor(lo / step + 1e-9) * step, digits: 10)
+      let b = calc.round(calc.ceil(hi / step - 1e-9) * step, digits: 10)
+      if b == a { b = a + step }
+      let ok = false
+      for _ in range(2 * cap) {
+        let span = b - a
+        let (short-lo, short-hi) = (pad-lo - (ax.lo - a) / span * room, pad-hi - (b - ax.hi) / span * room)
+        for (v, r) in ax.marks {
+          short-lo = calc.max(short-lo, r - (v - a) / span * room)
+          short-hi = calc.max(short-hi, r - (b - v) / span * room)
+        }
+        if short-lo < 0.5pt and short-hi < 0.5pt {
+          ok = true
+          break
+        }
+        if short-lo >= 0.5pt { a = calc.round(a - step, digits: 10) }
+        if short-hi >= 0.5pt { b = calc.round(b + step, digits: 10) }
+        if (b - a) / step > cap { break }
+      }
+      let n = int(calc.round((b - a) / step)) + 1
+      if ok and n >= 2 and n <= cap {
+        let nt = nice-ticks(a, b, step: step)
+        let plain = nice-ticks(a, b, count: t.tick-count).step == step
+        if _ticks-fit(nt, room, vertical, t) { found.push((nt: nt, span: b - a, n: n, plain: plain)) }
+        else if n <= t.tick-count + 3 and _ticks-fit(nt, room, vertical, t, tight: true) {
+          found.push((nt: nt, span: 1.25 * (b - a), n: n, plain: plain))
+        }
+      }
+    }
+  }
+  if found.len() == 0 { return none }
+  let shortest = found.map(c => c.span).fold(found.first().span, calc.min)
+  found.filter(c => c.span <= shortest * 1.02).sorted(key: c => (not c.plain, calc.abs(c.n - t.tick-count))).first().nt
+}
+
+/// Resolves a value axis for `extent` of room: picks the tick list (once) and
+/// formats its labels.
+///
+/// - ax (dictionary): From `value-axis`
+/// - extent (length): Length of the axis
+/// - vertical (bool): Whether the axis runs vertically (labels stack, not side by side)
+/// - t (dictionary): Resolved theme
+/// -> dictionary
+#let resolve-value-axis(ax, extent, vertical, t) = {
+  let room = extent - 2 * ax.inset
+  let (pad-lo, pad-hi) = (ax.pad.at("lo", default: 0pt), ax.pad.at("hi", default: 0pt))
+  // Widens the range by what the ends are short of (a few rounds: the ticks snap
+  // outward). Returns the ticks and whether every mark and pad found its room.
+  let widen(most) = {
+    let nt = _pick-ticks(ax.lo, ax.hi, room, vertical, t, most: most)
+    let ok = false
+    for _ in range(6) {
+      let span = nt.max - nt.min
+      let (short-lo, short-hi) = (pad-lo - (ax.lo - nt.min) / span * room, pad-hi - (nt.max - ax.hi) / span * room)
+      for (v, r) in ax.marks {
+        short-lo = calc.max(short-lo, r - (v - nt.min) / span * room)
+        short-hi = calc.max(short-hi, r - (nt.max - v) / span * room)
+      }
+      if short-lo < 0.5pt and short-hi < 0.5pt {
+        ok = true
+        break
+      }
+      nt = _pick-ticks(
+        nt.min - calc.max(short-lo, 0pt) / room * span, nt.max + calc.max(short-hi, 0pt) / room * span,
+        room, vertical, t, most: most)
+    }
+    (nt, ok)
+  }
+  let covered = if ax.ticks == auto and ax.marks.len() > 0 { _cover-ticks(ax, room, vertical, t) }
+  let nt = if covered != none { covered } else if ax.ticks == auto {
+    // (marks no step could hold fall back to widening the range until they fit)
+    let (nt, ok) = widen(auto)
+    if ax.marks.len() > 0 {
+      for most in (t.tick-count + 2, t.tick-count + 4) {
+        let (alt, alt-ok) = widen(most)
+        if alt-ok and alt.ticks.len() <= 2 * t.tick-count + 3 and (not ok or alt.max - alt.min < (nt.max - nt.min) * 0.9) {
+          (nt, ok) = (alt, alt-ok)
+        }
+      }
+    }
+    nt
+  } else if ax.ticks.at("thin", default: false) {
+    // A fixed tick list (histogram bin edges) shows every k-th tick: the
+    // fewest that leaves the labels clear of each other
+    let all = ax.ticks.ticks
+    let per = room / calc.max(all.len() - 1, 1)
+    let k = calc.max(1, calc.ceil(_label-need(ax.ticks, vertical, t) / per))
+    (..ax.ticks, ticks: all.enumerate().filter(((i, _)) => calc.rem(i, k) == 0).map(((_, v)) => v))
+  } else { ax.ticks }
+  (..ax, nt: nt, labels: _tick-labels(nt, t), dlo: nt.min, dhi: nt.max, block: label-row-height(t))
+}
+
+/// Resolves two vertical value axes that share one set of grid lines: finds a
+/// tick count for which both land on the same number of ticks, so every tick of
+/// one axis lines up with a tick of the other. Falls back to independent ticks
+/// when no common count exists (`aligned: false`).
+///
+/// -> array (left axis, right axis)
+#let resolve-value-pair(a, b, extent, t) = {
+  let tc = calc.max(t.tick-count, 2)
+  for c in (..range(tc, 1, step: -1), ..range(tc + 1, tc + 4)) {
+    let na = nice-ticks(a.lo, a.hi, count: c)
+    let nb = nice-ticks(b.lo, b.hi, count: c)
+    if na.ticks.len() == nb.ticks.len() and _ticks-fit(na, extent - 2 * a.inset, true, t) {
+      return (
+        resolve-value-axis((..a, ticks: na), extent, true, t),
+        resolve-value-axis((..b, ticks: nb), extent, true, t),
+      )
+    }
+  }
+  (resolve-value-axis(a, extent, true, t), resolve-value-axis(b, extent, true, t))
+}
+
+// ── Category axes ───────────────────────────────────────────────────────────
+
+/// Resolves a horizontal category axis over `len`: slot geometry and the label
+/// policy. Every label is shown whenever that is physically possible at a legible
+/// size, and thins only at the very end:
+///
+/// 1. flat, at full size, when it fits;
+/// 2. otherwise the tilted layout (45 degrees, or upright) that holds every label in
+///    the largest type, down to a floor; at equal size the less rotated one;
+/// 3. when even the floor does not hold them all, upright at the floor, thinned
+///    evenly (first and last always kept).
+///
+/// The floor is the theme key `category-label-min-size` (6pt unless set; never
+/// above the axis label size). `overflow: "thin"` skips the tilted steps and keeps
+/// the fewest flat labels that stay clear of each other, measured pair by pair
+/// (one long label does not thin the short ones). Tilted labels never take more
+/// than `max-block` of height: longer text is cut with an ellipsis.
+///
+/// Adds `n`, `pitch` (distance between marks), `inset`, `dlo`/`dhi` (index
+/// domain), `rotate` (whether tilted), `angle` (0, 45 or 90), `size` (type size
+/// of the labels), `skip`, `shown` (indices of the labels drawn), `texts` (the
+/// labels as drawn, clipped where needed), `block` (height the label row needs)
+/// and `over-left` (how far a tilted first label reaches left of the plot).
+#let resolve-category-axis(ax, len, t, max-block: none) = {
+  let n = ax.labels.len()
+  let size0 = t.axis-label-size
+  let width-of(l) = measure(label-text(l, t)).width
+  let natural = ax.labels.map(width-of)
+  let lh0 = label-line-height(t)
+  // A single point has nothing to spread: it takes the middle, like a lone slot
+  let slots = ax.mode == "slots" or n == 1
+  let pitch-for(inset) = if slots { len / n } else if n > 1 { (len - 2 * inset) / (n - 1) } else { len }
+  // Flat end labels are centred on the end marks, so the marks move in by half their width
+  let flat-inset = if slots { 0pt } else {
+    calc.min(calc.max(ax.inset, calc.max(natural.first(), natural.last()) / 2 + 1pt), len * 0.3)
+  }
+  let gap = 0.6 * size0
+  // Whether every s-th label, set flat, stays clear of its neighbour
+  let clear(s) = range(0, n, step: s).windows(2).all(ij => {
+    let (a, b) = ij
+    (natural.at(a) + natural.at(b)) / 2 + gap <= (b - a) * pitch-for(flat-inset)
+  })
+  let flat = clear(1)
+  let thin-skip = if flat { 1 } else { range(2, n + 1).find(clear) }
+
+  // Tilted labels end at their mark and reach left, not right: only the marker needs room
+  let tilt-inset = if slots { 0pt } else { calc.min(ax.inset, len * 0.3) }
+  let tilt-pitch = pitch-for(tilt-inset)
+  // Fraction of the full size at which tilted labels, `k` line heights apart, fit the pitch
+  let floor = calc.min(t.at("category-label-min-size", default: 6pt), size0)
+  let fit-at(k) = calc.min(1, tilt-pitch / (k * lh0))
+  let (k45, k90) = (1.6, 1.15)
+  // Of the layouts that hold every label, the one with the largest type wins; at (nearly)
+  // equal size the least rotation does. Only when none fits at the floor are labels thinned.
+  let (s45, s90) = (size0 * fit-at(k45), size0 * fit-at(k90))
+  let (angle, size, skip) = if flat { (0, size0, 1) }
+    else if ax.overflow == "thin" { (0, size0, thin-skip) }
+    else if s90 < floor { (90, floor, calc.ceil(k90 * lh0 * (floor / size0) / tilt-pitch)) }
+    else if s45 >= floor and s45 >= s90 - 0.05pt { (45, s45, 1) }
+    else { (90, s90, 1) }
+  let rotate = angle != 0
+  let inset = if rotate { tilt-inset } else { flat-inset }
+  let pitch = pitch-for(inset)
+  let lh = lh0 * (size / size0)
+  let width-at(l) = measure(label-text(l, t, size: size)).width
+  let wcap = if rotate and max-block != none {
+    if angle == 45 { calc.max(max-block / 0.7071 - lh, 3 * lh) } else { calc.max(max-block, 3 * lh) }
+  }
+  let texts = if wcap == none { ax.labels } else {
+    ax.labels.map(l => _clip-label(l, c => width-at(c) <= wcap))
+  }
+  let ws = if size == size0 and wcap == none { natural } else { texts.map(width-at) }
+  // Thinned upright labels are spread evenly with both ends kept; flat ones keep the pairs that were measured
+  let shown = if skip == 1 { range(n) }
+    else if angle == 90 {
+      let m = calc.floor((n - 1) / skip) + 1
+      if m >= 2 { range(m).map(j => int(calc.round((n - 1) * j / (m - 1)))) } else { (0,) }
+    } else { range(0, n, step: skip) }
+  let wshown = shown.map(i => ws.at(i)).fold(0pt, calc.max)
+  let first-x = if slots { pitch / 2 } else { inset }
   (
-    pad-left: pad-left,
-    pad-right: pad-right,
-    pad-top: pad-top,
-    pad-bottom: pad-bottom,
-    chart-width: chart-width,
-    chart-height: chart-height,
-    origin-x: pad-left,
-    origin-y: pad-top + chart-height,
+    ..ax, n: n, ws: ws, texts: texts, pitch: pitch, inset: inset, rotate: rotate, angle: angle, size: size,
+    skip: skip, shown: shown,
+    dlo: if slots { -0.5 } else { 0 }, dhi: if slots { n - 0.5 } else { calc.max(n - 1, 1) },
+    block: if angle == 45 { 0.7071 * (wshown + lh) } else if angle == 90 { wshown + 0.2 * lh } else { label-row-height(t) },
+    over-left: if angle == 45 { calc.max(0pt, 0.7071 * ws.first() + 0.354 * lh - first-x) }
+      else if angle == 90 { calc.max(0pt, lh / 2 - first-x) } else { 0pt },
   )
 }
 
-// Draw Y-axis (vertical) and X-axis (horizontal) lines.
-// When show-ticks is true, draws small tick marks at each grid position on both axes.
-// Optional num-ticks overrides theme.tick-count (use when nice-ticks produces a different count).
-#let draw-axis-lines(origin-x, origin-y, x-end, y-start, theme, show-ticks: false, num-ticks: auto) = {
-  let chart-width = x-end - origin-x
-  let chart-height = origin-y - y-start
-  // Y-axis: vertical from y-start down to origin-y at x=origin-x
-  place(left + top, line(start: (origin-x, y-start), end: (origin-x, origin-y), stroke: theme.axis-stroke))
-  // X-axis: horizontal from origin-x to x-end at y=origin-y
-  place(left + top, line(start: (origin-x, origin-y), end: (x-end, origin-y), stroke: theme.axis-stroke))
-  // Tick marks
-  if show-ticks {
-    let tick-count = if num-ticks != auto { num-ticks } else { theme.tick-count }
-    let tick-len = theme.at("tick-length", default: 4pt)
-    for i in array.range(tick-count) {
-      let fraction = if tick-count > 1 { i / (tick-count - 1) } else { 0 }
-      // Y-axis ticks (left side)
-      let y = y-start + chart-height - fraction * chart-height
-      place(left + top, line(start: (origin-x - tick-len, y), end: (origin-x, y), stroke: theme.axis-stroke))
-      // X-axis ticks (bottom)
-      let x = origin-x + fraction * chart-width
-      place(left + top, line(start: (x, origin-y), end: (x, origin-y + tick-len), stroke: theme.axis-stroke))
-    }
+// ── Scales ──────────────────────────────────────────────────────────────────
+
+/// Linear scale of a resolved axis laid over `len` starting at `start`.
+/// Returns `(pos, dom)`: `pos(v)` maps a value (or category index) to a length
+/// along the axis; `dom` is the `(lo, hi)` the full length spans, for overlays
+/// that work in data coordinates. With `flip`, larger values sit nearer `start`'s
+/// far end (vertical value axes, where values grow upward).
+#let axis-scale(ax, start, len, flip: false) = {
+  let inner = len - 2 * ax.inset
+  let span = if ax.dhi == ax.dlo { 1 } else { ax.dhi - ax.dlo }
+  let pos = v => if flip {
+    start + len - ax.inset - (v - ax.dlo) / span * inner
+  } else {
+    start + ax.inset + (v - ax.dlo) / span * inner
   }
+  let e = ax.inset / inner * span
+  (pos: pos, dom: (lo: ax.dlo - e, hi: ax.dhi + e))
 }
 
-// Draw tick labels along the Y axis using nice-ticks for round values.
-// Labels are right-aligned into the padding area left of x-pos, vertically centered on the tick.
-// Optional `color` overrides theme.text-color (useful for dual-axis charts).
-// Optional `side` ("left" or "right") controls label placement; "right" places labels after x-pos.
-#let draw-y-ticks(min-val, max-val, chart-height, y-offset, x-pos, theme, color: auto, side: "left") = {
-  let nt = nice-ticks(min-val, max-val, count: theme.tick-count)
-  let td = theme.at("tick-digits", default: auto)
-  let digits = if td != auto { td } else { nt.digits }
-  let val-range = max-val - min-val
-  let fill-color = if color != auto { color } else { theme.text-color }
-  let gap = theme.axis-label-gap
-  for value in nt.ticks {
-    let fraction = if val-range > 0 { (value - min-val) / val-range } else { 0 }
-    if fraction < -0.001 or fraction > 1.001 { continue }
-    let y = y-offset + chart-height - fraction * chart-height
-    let label = format-number(value, digits: digits, mode: theme.number-format, step: nt.step)
-    if side == "right" {
-      place(left + top, dx: x-pos + gap, dy: y, box(height: 0pt, align(left + horizon, text(
-        size: theme.axis-label-size,
-        fill: fill-color,
-      )[#label])))
-    } else {
-      place(left + top, dx: 0pt, dy: y, box(width: x-pos - gap / 2, height: 0pt, align(right + horizon, text(
-        size: theme.axis-label-size,
-        fill: fill-color,
-      )[#label])))
-    }
-  }
+/// Largest font size, at most `size`, at which every label in `strs` fits a slot
+/// `slot` wide with a little air between neighbours; `none` when they would need
+/// to go below `min-size`. Direct labels (value labels above bars) use this to
+/// shrink, then drop, instead of overlapping.
+#let fit-label-size(strs, slot, size, min-size: 5.5pt) = {
+  let w = strs.fold(0pt, (m, s) => calc.max(m, measure(text(size: size)[#s]).width))
+  if w <= 0pt { return size }
+  let fitted = calc.min(size, size * ((slot * 0.94) / w))
+  // A theme whose labels are small already keeps them down to 80% of that size
+  if fitted >= calc.min(min-size, size * 0.8) { fitted } else { none }
 }
 
-// Draw category labels along the X axis.
-// Labels are centered under their position using the spacing width.
-#let draw-x-category-labels(labels, x-start, spacing, y-pos, theme, center-offset: 0pt) = {
-  let n = labels.len()
-  // Rotate labels if too many OR if the widest label exceeds the slot width
-  let max-label-w = labels.map(l => measure(text(size: theme.axis-label-size)[#l]).width).fold(0pt, (a, b) => calc.max(a, b))
-  let rotate-labels = n > theme.rotated-threshold or max-label-w > spacing * 0.95
-  // When rotated, labels don't compete for horizontal space — show all
-  let skip = if rotate-labels { 1 } else { density-skip(n, spacing * n) }
-
-  for i in array.range(n) {
-    if calc.rem(i, skip) != 0 and i != n - 1 { continue }
-    let x = x-start + i * spacing + center-offset
-    if rotate-labels {
-      place(left + top, dx: x, dy: y-pos, rotate(-45deg, origin: right, box(width: spacing / 2, align(
-        right,
-        text(size: theme.axis-label-size, fill: theme.text-color)[#labels.at(i)],
-      ))))
-    } else {
-      place(left + top, dx: x, dy: y-pos, box(width: spacing, height: theme.axis-label-size * 2, align(
-        center + top,
-        text(size: theme.axis-label-size, fill: theme.text-color)[#labels.at(i)],
-      )))
-    }
-  }
+/// Font size, at most `size`, for labels in rows `pitch` apart so neighbouring
+/// rows never touch; `none` when that would go below `min-size`.
+#let fit-row-size(pitch, size, min-size: 5.5pt) = {
+  let fitted = calc.min(size, pitch * 0.9)
+  if fitted >= calc.min(min-size, size * 0.8) { fitted } else { none }
 }
 
-// Draw numeric tick labels along the X axis using nice-ticks for round values.
-// Labels are centered on their tick position.
-#let draw-x-ticks(min-val, max-val, chart-width, x-offset, y-pos, theme) = {
-  let nt = nice-ticks(min-val, max-val, count: theme.tick-count)
-  let td = theme.at("tick-digits", default: auto)
-  let digits = if td != auto { td } else { nt.digits }
-  let val-range = max-val - min-val
-  for value in nt.ticks {
-    let fraction = if val-range > 0 { (value - min-val) / val-range } else { 0 }
-    if fraction < -0.001 or fraction > 1.001 { continue }
-    let x = x-offset + fraction * chart-width
-    let label-w = theme.axis-label-size * 4
-    place(left + top, dx: x - label-w / 2, dy: y-pos, box(width: label-w, height: theme.axis-label-size * 2, align(
-      center + top,
-      text(size: theme.axis-label-size, fill: theme.text-color)[#format-number(
-        value,
-        digits: digits,
-        mode: theme.number-format,
-      )],
-    )))
-  }
+/// Compact text for a data value shown beside a mark: values from 10 000 up
+/// are abbreviated the way the axis ticks are (`15k`, `1.5M`); smaller values
+/// are shown as given.
+#let value-text(v, t) = {
+  if (type(v) == int or type(v) == float) and calc.abs(v) >= 10000 and t.number-format == "auto" {
+    format-number(v, digits: 1, mode: "auto")
+  } else { v }
+}
+/// A data value in as few characters as `sig` significant digits allow, for labels
+/// that are short of room: `12.3456` becomes `12.3` (3 digits) or `12` (2), `85200`
+/// becomes `85.2k` or `85k`, `0.012345` becomes `0.0123` or `0.012`. Whole numbers
+/// below 10 000 are kept whole, whatever `sig` says. Values that are not numbers
+/// are returned as they are.
+///
+/// - v (int, float, any): The value
+/// - t (dictionary): Resolved theme
+/// - sig (int): Significant digits to keep
+/// -> str, any
+#let compact-text(v, t, sig: 3) = {
+  if type(v) != int and type(v) != float { return v }
+  let a = calc.abs(v)
+  if a == 0 { return "0" }
+  let (scale, suffix) = if t.number-format != "auto" and t.number-format != "si" { (1, "") }
+    else if a >= 1000000000 { (1000000000, "B") }
+    else if a >= 1000000 { (1000000, "M") }
+    else if a >= 10000 { (1000, "k") }
+    else { (1, "") }
+  let x = v / scale
+  let digits = calc.max(0, sig - 1 - int(calc.floor(calc.log(calc.abs(x), base: 10) + 1e-9)))
+  str(calc.round(x, digits: digits)) + suffix
 }
 
-// Draw evenly-spaced x-axis labels (for line/area/bump charts where points are spread uniformly).
-#let draw-x-even-labels(labels, n, origin-x, chart-width, origin-y, theme) = {
-  let x-spacing = if n > 1 { chart-width / (n - 1) } else { chart-width }
-  let rotate-labels = n > theme.rotated-threshold
-  for (i, lbl) in labels.enumerate() {
-    let x = if n == 1 { origin-x } else { origin-x + (i / (n - 1)) * chart-width }
-    if rotate-labels {
-      place(left + top, dx: x - x-spacing / 2, dy: origin-y + theme.axis-label-gap, rotate(-45deg, origin: right, box(
-        width: x-spacing / 2,
-        align(
-          right,
-          text(size: theme.axis-label-size, fill: theme.text-color)[#lbl],
-        ),
-      )))
-    } else {
-      place(left + top, dx: x - x-spacing / 2, dy: origin-y + theme.axis-label-gap, box(
-        width: x-spacing,
-        height: theme.axis-label-size * 2,
-        align(center + top, text(size: theme.axis-label-size, fill: theme.text-color)[#lbl]),
-      ))
-    }
-  }
-}
+// ── For charts that lay out their own rows ──────────────────────────────────
+//
+// The row-oriented charts (dumbbell, diverging, gantt, bullet, ...) draw their
+// own axes. These three helpers keep their signatures; cartesian charts use
+// `cartesian-frame` instead.
 
 // Draw a single right-aligned y-axis category label in the left margin.
-// Used by horizontal charts (horizontal-bar, horizontal-lollipop, dumbbell, diverging).
 #let draw-y-label(label, y, margin-width, theme) = {
   place(left + top, dx: 0pt, dy: y, box(width: margin-width - theme.axis-label-gap, height: 0pt, align(right + horizon,
     text(size: theme.axis-label-size, fill: theme.text-color)[#label],
   )))
 }
 
-// Draw grid lines behind chart area.
-// When show-minor-grid is true, draws lighter lines between major grid lines.
-// Optional num-ticks overrides theme.tick-count (use when nice-ticks produces a different count).
-#let draw-grid(x-start, y-start, chart-width, chart-height, theme, show-minor-grid: false, minor-count: 4, num-ticks: auto) = {
-  if theme.show-grid == false { return }
-  let tick-count = if num-ticks != auto { num-ticks } else { theme.tick-count }
-
-  // Minor grid lines (drawn first, behind major)
-  if show-minor-grid and tick-count > 1 {
-    let minor-stroke = theme.at("minor-grid-stroke", default: 0.25pt + theme.text-color-light.transparentize(60%))
-    for i in array.range(tick-count - 1) {
-      for j in array.range(1, minor-count) {
-        let fraction = (i + j / minor-count) / (tick-count - 1)
-        // Horizontal minor
-        let y = y-start + chart-height - fraction * chart-height
-        place(left + top, line(start: (x-start, y), end: (x-start + chart-width, y), stroke: minor-stroke))
-        // Vertical minor
-        let x = x-start + fraction * chart-width
-        place(left + top, line(start: (x, y-start), end: (x, y-start + chart-height), stroke: minor-stroke))
-      }
-    }
-  }
-
-  // Major grid lines
-  for i in array.range(tick-count) {
-    let fraction = if tick-count > 1 { i / (tick-count - 1) } else { 0 }
-    let y = y-start + chart-height - fraction * chart-height
-    place(left + top, line(start: (x-start, y), end: (x-start + chart-width, y), stroke: theme.grid-stroke))
-  }
-  for i in array.range(tick-count) {
-    let fraction = if tick-count > 1 { i / (tick-count - 1) } else { 0 }
-    let x = x-start + fraction * chart-width
-    place(left + top, line(start: (x, y-start), end: (x, y-start + chart-height), stroke: theme.grid-stroke))
-  }
-}
-
-/// Measures the width of the widest y-axis tick label for layout calculations.
-/// Uses nice-ticks internally for consistent formatting with draw-y-ticks.
-///
-/// - min-val (number): Minimum axis value
-/// - max-val (number): Maximum axis value
-/// - theme (dictionary): Resolved theme
-/// -> length
-#let measure-y-tick-width(min-val, max-val, theme) = {
-  let nt = nice-ticks(min-val, max-val, count: theme.tick-count)
-  let td = theme.at("tick-digits", default: auto)
-  let digits = if td != auto { td } else { nt.digits }
-  let max-w = 0pt
-  for value in nt.ticks {
-    let label = format-number(value, digits: digits, mode: theme.number-format, step: nt.step)
-    let w = measure(text(size: theme.axis-label-size)[#label]).width
-    if w > max-w { max-w = w }
-  }
-  max-w
-}
-
+// Height of a row of x tick labels; rotated (45 degrees) labels take their
+// widest label's diagonal.
 #let measure-x-tick-height(values, theme, rotated: false) = {
-  let max-h = 0pt
-  if not rotated {
-    max-h = measure(text(size: theme.axis-label-size)[0]).height
-  } else {
-    for value in values {
-      if type(value) == float or type(value) == int {
-        value = str(value)
-      }
-      let w = measure(text(size: theme.axis-label-size)[#value]).width
-      // When rotated, it is assumed that it is rotated by 45 degrees, so the effective height is the diagonal of the label box
-      let h = w * calc.sqrt(2) / 2
-      if h > max-h { max-h = h }
-    }
-  }
-  max-h
+  if not rotated { return measure(text(size: theme.axis-label-size)[0]).height }
+  values.fold(0pt, (m, v) => calc.max(m, measure(text(size: theme.axis-label-size)[#v]).width * calc.sqrt(2) / 2))
 }
-// Draw axis title labels (x below axis, y rotated on left).
-//
-// Layout is measurement-based:
-// - x-title: positioned below measured tick label height + gap
-// - y-title: positioned to the left of measured tick labels, with fitment check
-//
-// y-tick-width: measured width of the widest y-tick label (from measure-y-tick-width)
-// x-tick-height: measured height of x-tick labels (defaults to axis-label-size * 2)
+
+// Axis titles: the x title below the tick labels (centred on `x-center`), the y
+// title rotated left of the tick labels (centred on `y-center`). `origin-x` and
+// `origin-y` are the axis corner; `y-tick-width` and `x-tick-height` the measured
+// tick label extents.
 #let draw-axis-titles(
-  x-label,
-  y-label,
-  x-center,
-  y-center,
-  theme,
-  origin-x: none,
-  origin-y: none,
-  y-tick-width: 0pt,
-  x-tick-height: 0pt,
+  x-label, y-label, x-center, y-center, theme,
+  origin-x: none, origin-y: none, y-tick-width: 0pt, x-tick-height: 0pt,
 ) = {
-  let ax-origin-y = if origin-y != none { origin-y } else { y-center * 2 }
-  let ax-origin-x = if origin-x != none { origin-x } else { theme.axis-padding-left }
   let gap = theme.axis-label-gap
-
   let title-gap = theme.at("axis-title-gap", default: gap)
-
+  let title(body) = text(size: theme.axis-title-size, fill: theme.text-color)[#body]
   if x-label != none {
-    let lbl-content = text(size: theme.axis-title-size, fill: theme.text-color)[#x-label]
-    let lbl-size = measure(lbl-content)
-    // Position below x-tick labels: axis → label-gap → tick labels → title-gap → title
-    let tick-h = if x-tick-height != 0pt { x-tick-height } else {
-      measure(text(size: theme.axis-label-size)[0]).height
-    }
-    let x-title-dy = ax-origin-y + gap + tick-h + title-gap
-    place(left + top, dx: x-center - lbl-size.width / 2, dy: x-title-dy,
-      lbl-content
-    )
+    let lbl = title(x-label)
+    let tick-h = if x-tick-height != 0pt { x-tick-height } else { measure(text(size: theme.axis-label-size)[0]).height }
+    let ox-y = if origin-y != none { origin-y } else { y-center * 2 }
+    place(left + top, dx: x-center - measure(lbl).width / 2, dy: ox-y + gap + tick-h + title-gap, lbl)
   }
   if y-label != none {
-    let lbl-content = text(size: theme.axis-title-size, fill: theme.text-color)[#y-label]
-    let rotated = rotate(-90deg, lbl-content)
-    let rot-size = measure(rotated)
-    // Ticks right-edge is at origin-x - gap/2; place title left with title-gap clearance
-    let y-title-dx = ax-origin-x - gap / 2 - y-tick-width - title-gap - rot-size.width
-
-    place(left + top, dx: y-title-dx, dy: y-center - rot-size.height / 2, rotated)
+    // The rotated box is placed by its centre: measure() of a rotated box is the unrotated size
+    let lbl = title(y-label)
+    let (tw, th) = (measure(lbl).width, measure(lbl).height)
+    let ox-x = if origin-x != none { origin-x } else { theme.axis-padding-left }
+    let strip-x = ox-x - gap / 2 - y-tick-width - title-gap - th
+    place(left + top, dx: strip-x + th / 2 - tw / 2, dy: y-center - th / 2, rotate(-90deg, lbl))
   }
 }

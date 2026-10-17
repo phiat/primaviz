@@ -1,12 +1,16 @@
 // rings.typ - Donut progress / fitness rings chart (Apple Watch style)
 #import "../theme.typ": _resolve-ctx, get-color
+#import "../util.typ": nonzero
 #import "../validate.typ": validate-ring-data
-#import "../primitives/container.typ": chart-container, container-inset
+#import "../primitives/container.typ": chart-container
 #import "../primitives/layout.typ": resolve-size
+#import "../primitives/polar.typ": place-arc-band, polar-pt
+#import "../primitives/radial.typ": split-width
 
 /// Concentric ring progress chart (fitness rings).
 /// Outermost ring = first entry, innermost = last.
-/// Rings that exceed 100 % wrap around (overlap).
+/// Rings that exceed 100 % wrap around (overlap), the head of the second
+/// lap marked with a thin outline.
 ///
 /// - entries (array): Array of dicts with `name`, `value`, and `max`
 /// - size (length): Outer diameter of the ring stack
@@ -32,146 +36,58 @@
   let t = _resolve-ctx(theme)
   let size = resolve-size(size, size, avail).width
   let n = entries.len()
-
-  // Total width needed for labels column — scale with ring size
-  let label-col-width = if show-labels { calc.max(70pt, size * 0.5) } else { 0pt }
-
-  // Margin to prevent ring strokes from clipping at the container edge
-  let margin = ring-width / 2 + 2pt
-
-  // Shrink if total width exceeds available space
-  let container-inset = 2 * container-inset
-  let avail-w = if type(avail.width) == length and avail.width > 0pt { avail.width } else { none }
-  let total-w = size + margin * 2 + label-col-width
-  if avail-w != none and total-w + container-inset > avail-w {
-    size = avail-w - container-inset - margin * 2 - label-col-width
-    if size < 80pt {
-      size = (avail-w - container-inset - margin * 2) * 0.6
-      label-col-width = (avail-w - container-inset - margin * 2) - size
-    }
-  }
-
-  // Pre-compute ring colours (one per entry from the palette)
   let colors = array.range(n).map(i => get-color(t, i))
-
-  // Dimmed background colour helper — mix with background at 20 % opacity
   let bg = if t.background != none { t.background } else { white }
-  let dim = (c) => {
-    color.mix((c, 20%), (bg, 80%))
+  let pct(e) = calc.round(e.value / nonzero(e.max) * 100, digits: 0)
+
+  // Label column: swatch, name, and value / max under it
+  let sw = t.legend-swatch-size
+  let name-text(e) = text(size: t.legend-size, weight: "bold", fill: t.text-color)[#e.name]
+  let value-text(e) = text(size: t.value-label-size, fill: t.text-color-light)[#e.value / #e.max (#pct(e)%)]
+  let col-w = if show-labels {
+    sw + 6pt + 2pt + calc.max(..entries.map(e => calc.max(measure(name-text(e)).width, if show-values { measure(value-text(e)).width } else { 0pt })))
+  } else { 0pt }
+  let (size, side) = split-width(size, if show-labels { 14pt + col-w } else { 0pt }, avail.width, t)
+  let col-w = if show-labels { side - 14pt } else { 0pt }
+  let total-w = size + side
+
+  // Too many rings for the radius: thinner rings, not missing ones
+  let span = n * ring-width + (n - 1) * gap
+  let fit = calc.min(1, (size / 2 * 0.85) / span)
+  let (ring-width, gap) = (ring-width * fit, gap * fit)
+
+  let label-col = if show-labels {
+    grid(columns: (sw, col-w - sw - 6pt), column-gutter: 6pt, row-gutter: 8pt, align: left + horizon,
+      ..entries.enumerate().map(((i, e)) => (
+        box(width: sw, height: sw, fill: colors.at(i), radius: 2pt),
+        stack(dir: ttb, spacing: 2pt, name-text(e), if show-values { value-text(e) }),
+      )).flatten())
   }
+  // Many entries make the label column taller than the rings: the box grows
+  // to hold it and the rings stay centred
+  let label-h = if show-labels { measure(label-col).height } else { 0pt }
+  let body-h = calc.max(size, label-h)
+  let (cx, cy) = (size / 2, body-h / 2)
 
-  // Number of line-segment samples per full circle
-  let samples-per-circle = 72
-
-  align(center, chart-container(size + margin * 2 + label-col-width, size + margin * 2, title, t)[
-    #box(width: size + margin * 2 + label-col-width, height: size + margin * 2)[
-      // ── Draw rings ───────────────────────────────────────────────
-      #for (i, entry) in entries.enumerate() {
-        let radius = size / 2 - ring-width / 2 - i * (ring-width + gap)
-        if radius < ring-width / 2 { /* skip if too small */ } else {
-          let cx = size / 2 + margin
-          let cy = size / 2 + margin
-          let ring-color = colors.at(i)
-          let bg-color = dim(ring-color)
-
-          let progress = entry.value / entry.max  // may exceed 1.0
-
-          // ── Background ring (full circle) ──────────────────────
-          // Draw as line segments so it matches the foreground style
-          {
-            let seg-count = samples-per-circle
-            for j in array.range(seg-count) {
-              let a1 = -90deg + (j / seg-count) * 360deg
-              let a2 = -90deg + ((j + 1) / seg-count) * 360deg
-              let x1 = cx + radius * calc.cos(a1)
-              let y1 = cy + radius * calc.sin(a1)
-              let x2 = cx + radius * calc.cos(a2)
-              let y2 = cy + radius * calc.sin(a2)
-              place(
-                left + top,
-                line(start: (x1, y1), end: (x2, y2), stroke: bg-color + ring-width)
-              )
-            }
-          }
-
-          // ── Foreground progress arc ────────────────────────────
-          if progress > 0 {
-            // Clamp drawing to one full wrap-around maximum (could extend if needed)
-            let draw-progress = calc.min(progress, 2.0)
-            let arc-degrees = draw-progress * 360
-            let seg-count = calc.max(int(draw-progress * samples-per-circle), 1)
-
-            for j in array.range(seg-count) {
-              let a1 = -90deg + (j / seg-count) * arc-degrees * 1deg
-              let a2 = -90deg + ((j + 1) / seg-count) * arc-degrees * 1deg
-              let x1 = cx + radius * calc.cos(a1)
-              let y1 = cy + radius * calc.sin(a1)
-              let x2 = cx + radius * calc.cos(a2)
-              let y2 = cy + radius * calc.sin(a2)
-              place(
-                left + top,
-                line(start: (x1, y1), end: (x2, y2), stroke: ring-color + ring-width)
-              )
-            }
-
-            // Round start cap (top-center, 12-o'clock)
-            place(
-              left + top,
-              dx: cx - ring-width / 2,
-              dy: cy - radius - ring-width / 2,
-              circle(radius: ring-width / 2, fill: ring-color, stroke: none)
-            )
-
-            // Round end cap
-            let end-angle = -90deg + arc-degrees * 1deg
-            let end-x = cx + radius * calc.cos(end-angle)
-            let end-y = cy + radius * calc.sin(end-angle)
-            place(
-              left + top,
-              dx: end-x - ring-width / 2,
-              dy: end-y - ring-width / 2,
-              circle(radius: ring-width / 2, fill: ring-color, stroke: none)
-            )
-          }
+  align(center, chart-container(total-w, body-h, title, t)[
+    #box(width: total-w, height: body-h)[
+      #for (i, e) in entries.enumerate() {
+        let r = size / 2 - ring-width / 2 - i * (ring-width + gap)
+        let progress = e.value / nonzero(e.max)
+        // The ring's track is its colour, faded into the background
+        place-arc-band(cx, cy, r, ring-width, -90, 270, color.mix((colors.at(i), 20%), (bg, 80%)))
+        if progress > 0 {
+          place-arc-band(cx, cy, r, ring-width, -90, -90 + calc.min(progress, 1) * 360, colors.at(i), round: true)
+        }
+        if progress > 1 {
+          // Second lap: the head rides over the first, so it needs an edge
+          let (hx, hy) = polar-pt(cx, cy, r, -90 + calc.min(progress - 1, 1) * 360)
+          place(left + top, dx: hx - ring-width / 2, dy: hy - ring-width / 2,
+            circle(radius: ring-width / 2, fill: colors.at(i), stroke: 1pt + bg))
         }
       }
-
-      // ── Labels (to the right of the rings) ─────────────────────
       #if show-labels {
-        for (i, entry) in entries.enumerate() {
-          let ring-color = colors.at(i)
-          let label-x = size + margin * 2 + 8pt
-          let label-y = size / 2 + margin - (n / 2 - i) * (t.legend-swatch-size + 12pt)
-
-          // Colour swatch
-          place(
-            left + top,
-            dx: label-x,
-            dy: label-y,
-            rect(width: t.legend-swatch-size, height: t.legend-swatch-size, fill: ring-color, radius: 2pt)
-          )
-
-          // Name
-          place(
-            left + top,
-            dx: label-x + t.legend-swatch-size + 4pt,
-            dy: label-y - 1pt,
-            text(size: t.legend-size, fill: t.text-color, weight: "bold")[#entry.name]
-          )
-
-          // Value / max
-          if show-values {
-            let pct = calc.round(entry.value / entry.max * 100, digits: 0)
-            place(
-              left + top,
-              dx: label-x + t.legend-swatch-size + 4pt,
-              dy: label-y + t.legend-swatch-size,
-              text(size: t.value-label-size, fill: t.text-color-light)[
-                #entry.value / #entry.max (#pct%)
-              ]
-            )
-          }
-        }
+        place(left + top, dx: size + 14pt, dy: (body-h - label-h) / 2, box(width: col-w, height: label-h, label-col))
       }
     ]
   ])

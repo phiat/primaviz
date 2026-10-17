@@ -1,13 +1,16 @@
 // histogram.typ - Histogram chart (frequency distribution of numeric data)
 #import "../theme.typ": _resolve-ctx, get-color
-#import "../util.typ": nonzero, nice-ticks
+#import "../util.typ": nice-ticks
 #import "../validate.typ": validate-histogram-data
-#import "../primitives/container.typ": chart-container
-#import "../primitives/axes.typ": cartesian-layout, draw-axis-lines, draw-grid, draw-y-ticks, draw-x-ticks, draw-axis-titles, measure-y-tick-width, measure-x-tick-height
-#import "../primitives/annotations.typ": draw-annotations
+#import "../primitives/frame.typ": cartesian-frame
+#import "../primitives/axes.typ": value-axis, fit-label-size
 #import "../primitives/layout.typ": resolve-size, pin
 
 /// Renders a histogram showing the frequency distribution of numeric data.
+///
+/// With everything automatic (`bins`, `min-val`, `max-val`) the bin edges are
+/// round numbers; otherwise the bins are evenly spaced from `min-val` to
+/// `max-val`. Either way the x ticks sit on bin edges.
 ///
 /// - values (array): Array of numeric data values to bin
 /// - width (length): Chart width
@@ -48,120 +51,57 @@
   validate-histogram-data(values, "histogram")
   let t = _resolve-ctx(theme)
   let (width, height) = resolve-size(width, height, size, n: 10, theme: t)
-
   let n = values.len()
 
-  // Compute min/max from data if auto
   let data-min = if min-val == auto { calc.min(..values) } else { min-val }
   let data-max = if max-val == auto { calc.max(..values) } else { max-val }
+  // All values identical: give the single bin some width
+  if data-min == data-max { data-max = data-min + 1 }
 
-  // Handle edge case: all values identical
-  if data-min == data-max {
-    data-max = data-min + 1
-  }
-
-  // Compute number of bins via Sturges' rule if auto
-  let num-bins = if bins == auto {
-    calc.ceil(calc.log(n, base: 2) + 1)
+  // Bin edges: round numbers when everything is automatic, otherwise even steps
+  let sturges = calc.ceil(calc.log(n, base: 2) + 1)
+  let edges = if bins == auto and min-val == auto and max-val == auto {
+    nice-ticks(data-min, data-max, count: sturges + 1).ticks
   } else {
-    bins
+    let nb = if bins == auto { sturges } else { bins }
+    let step = (data-max - data-min) / nb
+    range(nb + 1).map(i => data-min + i * step)
   }
+  let num-bins = edges.len() - 1
+  let bin-width = edges.at(1) - edges.at(0)
 
-  let bin-width = (data-max - data-min) / num-bins
+  let counts = range(num-bins).map(bi => values.filter(v => {
+    let last = bi == num-bins - 1
+    v >= edges.at(bi) and (if last { v <= edges.at(bi + 1) } else { v < edges.at(bi + 1) })
+  }).len())
+  let heights = if density { counts.map(c => c / (n * bin-width)) } else { counts.map(c => float(c)) }
 
-  // Compute bin edges
-  let edges = array.range(num-bins + 1).map(i => data-min + i * bin-width)
+  // Ticks sit on bin edges (every k-th when they are too many), with just
+  // enough decimals to tell neighbouring edges apart
+  let edge-digits = calc.max(0, 1 - calc.floor(calc.log(bin-width, base: 10)))
+  let edge-ticks = (min: edges.first(), max: edges.last(), ticks: edges, step: bin-width, digits: edge-digits, thin: true)
+  let fill-color = if color != none { color } else { get-color(t, 0) }
 
-  // Count values per bin using accumulator pattern
-  let counts = array.range(num-bins).map(bi => {
-    let lo = edges.at(bi)
-    let hi = edges.at(bi + 1)
-    let is-last = bi == num-bins - 1
-    values.filter(v => {
-      if is-last {
-        v >= lo and v <= hi
-      } else {
-        v >= lo and v < hi
-      }
-    }).len()
-  })
-
-  // If density mode, divide by (total * bin_width)
-  let y-values = if density {
-    let total = n
-    counts.map(c => c / (total * bin-width))
-  } else {
-    counts.map(c => float(c))
-  }
-
-  let ynt = nice-ticks(0, nonzero(calc.max(..y-values)), count: t.tick-count)
-  let y-max = ynt.max
-
-  // Render
-  let cl = cartesian-layout(width, height, t)
-
-  chart-container(width, height, title, t, extra-height: 30pt)[
-    #let pad-top = cl.pad-top
-    #let chart-height = cl.chart-height
-    #let chart-width = cl.chart-width
-    #let origin-x = cl.origin-x
-    #let origin-y = cl.origin-y
-
-    #box(width: width, height: height)[
-      // Grid
-      #draw-grid(origin-x, pad-top, chart-width, chart-height, t, show-minor-grid: show-minor-grid, num-ticks: ynt.ticks.len())
-
-      // Axes
-      #draw-axis-lines(origin-x, origin-y, origin-x + chart-width, pad-top, t, show-ticks: show-ticks)
-
-      // Draw bars (no gaps — contiguous)
-      #let bar-w = chart-width / num-bins
-      #for bi in array.range(num-bins) {
-        let val = y-values.at(bi)
-        let bar-h = (val / y-max) * chart-height
-        let x-pos = origin-x + bi * bar-w
-        let y-pos = pad-top + chart-height - bar-h
-
-        let fill-color = if color != none { color } else { get-color(t, 0) }
-
-        place(
-          left + top,
-          dx: x-pos,
-          dy: y-pos,
-          rect(
-            width: bar-w,
-            height: bar-h,
-            fill: fill-color,
-            stroke: t.marker-stroke,
-          )
-        )
-
-        if show-values and val > 0 {
-          let count-val = counts.at(bi)
-          place(
-            left + top,
-            dx: x-pos,
-            dy: y-pos - t.label-offset,
-            pin(width: bar-w, align: center + bottom,
-              text(size: t.value-label-size, fill: t.text-color)[#count-val])
-          )
+  cartesian-frame(width, height, t,
+    x: value-axis(edges.first(), edges.last(), title: x-label, ticks: edge-ticks),
+    y: value-axis(0, calc.max(..heights), title: y-label),
+    title: title, show-ticks: show-ticks, show-minor-grid: show-minor-grid,
+    baseline: (y: 0), annotations: annotations,
+    reserve: (top: if show-values { t.value-label-size + t.label-offset } else { 0pt }),
+    p => {
+      let (px, py) = (p.px, p.py)
+      let vsize = fit-label-size(counts.map(str), p.w / num-bins, t.value-label-size)
+      for bi in range(num-bins) {
+        let (x-left, x-right, y-top) = (px(edges.at(bi)), px(edges.at(bi + 1)), py(heights.at(bi)))
+        place(left + top, dx: x-left, dy: y-top,
+          rect(width: x-right - x-left, height: py(0) - y-top, fill: fill-color, stroke: t.marker-stroke))
+        if show-values and counts.at(bi) > 0 and vsize != none {
+          place(left + top, dx: x-left, dy: y-top - t.label-offset,
+            pin(width: x-right - x-left, align: center + bottom,
+              text(size: vsize, fill: t.text-color)[#counts.at(bi)]))
         }
       }
-
-      // Y-axis ticks
-      #draw-y-ticks(0, y-max, chart-height, pad-top, origin-x, t)
-
-      // X-axis ticks (numeric)
-      #draw-x-ticks(data-min, data-max, chart-width, origin-x, origin-y + t.label-offset, t)
-
-      // Axis titles
-      #let y-tw = measure-y-tick-width(0, y-max, t)
-      #let x-th = measure-x-tick-height(([#data-max],), t)
-      #draw-axis-titles(x-label, y-label, origin-x + chart-width / 2, pad-top + chart-height / 2, t, origin-x: origin-x, origin-y: origin-y, y-tick-width: y-tw, x-tick-height: x-th)
-
-      // Annotations — x is data value [data-min, data-max], y is frequency [0, y-max]
-      #draw-annotations(annotations, origin-x, pad-top, chart-width, chart-height, data-min, data-max, 0, y-max, t)
-    ]
-  ]
+    },
+  )
   })
 }

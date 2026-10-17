@@ -3,20 +3,25 @@
 #import "../util.typ": normalize-data
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/legend.typ": draw-legend-vertical
+#import "../primitives/legend.typ": draw-legend
+#import "../primitives/radial.typ": legend-room, side-legend, split-width
 #import "../primitives/layout.typ": resolve-size
 
 /// Renders a parliament (hemicycle) chart — a semicircle of dots showing seat distribution.
 ///
-/// Each dot represents one seat. Parties fill dots in order along concentric
-/// semicircular rows from inner to outer radius, left to right.
+/// Each dot represents one seat. By default the parties take the seats in
+/// angular blocks: the first party gets a wedge at the left end of the
+/// hemicycle, the next one the wedge after it, and so on over the top to the
+/// right end, so a party reads as one block across all rows. Every row keeps
+/// its seat count either way.
 ///
 /// - data (dictionary, array): Label-value pairs where values are seat counts
 /// - size (length): Width of the chart area
 /// - dot-size (length): Diameter of each seat dot
 /// - gap (length): Gap between dots
+/// - fill-order (str): How parties take the seats. `"angular"` (default): one wedge per party, left to right. `"rows"`: along the concentric rows from the innermost to the outermost (the layout before wedges became the default), which gives one band per party
 /// - title (none, content): Optional chart title
-/// - show-legend (bool): Show party legend below the chart
+/// - show-legend (bool): Show the party legend (where the theme's `legend-position` puts it)
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let parliament-chart(
@@ -24,10 +29,13 @@
   size: 250pt,
   dot-size: 4pt,
   gap: 1pt,
+  fill-order: "angular",
   title: none,
   show-legend: true,
   theme: none,
 ) = context {
+  assert(fill-order in ("angular", "rows"),
+    message: "parliament-chart: fill-order must be \"angular\" or \"rows\", got " + repr(fill-order))
   layout(avail => {
   validate-simple-data(data, "parliament-chart")
   let t = _resolve-ctx(theme)
@@ -41,7 +49,19 @@
     return
   }
 
-  let n-parties = values.len()
+  // Legend where the theme puts it: beside the hemicycle (which then shrinks
+  // to leave room), or under/over it
+  let entries = labels.enumerate().filter(((i, _)) => values.at(i) > 0)
+    .map(((i, lbl)) => (name: [#lbl (#values.at(i))], color: get-color(t, i)))
+  let lp = t.legend-position
+  let legend-on = show-legend and lp != "none" and entries.len() > 0
+  let beside = lp == "left" or lp == "right"
+  // (many parties flow into columns rather than one column far taller than the hemicycle)
+  let side-lg = if legend-on and beside {
+    side-legend(entries, t, position: lp, max-height: size * 0.65, max-total: legend-room(size, avail.width, t, margin: 0pt))
+  } else { none }
+  let size = if side-lg != none { split-width(size, 10pt + side-lg.width, avail.width, t).first() } else { size }
+
   let radius = size / 2
   let dot-r = dot-size / 2
   let spacing = dot-size + gap
@@ -108,10 +128,10 @@
     row-seats = new-seats
   }
 
-  // Build flat list of dot positions
+  // Build flat list of seats: position, angle (0 = right end, 180 = left end) and row
   let cx = radius
   let cy = radius
-  let dots = ()
+  let seats = ()
 
   for (ri, r) in row-radii.enumerate() {
     let n = row-seats.at(ri)
@@ -120,29 +140,41 @@
       let angle = if n == 1 { 90.0 } else { 180.0 * di / (n - 1) }
       let x = cx + r * calc.cos(angle * 1deg)
       let y = cy - r * calc.sin(angle * 1deg)
-      dots.push((x, y))
+      seats.push((x: x, y: y, angle: calc.round(angle, digits: 6), row: ri))
     }
   }
 
-  // Assign party colors to dots (fill in order)
+  // The order seats are handed out in. "rows" is the layout order (row by row,
+  // inner to outer); "angular" sweeps the hemicycle from the left end over the
+  // top to the right end, so each party gets one wedge (ties, seats at the same
+  // angle in different rows, go inner to outer).
+  if fill-order == "angular" {
+    seats = seats.sorted(key: s => (-s.angle, s.row))
+  }
+
+  // Assign party colors to seats (fill in order)
   let dot-colors = ()
   let seat-idx = 0
   for (pi, count) in values.enumerate() {
     for _ in range(count) {
-      if seat-idx < dots.len() {
+      if seat-idx < seats.len() {
         dot-colors.push(get-color(t, pi))
       }
       seat-idx = seat-idx + 1
     }
   }
+  let dots = seats.map(s => (s.x, s.y))
 
   let chart-height = radius + dot-r
-  let swatch-size = t.legend-swatch-size
-  let legend-row-h = swatch-size + 8pt
-  let legend-height = if show-legend { calc.ceil(n-parties / 3) * legend-row-h + 10pt } else { 0pt }
 
-  align(center, chart-container(size, chart-height + legend-height, title, t, extra-height: 40pt)[
-    // Hemicycle
+  let lg = if side-lg != none {
+    side-lg
+  } else if legend-on {
+    (legend: draw-legend(entries, t), width: auto, theme: t)
+  } else { (legend: none, width: 0pt, theme: t) }
+
+  align(center, chart-container(size, chart-height, title, lg.theme,
+    legend: lg.legend, legend-width: lg.width)[
     #box(width: size, height: chart-height)[
       #for (i, pos) in dots.enumerate() {
         if i < dot-colors.len() {
@@ -155,23 +187,6 @@
         }
       }
     ]
-
-    // Legend below hemicycle — compact horizontal flow
-    #if show-legend {
-      set text(size: t.axis-label-size, fill: t.text-color)
-      box(width: size, inset: (top: 6pt))[
-        #set align(center)
-        #for (i, lbl) in labels.enumerate() {
-          if values.at(i) > 0 {
-            box(baseline: 2pt, inset: (x: 4pt, y: 1pt))[
-              #box(width: swatch-size, height: swatch-size, fill: get-color(t, i), radius: 2pt, baseline: 1pt)
-              #h(3pt)
-              #lbl (#{ str(values.at(i)) })
-            ]
-          }
-        }
-      ]
-    }
   ])
   })
 }

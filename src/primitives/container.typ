@@ -7,29 +7,44 @@
 /// Charts should use theme.container-inset instead.
 #let container-inset = 8pt
 
-// Wraps chart body in a box with optional background/border and title.
-// Adds inset padding so light and dark themes render at the same outer size.
-#let chart-container(width, height, title, theme, extra-height: 0pt, legend: none, legend-width: 120pt, extra-legend-separation: 0pt, subtitle: none, radius: 0pt, body) = {
-  let has-bg = theme.background != none
+/// Space between a chart and a legend beside it.
+#let legend-gap = 10pt
+
+// Wraps a chart body in a box with optional background/border, a title and
+// subtitle, and a legend (above, below or beside the body, per
+// `theme.legend-position`).
+//
+// The container is as tall as what it holds: title block, legend and a
+// `height`-tall body, laid out and measured by Typst itself, so nothing has to be
+// reserved for them and nothing can overflow or leave a dead band. A legend
+// beside the body adds its width (`legend-width`: `auto`, the default, is the
+// legend's own width); when it is taller than the body the container grows to it.
+// Light and dark themes render at the same outer size: the border takes the same
+// inset in both.
+//
+// - width, height: size of the body (the chart without title, legend or inset)
+// - legend: legend content, or `none`
+// - legend-width: width of a legend beside the body: a length, or `auto` to
+//   measure the legend
+// - extra-legend-separation: extra space between legend and body
+#let chart-container(width, height, title, theme, legend: none, legend-width: auto, extra-legend-separation: 0pt, subtitle: none, radius: 0pt, body) = {
   let pad = theme.at("container-inset", default: container-inset)
-  let has-subtitle = subtitle != none
-  let subtitle-overhead = if has-subtitle { theme.at("subtitle-size", default: theme.axis-title-size) + 3pt } else { 0pt }
-  let title-overhead = if title != none { theme.title-size + theme.title-gap + 4pt + subtitle-overhead } else { if has-subtitle { subtitle-overhead + theme.title-gap + 4pt } else { 0pt } }
   let lp = theme.legend-position
   let side-legend = (lp == "right" or lp == "left") and legend != none
-  let legend-gap = if side-legend { 10pt } else { 0pt }
-  box(
-    width: if side-legend { width + legend-gap + legend-width + 2 * pad } else { width + 2 * pad },
-    height: height + extra-height + title-overhead + 2 * pad,
+  let gap = if side-legend { legend-gap } else { 0pt }
+  let build(legend-width) = box(
+    width: if side-legend { width + gap + legend-width + 2 * pad } else { width + 2 * pad },
     fill: theme.background,
     stroke: theme.border,
     inset: pad,
     radius: radius,
   )[
     // Charts are sized by the theme, not the document: pin the ambient text
-    // size (Typst's default) so flow spacing, leading and the spaces between
-    // legend entries don't shift with the document's `set text(size: ..)`.
+    // size (Typst's default) and the flow spacing that follows from it, so the
+    // gaps between title, legend and body and the leading of a wrapped legend
+    // don't shift with the document's `set text(size: ..)`.
     #set text(size: 11pt)
+    #set par(leading: 0.65em, spacing: 1.2em)
     #draw-title(title, theme, subtitle: subtitle)
     #if lp == "top" and legend != none {
       legend
@@ -37,7 +52,7 @@
     }
     #if lp == "right" and legend != none {
       context {
-        let legend-h = measure(legend).height
+        let legend-h = measure(width: legend-width, legend).height
         // Center legend relative to chart; allow negative dy when legend is taller
         let legend-dy = (height - legend-h) / 2
         let content-h = calc.max(height, legend-h)
@@ -51,7 +66,7 @@
       }
     } else if lp == "left" and legend != none {
       context {
-        let legend-h = measure(legend).height
+        let legend-h = measure(width: legend-width, legend).height
         let legend-dy = (height - legend-h) / 2
         let content-h = calc.max(height, legend-h)
         let base-dy = if legend-dy < 0pt { -legend-dy } else { 0pt }
@@ -70,4 +85,10 @@
       }
     }
   ]
+  // A legend beside the body, as wide as its content
+  if side-legend and legend-width == auto {
+    context build(measure({ set text(size: 11pt); set par(leading: 0.65em, spacing: 1.2em); legend }).width)
+  } else {
+    build(legend-width)
+  }
 }

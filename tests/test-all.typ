@@ -46,3 +46,13 @@
 #include "test-resolve-size.typ"
 #pagebreak()
 #include "test-content-labels.typ"
+#pagebreak()
+#include "stress-cartesian.typ"
+#pagebreak()
+#include "stress-linear-grid.typ"
+#pagebreak()
+#include "stress-radial.typ"
+#pagebreak()
+#include "test-spread.typ"
+#pagebreak()
+#include "stress-spread.typ"

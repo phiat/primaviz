@@ -64,15 +64,19 @@
   [
     #align(center, text(size: 9pt, weight: "bold")[badges + separator])
     #v(4pt)
-    #badge("Default", variant: "default", theme: lt)
-    #h(4pt)
-    #badge("Secondary", variant: "secondary", theme: lt)
-    #h(4pt)
-    #badge("Destructive", variant: "destructive", theme: lt)
-    #h(4pt)
-    #badge("Outline", variant: "outline", theme: lt)
-    #h(4pt)
-    #badge("Success", variant: "success", theme: lt)
+    // The badges are 8pt type, the theme's smallest: the row wraps, with room between its lines
+    #block[
+      #set par(leading: 7pt)
+      #badge("Default", variant: "default", theme: lt)
+      #h(3pt)
+      #badge("Secondary", variant: "secondary", theme: lt)
+      #h(3pt)
+      #badge("Destructive", variant: "destructive", theme: lt)
+      #h(3pt)
+      #badge("Outline", variant: "outline", theme: lt)
+      #h(3pt)
+      #badge("Success", variant: "success", theme: lt)
+    ]
     #separator(theme: lt)
     #text(size: 8pt)[Badges indicate status, categories, or counts. Use the separator to divide sections visually.]
   ],

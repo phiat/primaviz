@@ -1,12 +1,85 @@
 // scatter.typ - Scatter plot and bubble chart
 #import "../theme.typ": _resolve-ctx, get-color
-#import "../util.typ": nonzero, clamp, nice-ticks, label-len
-#import "../primitives/layout.typ": label-fits-inside, place-cartesian-label, try-fit-label, greedy-deconflict, resolve-size
+#import "../util.typ": nonzero, label-len
+#import "../primitives/layout.typ": try-fit-label, resolve-size
 #import "../validate.typ": validate-scatter-data, validate-multi-scatter-data, validate-bubble-data, validate-multi-bubble-data
-#import "../primitives/container.typ": chart-container
-#import "../primitives/axes.typ": cartesian-layout, draw-axis-lines, draw-grid, draw-axis-titles, draw-y-ticks, draw-x-ticks, measure-y-tick-width, measure-x-tick-height
-#import "../primitives/legend.typ": draw-legend-auto, draw-size-legend
-#import "../primitives/annotations.typ": draw-annotations
+#import "../primitives/frame.typ": cartesian-frame
+#import "../primitives/axes.typ": value-axis
+#import "../primitives/legend.typ": draw-legend-auto, draw-size-legend, legend-max-width
+
+// Both axes of an x-y chart. Small marks keep `inset` free at the ends of each
+// axis, so a mark centred on an extreme value stays inside the plot. With `radii`
+// (one per point: bubbles) the axes instead widen to the next nice tick until every
+// bubble lies inside the plot, so the axis line, the ticks and the plot agree.
+#let _xy-axes(points, inset, x-label, y-label, radii: none) = {
+  let xs = points.map(p => p.at(0))
+  let ys = points.map(p => p.at(1))
+  let marks(i) = if radii == none { () } else { points.zip(radii).map(((pt, r)) => (pt.at(i), r)) }
+  let inset = if radii == none { inset } else { 0pt }
+  (
+    x: value-axis(calc.min(..xs), calc.max(..xs), title: x-label, inset: inset, marks: marks(0)),
+    y: value-axis(calc.min(..ys), calc.max(..ys), title: y-label, inset: inset, marks: marks(1)),
+  )
+}
+
+// Resolves the theme with the chart's own `show-grid` override applied.
+#let _scatter-theme(theme, show-grid) = _resolve-ctx(theme, overrides: if show-grid != auto { (show-grid: show-grid) } else { none })
+
+// Radius bubbles are drawn at: the largest bubble never takes over the plot (its
+// diameter stays under about 36% of the plot height, `height` less the room the
+// axes take, and 24% of the width).
+#let _bubble-radii(max-radius, min-radius, width, height, t) = {
+  let hi = calc.min(max-radius, (height - 6 * t.axis-label-size) * 0.18, width * 0.12)
+  (hi: hi, lo: calc.min(min-radius, hi * 0.5))
+}
+
+// Whether two `(x, y, w, h)` boxes overlap.
+#let _hit(a, b) = a.x < b.x + b.w and b.x < a.x + a.w and a.y < b.y + b.h and b.y < a.y + a.h
+
+// Spot for a label of `w` x `h` beside bubble `b`: the nearest of eight directions,
+// tried at three distances, that stays in `bounds`, clear of the `taken` label boxes
+// and clear of the other bubbles (`all`). When none is clear, the least bad one.
+#let _label-spot(b, all, taken, bounds, w, h) = {
+  let gap = 2pt
+  let spots = ()
+  for (k, off) in (0pt, h * 1.1, h * 2.2).enumerate() {
+    let d = b.radius + gap + off
+    let e = d * 0.71
+    for (i, (x, y)) in (
+      (b.px + d, b.py - h / 2), (b.px - d - w, b.py - h / 2),
+      (b.px - w / 2, b.py + d), (b.px - w / 2, b.py - d - h),
+      (b.px + e, b.py + e), (b.px - e - w, b.py + e),
+      (b.px + e, b.py - e - h), (b.px - e - w, b.py - e - h),
+    ).enumerate() {
+      let box = (x: x, y: y, w: w, h: h)
+      let cost = k * 50 + i
+      if x < bounds.left or y < bounds.top or x + w > bounds.right or y + h > bounds.bottom { cost += 3000 }
+      cost += 10000 * taken.filter(o => _hit(o, box)).len()
+      for o in all {
+        if o.i == b.i { continue }
+        let (nx, ny) = (calc.min(calc.max(o.px, x), x + w), calc.min(calc.max(o.py, y), y + h))
+        if ((nx - o.px) / 1pt) * ((nx - o.px) / 1pt) + ((ny - o.py) / 1pt) * ((ny - o.py) / 1pt) < (o.radius / 1pt) * (o.radius / 1pt) {
+          cost += 1000
+        }
+      }
+      spots.push((cost: cost, box: box))
+    }
+  }
+  spots.sorted(key: s => s.cost).first().box
+}
+
+// Radius of the bubble for `size`: linear in size between the smallest and largest.
+#let _bubble-radius(size, size-min, size-range, r) = r.lo + ((size - size-min) / size-range) * (r.hi - r.lo)
+
+// Size legend below a bubble chart: three reference circles.
+#let _bubble-size-legend(size-label, size-max, max-radius, t) = if size-label != none {
+  let ref-sizes = (
+    (size-max, str(calc.round(size-max))),
+    (calc.round(size-max * 0.5), str(calc.round(size-max * 0.5))),
+    (calc.round(size-max * 0.15), str(calc.round(size-max * 0.15))),
+  )
+  draw-size-legend(ref-sizes, max-radius, size-max, t, title: size-label)
+}
 
 /// Renders a scatter plot of x-y data points.
 ///
@@ -45,73 +118,22 @@
 ) = context {
   layout(size => {
   validate-scatter-data(data, "scatter-plot")
-  let grid-overrides = if show-grid != auto { (show-grid: show-grid) } else { none }
-  let t = _resolve-ctx(theme, overrides: grid-overrides)
+  let t = _scatter-theme(theme, show-grid)
   let (width, height) = resolve-size(width, height, size, n: 10, theme: t)
-  // Normalize data format
-  let points = if type(data) == dictionary {
-    data.x.zip(data.y)
-  } else {
-    data
-  }
-
-  let x-vals = points.map(p => p.at(0))
-  let y-vals = points.map(p => p.at(1))
-
-  let xnt = nice-ticks(calc.min(..x-vals), calc.max(..x-vals), count: t.tick-count)
-  let ynt = nice-ticks(calc.min(..y-vals), calc.max(..y-vals), count: t.tick-count)
-  let (x-min, x-max, x-range) = (xnt.min, xnt.max, nonzero(xnt.max - xnt.min))
-  let (y-min, y-max, y-range) = (ynt.min, ynt.max, nonzero(ynt.max - ynt.min))
-
+  let points = if type(data) == dictionary { data.x.zip(data.y) } else { data }
   let point-color = if color != none { color } else { get-color(t, 0) }
+  let axes = _xy-axes(points, point-size / 2 + 1pt, x-label, y-label)
 
-  let cl = cartesian-layout(width, height, t, extra-left: 10pt)
-
-  chart-container(width, height, title, t, extra-height: 30pt, subtitle: subtitle, radius: radius)[
-    #let pad-top = cl.pad-top
-    #let chart-height = cl.chart-height
-    #let chart-width = cl.chart-width
-    #let origin-x = cl.origin-x
-    #let origin-y = cl.origin-y
-
-    #box(width: width, height: height)[
-      // Grid lines
-      #draw-grid(origin-x, pad-top, chart-width, chart-height, t, show-minor-grid: show-minor-grid, num-ticks: ynt.ticks.len())
-
-      // Axes
-      #draw-axis-lines(origin-x, origin-y, origin-x + chart-width, pad-top, t, show-ticks: show-ticks)
-
-      // Y-axis ticks
-      #draw-y-ticks(y-min, y-max, chart-height, pad-top, origin-x, t)
-
-      // X-axis ticks
-      #draw-x-ticks(x-min, x-max, chart-width, origin-x, origin-y + t.label-offset, t)
-
-      // Plot points — clamp to chart bounds
-      #let half = point-size / 2
-      #for pt in points {
-        let px = origin-x + ((pt.at(0) - x-min) / x-range) * chart-width
-        let py = pad-top + chart-height - ((pt.at(1) - y-min) / y-range) * chart-height
-        let px = clamp(px, origin-x + half, origin-x + chart-width - half)
-        let py = clamp(py, pad-top + half, origin-y - half)
-
-        place(
-          left + top,
-          dx: px - half,
-          dy: py - half,
-          circle(radius: point-size / 2, fill: point-color, stroke: t.marker-stroke)
-        )
+  cartesian-frame(width, height, t, x: axes.x, y: axes.y,
+    title: title, subtitle: subtitle, radius: radius, annotations: annotations,
+    show-ticks: show-ticks, show-minor-grid: show-minor-grid,
+    p => {
+      for pt in points {
+        place(left + top, dx: (p.px)(pt.at(0)) - point-size / 2, dy: (p.py)(pt.at(1)) - point-size / 2,
+          circle(radius: point-size / 2, fill: point-color, stroke: t.marker-stroke))
       }
-
-      // Axis titles
-      #let y-tw = measure-y-tick-width(y-min, y-max, t)
-      #let x-th = measure-x-tick-height(([#x-max],), t)
-      #draw-axis-titles(x-label, y-label, origin-x + chart-width / 2, pad-top + chart-height / 2, t, origin-x: origin-x, origin-y: origin-y, y-tick-width: y-tw, x-tick-height: x-th)
-
-      // Annotations
-      #draw-annotations(annotations, origin-x, pad-top, chart-width, chart-height, x-min, x-max, y-min, y-max, t)
-    ]
-  ]
+    },
+  )
   })
 }
 
@@ -146,75 +168,23 @@
 ) = context {
   layout(size => {
   validate-multi-scatter-data(data, "multi-scatter-plot")
-  let grid-overrides = if show-grid != auto { (show-grid: show-grid) } else { none }
-  let t = _resolve-ctx(theme, overrides: grid-overrides)
+  let t = _scatter-theme(theme, show-grid)
   let (width, height) = resolve-size(width, height, size, n: 10, theme: t)
   let series = data.series
+  let axes = _xy-axes(series.map(s => s.points).join(), point-size / 2 + 1pt, x-label, y-label)
 
-  // Get all points to find ranges
-  let x-vals = ()
-  let y-vals = ()
-  for s in series {
-    for pt in s.points {
-      x-vals.push(pt.at(0))
-      y-vals.push(pt.at(1))
-    }
-  }
-
-  let xnt = nice-ticks(calc.min(..x-vals), calc.max(..x-vals), count: t.tick-count)
-  let ynt = nice-ticks(calc.min(..y-vals), calc.max(..y-vals), count: t.tick-count)
-  let (x-min, x-max, x-range) = (xnt.min, xnt.max, nonzero(xnt.max - xnt.min))
-  let (y-min, y-max, y-range) = (ynt.min, ynt.max, nonzero(ynt.max - ynt.min))
-
-  let cl = cartesian-layout(width, height, t, extra-left: 10pt)
-
-  let legend-content = draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, swatch-type: "circle")
-  chart-container(width, height, title, t, extra-height: 50pt, legend: legend-content, extra-legend-separation: extra-legend-separation)[
-    #let pad-top = cl.pad-top
-    #let chart-height = cl.chart-height
-    #let chart-width = cl.chart-width
-    #let origin-x = cl.origin-x
-    #let origin-y = cl.origin-y
-
-    #box(width: width, height: height)[
-      // Grid lines
-      #draw-grid(origin-x, pad-top, chart-width, chart-height, t, num-ticks: ynt.ticks.len())
-
-      // Axes
-      #draw-axis-lines(origin-x, origin-y, origin-x + chart-width, pad-top, t)
-
-      // Y-axis ticks
-      #draw-y-ticks(y-min, y-max, chart-height, pad-top, origin-x, t)
-
-      // X-axis ticks
-      #draw-x-ticks(x-min, x-max, chart-width, origin-x, origin-y + t.label-offset, t)
-
-      // Plot points for each series — clamp to chart bounds
-      #let half = point-size / 2
-      #for (si, s) in series.enumerate() {
-        let color = get-color(t, si)
+  cartesian-frame(width, height, t, x: axes.x, y: axes.y,
+    title: title, annotations: annotations, extra-legend-separation: extra-legend-separation,
+    legend: draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, swatch-type: "circle", fit-width: true, max-width: legend-max-width(width, t)),
+    p => {
+      for (si, s) in series.enumerate() {
         for pt in s.points {
-          let px = origin-x + ((pt.at(0) - x-min) / x-range) * chart-width
-          let py = pad-top + chart-height - ((pt.at(1) - y-min) / y-range) * chart-height
-          let px = clamp(px, origin-x + half, origin-x + chart-width - half)
-          let py = clamp(py, pad-top + half, origin-y - half)
-
-          place(
-            left + top,
-            dx: px - half,
-            dy: py - half,
-            circle(radius: point-size / 2, fill: color, stroke: t.marker-stroke)
-          )
+          place(left + top, dx: (p.px)(pt.at(0)) - point-size / 2, dy: (p.py)(pt.at(1)) - point-size / 2,
+            circle(radius: point-size / 2, fill: get-color(t, si), stroke: t.marker-stroke))
         }
       }
-
-      #let y-tw = measure-y-tick-width(y-min, y-max, t)
-      #let x-th = measure-x-tick-height(([#x-max],), t)
-      #draw-axis-titles(x-label, y-label, origin-x + chart-width / 2, pad-top + chart-height / 2, t, origin-x: origin-x, origin-y: origin-y, y-tick-width: y-tw, x-tick-height: x-th)
-
-      #draw-annotations(annotations, origin-x, pad-top, chart-width, chart-height, x-min, x-max, y-min, y-max, t)
-    ]
-  ]
+    },
+  )
   })
 }
 
@@ -255,187 +225,88 @@
 ) = context {
   layout(size => {
   validate-bubble-data(data, "bubble-chart")
-  let grid-overrides = if show-grid != auto { (show-grid: show-grid) } else { none }
-  let t = _resolve-ctx(theme, overrides: grid-overrides)
+  let t = _scatter-theme(theme, show-grid)
   let (width, height) = resolve-size(width, height, size, n: 10, theme: t)
-  // Normalize data format
   let points = if type(data) == dictionary {
-    let zipped = data.x.zip(data.y).zip(data.size)
-    zipped.map(p => (p.at(0).at(0), p.at(0).at(1), p.at(1)))
-  } else {
-    data
-  }
-
-  let x-vals = points.map(p => p.at(0))
-  let y-vals = points.map(p => p.at(1))
-  let size-vals = points.map(p => p.at(2))
-
-  let xnt = nice-ticks(calc.min(..x-vals), calc.max(..x-vals), count: t.tick-count)
-  let ynt = nice-ticks(calc.min(..y-vals), calc.max(..y-vals), count: t.tick-count)
-  let (x-min, x-max, x-range) = (xnt.min, xnt.max, nonzero(xnt.max - xnt.min))
-  let (y-min, y-max, y-range) = (ynt.min, ynt.max, nonzero(ynt.max - ynt.min))
-  let size-min = calc.min(..size-vals)
-  let size-max = calc.max(..size-vals)
+    data.x.zip(data.y).zip(data.size).map(p => (p.at(0).at(0), p.at(0).at(1), p.at(1)))
+  } else { data }
+  let sizes = points.map(p => p.at(2))
+  let (size-min, size-max) = (calc.min(..sizes), calc.max(..sizes))
   let size-range = nonzero(size-max - size-min)
-
   let bubble-color = if color != none { color } else { get-color(t, 0) }
+  let r = _bubble-radii(max-radius, min-radius, width, height, t)
+  let axes = _xy-axes(points, 0pt, x-label, y-label,
+    radii: sizes.map(s => _bubble-radius(s, size-min, size-range, r) + 1pt))
 
-  let cl = cartesian-layout(width, height, t, extra-left: 10pt)
+  cartesian-frame(width, height, t, x: axes.x, y: axes.y,
+    title: title, annotations: annotations,
+    legend: _bubble-size-legend(size-label, size-max, max-radius, t),
+    p => {
+      let (px, py) = (p.px, p.py)
+      let bounds = (left: p.x0, right: p.x1, top: p.y0, bottom: p.y1)
+      let computed = points.enumerate().map(((i, pt)) => (
+        i: i, px: px(pt.at(0)), py: py(pt.at(1)),
+        radius: _bubble-radius(pt.at(2), size-min, size-range, r),
+      ))
 
-  chart-container(width, height, title, t, extra-height: 30pt)[
-    #let pad-top = cl.pad-top
-    #let chart-height = cl.chart-height
-    #let chart-width = cl.chart-width
-    #let origin-x = cl.origin-x
-    #let origin-y = cl.origin-y
-
-    #box(width: width, height: height)[
-      // Grid lines
-      #draw-grid(origin-x, pad-top, chart-width, chart-height, t, num-ticks: ynt.ticks.len())
-
-      // Axes
-      #draw-axis-lines(origin-x, origin-y, origin-x + chart-width, pad-top, t)
-
-      // Y-axis ticks
-      #draw-y-ticks(y-min, y-max, chart-height, pad-top, origin-x, t)
-
-      // X-axis ticks
-      #draw-x-ticks(x-min, x-max, chart-width, origin-x, origin-y + t.label-offset, t)
-
-      // Plot bubbles — clamp max-radius to chart dimensions
-      #let effective-max-r = calc.min(max-radius, chart-height * 0.25, chart-width * 0.15)
-      #let effective-min-r = calc.min(min-radius, effective-max-r * 0.3)
-      #let bounds = (left: origin-x, right: origin-x + chart-width, top: pad-top, bottom: origin-y)
-
-      // Pass 0: Pre-compute all bubble positions
-      #let computed = points.enumerate().map(((i, pt)) => {
-        let px = origin-x + ((pt.at(0) - x-min) / x-range) * chart-width
-        let py = pad-top + chart-height - ((pt.at(1) - y-min) / y-range) * chart-height
-        let radius = effective-min-r + ((pt.at(2) - size-min) / size-range) * (effective-max-r - effective-min-r)
-        let px = clamp(px, origin-x + radius, origin-x + chart-width - radius)
-        let py = clamp(py, pad-top + radius, origin-y - radius)
-        (i: i, px: px, py: py, radius: radius)
-      })
-
-      // Draw all bubbles
-      #for b in computed {
-        place(
-          left + top,
-          dx: b.px - b.radius,
-          dy: b.py - b.radius,
-          circle(
-            radius: b.radius,
-            fill: bubble-color.transparentize(40%),
-            stroke: bubble-color + 1.5pt
-          )
-        )
+      for b in computed {
+        place(left + top, dx: b.px - b.radius, dy: b.py - b.radius,
+          circle(radius: b.radius, fill: bubble-color.transparentize(40%), stroke: bubble-color + 1.5pt))
       }
 
-      // Two-pass label placement
-      #if show-labels and labels != none {
-        let inside-labels = ()
-        let outside-proposals = ()
+      // Labels: inside the bubble when they fit, otherwise beside it (with a leader
+      // line when it had to move away). Beside labels pick the nearest spot that
+      // clears every other label and every other bubble.
+      if show-labels and labels != none {
         let lbl-size = t.axis-label-size
         let lbl-h = lbl-size * 1.4
-
-        // Pass 1: Decide inside vs outside for each bubble
-        for b in computed {
+        let (inside, outside) = ((), ())
+        let taken = ()  // boxes of the labels placed so far
+        let order = computed.sorted(key: b => -b.radius)  // biggest bubbles first
+        for b in order {
           if b.i >= labels.len() { continue }
           let lbl = labels.at(b.i)
-          let lbl-len = label-len(lbl)
-          let fit = try-fit-label(b.radius * 2, b.radius * 2, lbl-size, lbl-len)
-
-          if fit.fits {
-            inside-labels.push((px: b.px, py: b.py, radius: b.radius, lbl: lbl, size: fit.size))
+          let lbl-w = measure(text(size: lbl-size, weight: "bold")[#lbl]).width
+          // (not below 80% of the axis label size: smaller text goes beside the bubble instead)
+          let fit = try-fit-label(b.radius * 2, b.radius * 2, lbl-size, label-len(lbl), shrink-min: lbl-size * 0.8)
+          let in-w = measure(text(size: fit.size, weight: "bold")[#lbl]).width
+          let box-in = (x: b.px - in-w / 2 - 1pt, y: b.py - fit.size * 0.7, w: in-w + 2pt, h: fit.size * 1.4)
+          // Fits its bubble and does not run into the label of a neighbouring bubble
+          // (the text box has to sit inside the outline, not on it)
+          let half = (in-w / 2 / 1pt, fit.size * 0.5 / 1pt)
+          let inside-ok = fit.fits and calc.sqrt(half.at(0) * half.at(0) + half.at(1) * half.at(1)) * 1pt <= b.radius - 0.75pt
+          if inside-ok and not taken.any(o => _hit(o, box-in)) {
+            inside.push((px: b.px, py: b.py, lbl: lbl, size: fit.size, w: in-w))
+            taken.push(box-in)
           } else {
-            // Propose label position, quadrant-aware horizontal offset
-            let chart-cx = (bounds.left + bounds.right) / 2
-            let chart-cy = (bounds.top + bounds.bottom) / 2
-            let lbl-w = calc.max(40pt, lbl-size * 0.6 * lbl-len + 4pt)
-            let lx = if b.px >= chart-cx {
-              b.px + 4pt
-            } else {
-              b.px - lbl-w - 4pt
-            }
-            // Place label above or below bubble based on vertical position:
-            // bubbles in the upper half get labels below, lower half get labels above.
-            // This naturally separates labels for vertically-close bubbles.
-            let ly = if b.py <= chart-cy {
-              b.py + b.radius + 4pt                   // below bubble
-            } else {
-              b.py - b.radius - lbl-h - 4pt           // above bubble
-            }
-            outside-proposals.push((
-              cx: b.px, cy: b.py, radius: b.radius,
-              lx: lx, ly: ly, w: lbl-w, h: lbl-h,
-              lbl: lbl,
-            ))
+            let box = _label-spot(b, order, taken, bounds, lbl-w + 2pt, lbl-h)
+            taken.push(box)
+            outside.push((cx: b.px, cy: b.py, radius: b.radius, box: box, lbl: lbl))
           }
         }
 
-        // Pass 2: Deconflict outside labels
-        let deconflicted = greedy-deconflict(outside-proposals, bounds)
-
-        // Render inside labels
-        for il in inside-labels {
-          let lbl-w = il.size * 0.6 * label-len(il.lbl) + 4pt
-          let lbl-w = calc.max(il.radius * 2, lbl-w)
-          place(
-            left + top,
-            dx: il.px - lbl-w / 2,
-            dy: il.py - il.size * 0.7,
-            box(width: lbl-w, height: il.size * 1.4,
-              align(center + horizon,
-                text(size: il.size, fill: t.text-color, weight: "bold")[#il.lbl]))
-          )
+        for il in inside {
+          place(left + top, dx: il.px - il.w / 2 - 1pt, dy: il.py - il.size * 0.7,
+            box(width: il.w + 2pt, height: il.size * 1.4,
+              align(center + horizon, text(size: il.size, fill: t.text-color, weight: "bold")[#il.lbl])))
         }
-
-        // Render outside labels with leaders
-        for ol in deconflicted {
-          let anchor-x = ol.lx + ol.w / 2
-          let anchor-y = ol.ly + ol.h / 2
-          // Leader from bubble edge toward label center
-          let dx = anchor-x - ol.cx
-          let dy = anchor-y - ol.cy
-          // Approximate point on bubble edge toward label
-          let dx-f = dx / 1pt
-          let dy-f = dy / 1pt
-          let dist = calc.max(1.0, calc.sqrt(dx-f * dx-f + dy-f * dy-f))
-          let edge-x = ol.cx + dx-f / dist * ol.radius
-          let edge-y = ol.cy + dy-f / dist * ol.radius
-          place(left + top,
-            line(start: (edge-x, edge-y),
-                 end: (anchor-x, anchor-y),
-                 stroke: 0.5pt + t.text-color-light))
-          place(
-            left + top,
-            dx: ol.lx,
-            dy: ol.ly,
-            box(width: ol.w,
-              align(center,
-                text(size: lbl-size, fill: t.text-color, weight: "bold")[#ol.lbl]))
-          )
+        for ol in outside {
+          let bx = ol.box
+          // Leader from the bubble edge to the label, when the label stands off the bubble
+          let near = (calc.min(calc.max(ol.cx, bx.x), bx.x + bx.w), calc.min(calc.max(ol.cy, bx.y), bx.y + bx.h))
+          let (dx, dy) = ((near.at(0) - ol.cx) / 1pt, (near.at(1) - ol.cy) / 1pt)
+          let dist = calc.max(1.0, calc.sqrt(dx * dx + dy * dy))
+          if dist * 1pt - ol.radius > 3.5pt {
+            place(left + top, line(
+              start: (ol.cx + dx / dist * ol.radius, ol.cy + dy / dist * ol.radius), end: near,
+              stroke: 0.5pt + t.text-color-light))
+          }
+          place(left + top, dx: bx.x, dy: bx.y,
+            box(width: bx.w, height: bx.h, align(center + horizon, text(size: lbl-size, fill: t.text-color, weight: "bold")[#ol.lbl])))
         }
       }
-
-      // Axis titles
-      #let y-tw = measure-y-tick-width(y-min, y-max, t)
-      #let x-th = measure-x-tick-height(([#x-max],), t)
-      #draw-axis-titles(x-label, y-label, origin-x + chart-width / 2, pad-top + chart-height / 2, t, origin-x: origin-x, origin-y: origin-y, y-tick-width: y-tw, x-tick-height: x-th)
-
-      #draw-annotations(annotations, origin-x, pad-top, chart-width, chart-height, x-min, x-max, y-min, y-max, t)
-    ]
-
-    // Size legend below chart
-    #if size-label != none {
-      let ref-sizes = (
-        (size-max, str(calc.round(size-max))),
-        (calc.round(size-max * 0.5), str(calc.round(size-max * 0.5))),
-        (calc.round(size-max * 0.15), str(calc.round(size-max * 0.15))),
-      )
-      draw-size-legend(ref-sizes, max-radius, size-max, t, title: size-label)
-    }
-  ]
+    },
+  )
   })
 }
 
@@ -474,97 +345,31 @@
 ) = context {
   layout(size => {
   validate-multi-bubble-data(data, "multi-bubble-chart")
-  let grid-overrides = if show-grid != auto { (show-grid: show-grid) } else { none }
-  let t = _resolve-ctx(theme, overrides: grid-overrides)
+  let t = _scatter-theme(theme, show-grid)
   let (width, height) = resolve-size(width, height, size, n: 10, theme: t)
   let series = data.series
-
-  // Collect all x, y, size values across all series for axis/size scaling
-  let x-vals = ()
-  let y-vals = ()
-  let size-vals = ()
-  for s in series {
-    for pt in s.points {
-      x-vals.push(pt.at(0))
-      y-vals.push(pt.at(1))
-      size-vals.push(pt.at(2))
-    }
-  }
-
-  let xnt = nice-ticks(calc.min(..x-vals), calc.max(..x-vals), count: t.tick-count)
-  let ynt = nice-ticks(calc.min(..y-vals), calc.max(..y-vals), count: t.tick-count)
-  let (x-min, x-max, x-range) = (xnt.min, xnt.max, nonzero(xnt.max - xnt.min))
-  let (y-min, y-max, y-range) = (ynt.min, ynt.max, nonzero(ynt.max - ynt.min))
-  let size-min = calc.min(..size-vals)
-  let size-max = calc.max(..size-vals)
+  let points = series.map(s => s.points).join()
+  let sizes = points.map(p => p.at(2))
+  let (size-min, size-max) = (calc.min(..sizes), calc.max(..sizes))
   let size-range = nonzero(size-max - size-min)
+  let r = _bubble-radii(max-radius, min-radius, width, height, t)
+  let axes = _xy-axes(points, 0pt, x-label, y-label,
+    radii: sizes.map(s => _bubble-radius(s, size-min, size-range, r) + 1pt))
+  let series-legend = draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, swatch-type: "circle", fit-width: true, max-width: legend-max-width(width, t))
 
-  let cl = cartesian-layout(width, height, t, extra-left: 10pt)
-
-  let legend-content = draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, swatch-type: "circle")
-  chart-container(width, height, title, t, extra-height: 50pt, legend: legend-content)[
-    #let pad-top = cl.pad-top
-    #let chart-height = cl.chart-height
-    #let chart-width = cl.chart-width
-    #let origin-x = cl.origin-x
-    #let origin-y = cl.origin-y
-
-    #box(width: width, height: height)[
-      // Grid lines
-      #draw-grid(origin-x, pad-top, chart-width, chart-height, t, num-ticks: ynt.ticks.len())
-
-      // Axes
-      #draw-axis-lines(origin-x, origin-y, origin-x + chart-width, pad-top, t)
-
-      // Y-axis ticks
-      #draw-y-ticks(y-min, y-max, chart-height, pad-top, origin-x, t)
-
-      // X-axis ticks
-      #draw-x-ticks(x-min, x-max, chart-width, origin-x, origin-y + t.label-offset, t)
-
-      // Plot bubbles for each series — clamp to chart bounds
-      #let effective-max-r = calc.min(max-radius, chart-height * 0.25, chart-width * 0.15)
-      #let effective-min-r = calc.min(min-radius, effective-max-r * 0.3)
-      #for (si, s) in series.enumerate() {
+  cartesian-frame(width, height, t, x: axes.x, y: axes.y,
+    title: title, annotations: annotations,
+    legend: { series-legend; _bubble-size-legend(size-label, size-max, max-radius, t) },
+    p => {
+      for (si, s) in series.enumerate() {
         let color = get-color(t, si)
         for pt in s.points {
-          let px = origin-x + ((pt.at(0) - x-min) / x-range) * chart-width
-          let py = pad-top + chart-height - ((pt.at(1) - y-min) / y-range) * chart-height
-          let radius = effective-min-r + ((pt.at(2) - size-min) / size-range) * (effective-max-r - effective-min-r)
-          // Clamp bubble center to chart bounds
-          let px = clamp(px, origin-x + radius, origin-x + chart-width - radius)
-          let py = clamp(py, pad-top + radius, origin-y - radius)
-
-          place(
-            left + top,
-            dx: px - radius,
-            dy: py - radius,
-            circle(
-              radius: radius,
-              fill: color.transparentize(40%),
-              stroke: color + 1.5pt,
-            )
-          )
+          let rad = _bubble-radius(pt.at(2), size-min, size-range, r)
+          place(left + top, dx: (p.px)(pt.at(0)) - rad, dy: (p.py)(pt.at(1)) - rad,
+            circle(radius: rad, fill: color.transparentize(40%), stroke: color + 1.5pt))
         }
       }
-
-      // Axis titles
-      #let y-tw = measure-y-tick-width(y-min, y-max, t)
-      #let x-th = measure-x-tick-height(([#x-max],), t)
-      #draw-axis-titles(x-label, y-label, origin-x + chart-width / 2, pad-top + chart-height / 2, t, origin-x: origin-x, origin-y: origin-y, y-tick-width: y-tw, x-tick-height: x-th)
-
-      #draw-annotations(annotations, origin-x, pad-top, chart-width, chart-height, x-min, x-max, y-min, y-max, t)
-    ]
-
-    // Size legend
-    #if size-label != none {
-      let ref-sizes = (
-        (size-max, str(calc.round(size-max))),
-        (calc.round(size-max * 0.5), str(calc.round(size-max * 0.5))),
-        (calc.round(size-max * 0.15), str(calc.round(size-max * 0.15))),
-      )
-      draw-size-legend(ref-sizes, max-radius, size-max, t, title: size-label)
-    }
-  ]
+    },
+  )
   })
 }

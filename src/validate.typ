@@ -412,7 +412,7 @@
     message: chart-name + ": line-interpolation must be 'linear', 'smooth', or 'catmull-rom'"
   )
   assert(
-    type(smooth-radius) == int and smooth-radius >= 1 and smooth-radius <= 5,
-    message: chart-name + ": smooth-radius must be an integer from 1 to 5"
+    type(smooth-radius) == int and smooth-radius >= 0 and smooth-radius <= 5,
+    message: chart-name + ": smooth-radius must be an integer from 0 to 5"
   )
 }

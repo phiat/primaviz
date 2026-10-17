@@ -11,15 +11,14 @@ A charting library for [Typst](https://github.com/typst/typst) built entirely wi
 
 All 50+ chart types across 8 pages — see [`examples/showcase.typ`](examples/showcase.typ) for the source:
 
-![Showcase: bar, line, area, pie, radar, and scatter chart variations](screenshots/showcase/showcase-1.png)
-![Showcase: gauges, progress indicators, dual-axis, histogram, waterfall, funnel, box-plot, and heatmap charts](screenshots/showcase/showcase-2.png)
-![Showcase: calendar heatmap, treemap, sankey, lollipop, diverging, slope, and bullet charts](screenshots/showcase/showcase-3.png)
-![Showcase: grouped-stacked bars, gantt, waffle, bump, dumbbell, radial-bar, and sunburst charts](screenshots/showcase/showcase-4.png)
-![Showcase: violin plot, timeline, parliament, and chord diagram](screenshots/showcase/showcase-5.png)
-![Showcase: dashboard components including metric cards, alerts, badges, and compact tables](screenshots/showcase/showcase-6.png)
-![Showcase: additional chart layouts and variations](screenshots/showcase/showcase-7.png)
-![Showcase: golden-ratio φ-scaling demo with bar and line charts at 0.5×, 1×, and 2× base size](screenshots/showcase/showcase-8.png)
-![Showcase: full-page word cloud of data visualization vocabulary](screenshots/showcase/showcase-9.png)
+![Showcase: bar, horizontal bar, grouped bar, stacked bar, line, multi-line, area, and stacked area charts](screenshots/showcase/showcase-1.png)
+![Showcase: pie, donut, radar, scatter, multi-scatter, bubble, gauge, progress-bar, and circular-progress charts](screenshots/showcase/showcase-2.png)
+![Showcase: ring progress, dual-axis, histogram, waterfall, funnel, box-plot, heatmap, and correlation-matrix charts](screenshots/showcase/showcase-3.png)
+![Showcase: calendar heatmap, progress bars, sparklines, treemap, sankey, lollipop, horizontal lollipop, and diverging bar charts](screenshots/showcase/showcase-4.png)
+![Showcase: slope, bullet, grouped-stacked bar, gantt, waffle, bump, dumbbell, and radial-bar charts](screenshots/showcase/showcase-5.png)
+![Showcase: sunburst, metric cards, violin plot, timeline, parliament, chord diagram, and dashboard components (card, table, alert, badge)](screenshots/showcase/showcase-6.png)
+![Showcase: golden-ratio φ-scaling demo with bar and line charts at 0.5×, 1×, and 2× base size](screenshots/showcase/showcase-7.png)
+![Showcase: full-page word cloud of data visualization vocabulary](screenshots/showcase/showcase-8.png)
 
 ## Examples
 
@@ -48,12 +47,12 @@ just demo       # Compile the comprehensive demo
 - **JSON data input** — load data directly from JSON files
 - **Theme system** — golden-ratio proportional scaling from two seeds (`base-size`, `base-gap`), preset themes, custom overrides, and `with-theme()` for document-wide defaults
 - **Nice ticks** — D3-style axis tick algorithm produces round, evenly-spaced values; auto-detects decimal precision from step size
-- **Smart label placement** — automatic fit detection, font shrinking, and greedy deconfliction for overlapping labels
+- **Smart label placement** — automatic fit detection, font shrinking, and spreading of overlapping labels
 - **Layout primitives** — shared utilities for label density, font scaling, and label placement
 - **Annotations** — overlay reference lines, bands, labels, content, points, error bars, and rectangles on any Cartesian chart
 - **Error bars** — native `errors:` parameter on bar and line charts (symmetric or asymmetric)
 - **Outliers** — native `outliers:` field on box-plot boxes
-- **Line interpolation** — `line-interpolation:` ("linear", "smooth", "catmull-rom") and `smooth-radius:` on line and multi-line charts
+- **Line interpolation** — `line-interpolation:` ("linear", "smooth", "catmull-rom") and `smooth-radius:` (0 to 5, default 0: a "smooth" curve passes through the data points; 1 to 5 draw a moving-average trend; markers, values and error bars always sit on the data) on line and multi-line charts
 - **Relative widths** — use `width: 100%` for responsive charts inside containers and grids
 - **Dashboard primitives** — `card`, `compact-table`, `alert`, `badge`, `separator`, and `dashboard-layout` for report layouts
 - **Customizable** — colors, sizes, labels, legends
@@ -94,7 +93,7 @@ just demo       # Compile the comprehensive demo
 - `progress-bar` - Horizontal progress bar
 - `circular-progress` - Ring progress indicator
 - `ring-progress` - Concentric fitness rings (Apple Watch style)
-- `progress-bars` - Multiple comparison bars
+- `progress-bars` - Multiple comparison bars, one colour by default (`color: auto` gives each bar its own palette colour)
 
 ### Sparklines (inline)
 - `sparkline` - Tiny line chart for tables and text
@@ -109,7 +108,7 @@ just demo       # Compile the comprehensive demo
 ### Statistical
 - `histogram` - Auto-binned frequency distribution
 - `waterfall-chart` - Bridge/waterfall chart with pos/neg/total segments
-- `funnel-chart` - Conversion funnel with percentages, auto external labels for narrow sections
+- `funnel-chart` - Conversion funnel with percentages, auto external labels for narrow sections (one colour; `color-by-stage: true` for a colour per stage)
 - `box-plot` - Box-and-whisker distribution plot
 - `treemap` - Nested rectangles for hierarchical data
 - `slope-chart` - Two-period comparison with connecting lines
@@ -117,9 +116,9 @@ just demo       # Compile the comprehensive demo
 - `bullet-charts` - Multiple bullet charts stacked vertically
 
 ### Proportional & Hierarchical
-- `waffle-chart` - 10×10 grid of colored squares for proportions
+- `waffle-chart` - 10×10 grid of colored squares for proportions (category names sit beside their squares; a legend when they do not fit)
 - `sunburst-chart` - Multi-level hierarchical pie with nested rings
-- `parliament-chart` - Semicircle dot layout for seat visualization
+- `parliament-chart` - Semicircle dot layout for seat visualization; each party takes one wedge (`fill-order: "rows"` fills the concentric rows instead)
 
 ### Comparison & Ranking
 - `bump-chart` - Multi-period ranking chart
@@ -131,7 +130,7 @@ just demo       # Compile the comprehensive demo
 
 ### Flow & Timeline
 - `sankey-chart` - Flow diagram with curved bands between nodes
-- `gantt-chart` - Timeline bar chart for project scheduling
+- `gantt-chart` - Timeline bar chart for project scheduling (one colour, or one per `group`; `color-by-task: true` for a colour per task)
 - `timeline-chart` - Vertical event timeline with alternating layout
 - `chord-diagram` - Circular flow diagram with chord bands
 
@@ -144,7 +143,7 @@ just demo       # Compile the comprehensive demo
 - `badge` - Inline colored pill (default/secondary/destructive/outline/success)
 - `separator` - Themed horizontal rule
 - `dashboard-layout` - Grid layout helper for multi-row dashboard pages
-- `word-cloud` - Weighted text layout sized by importance
+- `word-cloud` - Weighted text layout sized by importance; shrinks to keep every word, one hue pale to full by weight (`color: auto` gives each word its own palette colour)
 
 ### Annotations
 Overlay extra elements on any cartesian chart (bar, line, area, scatter, bubble, box-plot, histogram, violin, waterfall, dual-axis, ...) via the `annotations:` parameter. All coordinates are in data space.
@@ -282,7 +281,10 @@ Pass a dictionary with only the keys you want to change. Unspecified keys fall b
 ```typst
 #bar-chart(data, theme: (show-grid: true, palette: (red, blue, green)))
 #bar-chart(data, theme: (tick-digits: 2))  // force 2 decimal places on axis ticks
+#bar-chart(data, theme: (category-label-min-size: 7pt))  // smallest type for crowded category labels (6pt, or 5pt on horizontal bar rows, unless set)
 ```
+
+Category labels are all kept whenever that is possible at a legible size: flat, else tilted 45 degrees or upright (whichever keeps the larger type, down to `category-label-min-size`), and only then thinned evenly (first and last always shown). Horizontal bar and lollipop charts grow their rows with `height: auto`; with a fixed height they shrink the row labels to the floor before thinning.
 
 ### Theme from JSON
 
