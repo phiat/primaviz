@@ -306,6 +306,24 @@
   (name: "Research & development of long-term bets", value: 25),
 ))
 
+// Many names, most of them several words, on narrow wedges of every ring: two
+// lines inside the wedge where that holds them at the theme's smallest type,
+// else a leader (no name is set below the smallest type)
+#let depts = ("Engineering", "Marketing", "Finance", "Legal", "Support", "Operations", "Design", "Research")
+#let busy = (name: "root", children: depts.enumerate().map(((i, d)) => (
+  name: d, value: 10 + calc.rem(i * 7, 9),
+  children: (
+    (name: d + " North", value: 6 + calc.rem(i * 3, 5)),
+    (name: d + " South", value: 4 + calc.rem(i * 5, 4)),
+    (name: "Other " + str(i), value: 2),
+  ))))
+
+// (their leaders reach out further than a half-page cell: one to a line)
+#pagebreak()
+#sunburst-chart(busy, size: 230pt, title: "8 x 3 names")
+#v(10pt)
+#sunburst-chart(busy, size: 230pt, title: "8 x 3 names, dark", theme: themes.dark)
+
 #pagebreak()
 #cases(
   sunburst-chart(org, size: 220pt, title: "sunburst default"),
