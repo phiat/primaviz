@@ -93,14 +93,6 @@
       #for i in array.range(n) {
         place(left + top, line(start: (cx, cy), end: polar-pt(cx, cy, radius, angle-of(i)), stroke: t.grid-stroke))
       }
-      // Scale, hanging just under each ring beside the first spoke
-      #if show-value-labels {
-        for level in array.range(1, 5) {
-          place(left + top, dx: cx + 2pt, dy: cy - radius * level / 4 + 1pt,
-            text(size: t.axis-label-size, fill: t.text-color-light, top-edge: "cap-height", bottom-edge: "baseline")[#scale-label(level)])
-        }
-      }
-
       // Data
       #for (si, s) in series.enumerate() {
         let color = get-color(t, si)
@@ -111,6 +103,16 @@
         for pt in pts {
           place(left + top, dx: pt.at(0) - dot-r, dy: pt.at(1) - dot-r,
             circle(radius: dot-r, fill: color, stroke: t.marker-stroke))
+        }
+      }
+
+      // Scale, hanging just under each ring beside the first spoke, over the
+      // data on a page-coloured plate so a series line never strikes a number
+      #if show-value-labels {
+        for level in array.range(1, 5) {
+          place(left + top, dx: cx + 0.5pt, dy: cy - radius * level / 4 + 0.5pt,
+            box(fill: bg.transparentize(10%), inset: (x: 1.5pt, y: 0.5pt), radius: 1pt,
+              text(size: t.axis-label-size, fill: t.text-color-light, top-edge: "cap-height", bottom-edge: "baseline")[#scale-label(level)]))
         }
       }
 
