@@ -26,7 +26,8 @@
 ///   natural width and a height of `n × row-pitch` plus the axis padding,
 ///   instead of the column-chart rule above.
 /// - row-pitch (auto, length): Natural height of one row when `rows: true`
-///   (`auto` is the theme's `cell-size`)
+///   (`auto` is the theme's `cell-size`, and never less than 1.6 × the axis
+///   label size, so an auto-height row chart keeps its labels legible)
 /// -> dictionary with `width` and `height` keys
 #let resolve-size(width, height, size, n: none, theme: none, container: true, rows: false, row-pitch: auto) = {
   import "../primitives/container.typ": container-inset
@@ -44,7 +45,9 @@
   // Natural height = golden-ratio proportion of width; a row chart instead
   // gives every row its pitch, plus room for the axis
   let natural-h = if rows and n != none and theme != none {
-    let pitch = if row-pitch == auto { theme.at("cell-size", default: 25pt) } else { row-pitch }
+    // Never under a legible pitch: a row has to hold a label at the theme's size
+    let legible = 1.6 * theme.at("axis-label-size", default: 8pt)
+    let pitch = calc.max(legible, if row-pitch == auto { theme.at("cell-size", default: 25pt) } else { row-pitch })
     let pt = theme.at("axis-padding-top", default: 16pt)
     let pb = theme.at("axis-padding-bottom", default: 25pt)
     calc.max(n, 2) * pitch + pt + pb

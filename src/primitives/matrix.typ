@@ -5,11 +5,12 @@
 // theme paddings: the row gutter is as wide as the widest row label, and the
 // column gutter is as tall as the column labels need. Column labels stay
 // horizontal whenever they fit their cells (shrinking a little first), turn 45
-// degrees only when they cannot, and are thinned only when even rotated ones
+// degrees (then vertical, shrinking to a floor) only when they cannot, and are
+// thinned, evenly with the first and last always shown, only when even those
 // would collide. Functions measure text, so call them inside `context`.
 
 #import "../theme.typ": *
-#import "fonts.typ": text-width, text-height, max-text-width, fit-font-size, pin, place-centered
+#import "fonts.typ": text-width, text-height, max-text-width, fit-font-size, thin-indices, fit-pitch, pin, place-centered
 
 /// Lays out the label gutters around a `cell-w` × `cell-h` grid.
 ///
@@ -19,7 +20,7 @@
 /// - `gx`, `gy`: where the grid's top-left corner goes
 /// - `row-w`, `header-h`: gutter sizes (the row gutter includes its gap)
 /// - `overhang`: how far the last column label sticks out to the right of the grid
-/// - `col-mode`: `"horizontal"` or `"rotated"`
+/// - `col-mode`: `"horizontal"`, `"rotated"` (45 degrees) or `"vertical"`
 /// - `size`: label size used
 ///
 /// - row-labels (array): One label per row
@@ -47,13 +48,13 @@
   let n-cols = col-labels.len()
 
   // --- Row gutter: widest row label, measured ---
-  let r-size = calc.min(base, cell-h * 0.85)
-  let r-stride = 1
-  if r-size < 5pt {
-    r-size = 5pt
-    r-stride = int(calc.ceil(r-size * 1.3 / cell-h))
-  }
-  let r-widest = row-labels.fold("", (a, b) => if text-width(b, r-size) > text-width(a, r-size) { b } else { a })
+  // The size shrinks with the cell height before any label is dropped; labels
+  // that still do not fit are spread evenly, first and last always shown
+  let r-fit = fit-pitch(cell-h, base, floor: 5pt)
+  let r-size = r-fit.size
+  let r-kept = thin-indices(n-rows, r-fit.stride)
+  let r-shown = row-labels.enumerate().filter(((i, _)) => i in r-kept).map(((_, l)) => l)
+  let r-widest = r-shown.fold("", (a, b) => if text-width(b, r-size) > text-width(a, r-size) { b } else { a })
   if max-row-w != none and text-width(r-widest, r-size) > max-row-w - gap {
     r-size = fit-font-size(r-widest, max-row-w - gap, r-size, min: calc.max(6pt, r-size * 0.75))
   }
@@ -63,45 +64,65 @@
   if r-w > r-cap { r-size = calc.max(5pt, calc.min(r-size, cell-h * 0.9 / 2.3)) }
   let row-w = r-box + gap
 
-  // --- Column labels: horizontal if they fit, else rotated, else thinned ---
+  // --- Column labels ---
+  // In order: horizontal (shrinking a little); 45 degrees, shrunk to the
+  // slant's pitch; vertical, shrunk to the cell width; and only then thinned
+  // (evenly, first and last always shown) at 45 degrees
+  let c-floor = 6pt
   let c-widest = col-labels.fold("", (a, b) => if text-width(b, base) > text-width(a, base) { b } else { a })
   let slack = 4pt
-  let c-size = fit-font-size(c-widest, cell-w - slack, base, min: calc.max(6pt, base * 0.8))
-  let horizontal = text-width(c-widest, c-size) <= cell-w - slack
-  let c-size = if horizontal { c-size } else { base }
+  let c-size = fit-font-size(c-widest, cell-w - slack, base, min: calc.max(c-floor, base * 0.8))
+  let mode = "horizontal"
+  let c-kept = array.range(n-cols)
+  if text-width(c-widest, c-size) > cell-w - slack {
+    let f45 = fit-pitch(0.7071 * cell-w, base, floor: c-floor)
+    let f90 = fit-pitch(cell-w, base, floor: c-floor)
+    if f45.stride == 1 {
+      mode = "rotated"
+      c-size = f45.size
+    } else if f90.stride == 1 {
+      mode = "vertical"
+      c-size = f90.size
+    } else {
+      mode = "rotated"
+      c-size = c-floor
+      c-kept = thin-indices(n-cols, f45.stride)
+    }
+  }
   let lh = text-height("Mg", c-size)
-  let c-stride = 1
   let header-h = 0pt
   let overhang = 0pt
   if n-cols > 0 {
-    if horizontal {
+    let c-shown = col-labels.enumerate().filter(((j, _)) => j in c-kept).map(((_, l)) => l)
+    let wmax = max-text-width(c-shown, c-size)
+    if mode == "horizontal" {
       header-h = lh + off
+    } else if mode == "vertical" {
+      header-h = wmax + off
     } else {
-      // A 45 degree label's neighbour is 0.7 cell-w away across the slant
-      c-stride = int(calc.ceil(lh * 1.4 / (0.7071 * cell-w)))
-      let shown = col-labels.enumerate().filter(((j, _)) => calc.rem(j, c-stride) == 0).map(((_, l)) => l)
-      let wmax = max-text-width(shown, c-size)
       header-h = (wmax + lh) * 0.7071 + off
-      let last = shown.last()
-      overhang = calc.max(0pt, (text-width(last, c-size) + lh) * 0.7071 - cell-w / 2)
+      overhang = calc.max(0pt, (text-width(c-shown.last(), c-size) + lh) * 0.7071 - cell-w / 2)
     }
   }
 
   let drawn = {
     for (i, l) in row-labels.enumerate() {
-      if calc.rem(i, r-stride) != 0 { continue }
+      if i not in r-kept { continue }
       place-centered(0pt, header-h + (i + 0.5) * cell-h,
         text(size: r-size, fill: fill)[#l], width: r-box, align: right)
     }
     for (j, l) in col-labels.enumerate() {
-      if calc.rem(j, c-stride) != 0 { continue }
+      if j not in c-kept { continue }
       let cx = row-w + (j + 0.5) * cell-w
-      if horizontal {
-        place(left + top, dx: cx - text-width(l, c-size) / 2, dy: header-h - off - lh,
-          text(size: c-size, fill: fill)[#l])
+      let body = text(size: c-size, fill: fill)[#l]
+      if mode == "horizontal" {
+        place(left + top, dx: cx - text-width(l, c-size) / 2, dy: header-h - off - lh, body)
+      } else if mode == "vertical" {
+        place(left + top, dx: cx + lh / 2, dy: header-h - off - lh,
+          rotate(-90deg, origin: bottom + left, body))
       } else {
         place(left + top, dx: cx, dy: header-h - off - lh,
-          rotate(-45deg, origin: bottom + left, text(size: c-size, fill: fill)[#l]))
+          rotate(-45deg, origin: bottom + left, body))
       }
     }
   }
@@ -113,7 +134,7 @@
     row-w: row-w,
     header-h: header-h,
     overhang: overhang,
-    col-mode: if horizontal { "horizontal" } else { "rotated" },
+    col-mode: mode,
     size: c-size,
   )
 }

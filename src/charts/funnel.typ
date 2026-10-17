@@ -3,7 +3,7 @@
 #import "../util.typ": normalize-data, nonzero, contrast-text
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/layout.typ": resolve-size, text-width, fit-font-size, spread-1d, place-centered
+#import "../primitives/layout.typ": resolve-size, text-width, fit-font-size, spread-1d, place-centered, spread-indices
 #import "../primitives/rows.typ": value-str
 #import "../primitives/reserve.typ": container-extra
 
@@ -12,8 +12,13 @@
 /// Each stage's name (and, optionally, its value and share of the first
 /// stage) is written inside its segment when it fits, in the segment's
 /// contrast colour. Segments too narrow for their label are labelled in a
-/// shared column to the right, in the same two-line style, joined by a thin
-/// horizontal leader.
+/// shared column to the right, joined by a thin horizontal leader.
+///
+/// The outside column gets the room its labels *measure*: the funnel gives up
+/// width (it narrows, and moves left of centre if it must) rather than wrap a
+/// label into a sliver. Labels are two lines (name over detail) when they fit
+/// the stage pitch, else one line, shrinking to a floor; only past that are
+/// stages left unlabelled, spread evenly with the first and last kept.
 ///
 /// - data (dictionary, array): Label-value pairs as dict or array of tuples
 /// - width (length): Chart width
@@ -46,8 +51,8 @@
   let max-val = nonzero(calc.max(..values))
   let first-val = nonzero(values.at(0))
   let seg-h = (height - gap * (n - 1)) / n
-  let cx = width / 2
-  let half-of(v) = calc.max(0pt, v / max-val * width / 2)
+  let pitch = seg-h + gap
+  let mid-y(i) = i * pitch + seg-h / 2
 
   // "value · share" under each name
   let details = values.map(v => {
@@ -62,19 +67,31 @@
   let lead-k = 0.3      // leading between the two lines, in em of the name
   let pad = 4pt         // clear space between text and the segment edge
   let s-min = calc.min(s0, 8pt)  // smallest size for a label set inside a segment
+  let s-out = calc.max(6pt, s0 * 0.9)  // size of labels set outside
+  let s-floor = 6pt     // ... and the least they shrink to
+  let lead = 12pt       // clear space between the funnel and its label column
+  let col-cap = width * 0.45  // the label column never takes more than this
 
-  // Segment geometry: half widths at the top and bottom edge
-  let tops = values.map(half-of)
-  let bots = values.enumerate().map(((i, v)) => if i < n - 1 { half-of(values.at(i + 1)) } else { half-of(v) })
-  // Usable width at height `y` below the segment's top
-  let width-at(i, y) = 2 * (tops.at(i) + (bots.at(i) - tops.at(i)) * (y / seg-h))
+  // Segment geometry for a funnel whose widest stage has half width `hw`:
+  // half widths at the top and bottom edge of every segment
+  let geom(hw) = {
+    let half(v) = calc.max(0pt, v / max-val * hw)
+    (
+      tops: values.map(half),
+      bots: values.enumerate().map(((i, v)) => if i < n - 1 { half(values.at(i + 1)) } else { half(v) }),
+    )
+  }
 
-  // Decide how each label is set: the largest size (down to `s-min`) at which the
-  // richest variant fits inside the trapezoid, measured at the text's lowest
-  // edge; otherwise outside
-  let plan = values.enumerate().map(((i, v)) => {
+  // Decide how each label is set: the largest size (down to `s-min`) at which
+  // the full label (name and detail) fits inside the trapezoid, measured at
+  // the text's lowest edge; otherwise outside. A stage never loses its value
+  // to the segment's size: the name alone is only set inside when the chart
+  // has no detail to show
+  let plan-for(g) = values.enumerate().map(((i, v)) => {
     let name = labels.at(i)
     let det = details.at(i)
+    // Usable width at height `y` below the segment's top
+    let width-at(y) = 2 * (g.tops.at(i) + (g.bots.at(i) - g.tops.at(i)) * (y / seg-h))
     let found = none
     for k in range(int(calc.max(0pt, s0 - s-min) / 1pt) + 1) {
       if found != none { continue }
@@ -83,45 +100,105 @@
       let w-det = if det != "" { text-width(det, s * detail-k) } else { 0pt }
       let stack-h = s * (1.2 + detail-k * 1.2 + lead-k)
       let line-h = s * 1.2
-      if det != "" and stack-h <= seg-h - 2pt and calc.max(w-name, w-det) <= width-at(i, seg-h / 2 + stack-h / 2) - 2 * pad {
+      if det != "" and stack-h <= seg-h - 2pt and calc.max(w-name, w-det) <= width-at(seg-h / 2 + stack-h / 2) - 2 * pad {
         found = (mode: "stack", size: s)
-      } else if det != "" and line-h <= seg-h - 2pt and w-name + 0.4 * s + w-det <= width-at(i, seg-h / 2 + line-h / 2) - 2 * pad {
+      } else if det != "" and line-h <= seg-h - 2pt and w-name + 0.4 * s + w-det <= width-at(seg-h / 2 + line-h / 2) - 2 * pad {
         found = (mode: "inline", size: s)
-      } else if line-h <= seg-h - 2pt and w-name <= width-at(i, seg-h / 2 + line-h / 2) - 2 * pad {
+      } else if det == "" and line-h <= seg-h - 2pt and w-name <= width-at(seg-h / 2 + line-h / 2) - 2 * pad {
         found = (mode: "name", size: s)
       }
     }
-    if found == none { (mode: "out", size: s0 * 0.9) } else { found }
+    if found == none { (mode: "out", size: s-out) } else { found }
   })
+  let outs-of(pl) = array.range(n).filter(i => pl.at(i).mode == "out")
 
-  // Outside labels share one column, just clear of the widest outside segment.
-  // Each wraps at the room it has (a single word wider than that shrinks); the
-  // column is then spread vertically by the tallest label so none overlaps
-  let outs = array.range(n).filter(i => plan.at(i).mode == "out")
-  let s-out = s0 * 0.9
-  let out-x = if outs.len() > 0 { cx + calc.max(..outs.map(i => (tops.at(i) + bots.at(i)) / 2)) + 14pt } else { 0pt }
-  let out-w = calc.max(20pt, width - out-x)
-  let out-bodies = outs.map(i => {
+  // An outside label: name over detail ("stack") or "name  detail" on one line
+  // ("inline"), wrapped at `w`; one word wider than `w` shrinks instead
+  let out-body(i, style, sz0, w) = {
     let name = labels.at(i)
     let det = details.at(i)
     let words = if type(name) == str { name.split(" ") } else { (name,) }
-    let sz = calc.min(s-out, ..words.map(w => fit-font-size(w, out-w, s-out, min: 6pt, weight: "bold")))
+    let sz = calc.min(sz0, ..words.map(wd => fit-font-size(wd, w, sz0, min: s-floor, weight: "bold")))
     let name-t = text(size: sz, weight: "bold", fill: t.text-color)[#name]
-    let body = if det != "" {
-      stack(dir: ttb, spacing: sz * lead-k, name-t, text(size: sz * detail-k, fill: t.text-color-light)[#det])
-    } else { name-t }
-    (body: body, h: measure(box(width: out-w, body)).height)
+    if det == "" { name-t } else {
+      let det-t = text(size: sz * detail-k, fill: t.text-color-light)[#det]
+      if style == "inline" { [#name-t#h(0.5 * sz)#det-t] } else {
+        stack(dir: ttb, spacing: sz * lead-k, name-t, det-t)
+      }
+    }
+  }
+
+  // One style for the whole column: two lines when they fit the stage pitch
+  // (or the column, when the labels are few), else one line, as large as the
+  // pitch allows
+  let out-style(outs) = {
+    let tallest(style, sz) = outs.map(i => measure(box(width: col-cap, out-body(i, style, sz, col-cap))).height)
+      .fold(0pt, (a, b) => calc.max(a, b))
+    let h-stack = tallest("stack", s-out)
+    if outs.len() == 0 or h-stack + 0.3 * s-out <= pitch or outs.len() * (h-stack + 0.3 * s-out) <= height {
+      (style: "stack", size: s-out)
+    } else {
+      let found = none
+      for k in range(int((s-out - s-floor) / 0.5pt) + 1) {
+        if found != none { continue }
+        let s = s-out - k * 0.5pt
+        if tallest("inline", s) + 0.3 * s <= pitch { found = (style: "inline", size: s) }
+      }
+      if found == none { (style: "inline", size: s-floor) } else { found }
+    }
+  }
+  let out-width(outs, st) = calc.min(col-cap,
+    outs.map(i => measure(out-body(i, st.style, st.size, col-cap)).width).fold(0pt, (a, b) => calc.max(a, b)))
+  // How far out the stages that need labels reach, relative to the widest stage
+  let out-reach(outs) = calc.max(..outs.map(i => (values.at(i) + values.at(calc.min(i + 1, n - 1))) / 2 / max-val))
+
+  // Fit the funnel to its label column: start full width, find which labels
+  // go outside, give them the room they measure, and repeat (narrower funnel,
+  // more outside labels, wider column) until nothing changes
+  let hw = width / 2
+  for _ in range(6) {
+    let outs = outs-of(plan-for(geom(hw)))
+    if outs.len() == 0 { break }
+    let lw = out-width(outs, out-style(outs))
+    let hw2 = calc.min(width / 2, (width - lead - lw) / (1 + out-reach(outs)))
+    if hw2 >= hw - 0.25pt { break }
+    hw = hw2
+  }
+  let g = geom(hw)
+  let (tops, bots) = (g.tops, g.bots)
+  let plan = plan-for(g)
+  let outs = outs-of(plan)
+
+  // Funnel centre and the label column: the column starts just clear of the
+  // widest outside stage and runs to the right edge
+  let st = out-style(outs)
+  let reach = if outs.len() > 0 { out-reach(outs) } else { 0 }
+  let cx = if outs.len() == 0 { width / 2 } else {
+    calc.max(hw, calc.min(width / 2, width - lead - out-width(outs, st) - hw * reach))
+  }
+  let out-x = cx + hw * reach + lead
+  let out-w = calc.max(24pt, width - out-x)
+  let out-bodies = outs.map(i => {
+    let b = out-body(i, st.style, st.size, out-w)
+    (body: b, h: measure(box(width: out-w, b)).height)
   })
-  let out-sep = out-bodies.fold(0pt, (acc, b) => calc.max(acc, b.h)) + 2pt
+
+  // The column is spread by the tallest label; if they cannot all fit even
+  // so, keep as many as fit, spread evenly (first and last kept), rather than
+  // let them overlap
+  let h-out = out-bodies.fold(0pt, (acc, b) => calc.max(acc, b.h))
+  let sep = h-out + 0.3 * st.size  // room for descenders
+  let cap-n = calc.max(1, int(calc.floor((height - h-out) / sep)) + 1)
+  let keep = spread-indices(outs.len(), cap-n)
   let out-ys = spread-1d(
-    outs.map(i => i * (seg-h + gap) + seg-h / 2), out-sep,
-    lo: out-sep / 2, hi: height - out-sep / 2)
+    keep.map(j => mid-y(outs.at(j))), sep,
+    lo: h-out / 2, hi: height - h-out / 2)
 
   let extra = container-extra(width, height, title, t)
   chart-container(width, height, title, t, extra-height: extra)[
     #box(width: width, height: height)[
       #for (i, val) in values.enumerate() {
-        let y-top = i * (seg-h + gap)
+        let y-top = i * pitch
         let color = get-color(t, i)
         place(left + top, dy: y-top, polygon(
           fill: color,
@@ -146,13 +223,13 @@
         }
       }
 
-      // Outside labels: same two-line style, in the text colour, one column
-      #for (k, i) in outs.enumerate() {
-        let mid = i * (seg-h + gap) + seg-h / 2
+      // Outside labels: one column, joined to their stage by a leader
+      #for (kk, j) in keep.enumerate() {
+        let i = outs.at(j)
         let edge = cx + (tops.at(i) + bots.at(i)) / 2 + 3pt
-        let ly = out-ys.at(k)
-        place(left + top, line(start: (edge, mid), end: (out-x - 3pt, ly), stroke: t.stroke-thin + t.text-color-light))
-        place-centered(out-x, ly, out-bodies.at(k).body, width: out-w, align: left)
+        let ly = out-ys.at(kk)
+        place(left + top, line(start: (edge, mid-y(i)), end: (out-x - 3pt, ly), stroke: t.stroke-thin + t.text-color-light))
+        place-centered(out-x, ly, out-bodies.at(j).body, width: out-w, align: left)
       }
     ]
   ]

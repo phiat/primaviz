@@ -260,6 +260,54 @@
   calc.max(1, int(calc.ceil((label-w + gap) / pitch - 1e-9)))
 }
 
+/// `c` of `n` positions, spread evenly over the whole run, always including
+/// the first and the last (when `c` is 1, only the first). Neighbours are at
+/// least `floor((n - 1) / (c - 1))` positions apart.
+///
+/// - n (int): Number of positions
+/// - c (int): How many to keep
+/// -> array of ints, ascending
+#let spread-indices(n, c) = {
+  if n <= 0 or c <= 0 { return () }
+  if c >= n { return array.range(n) }
+  if c == 1 { return (0,) }
+  array.range(c).map(j => int(calc.round(j * (n - 1) / (c - 1))))
+}
+
+/// Which of `n` evenly spaced positions to label when labels have to be
+/// at least `k` positions apart. Unlike "every k-th from the first", the
+/// labelled positions are spread evenly over the whole run and always include
+/// the first and the last (never closer than `k` to each other); when not even
+/// two fit, only the first is kept.
+///
+/// - n (int): Number of positions
+/// - k (int): Minimum distance, in positions, between labelled ones
+/// -> array of ints, ascending
+#let thin-indices(n, k) = {
+  if n <= 0 { return () }
+  if k <= 1 or n == 1 { return array.range(n) }
+  spread-indices(n, calc.quo(n - 1, k) + 1)
+}
+
+/// Label size for positions `pitch` apart (rows, columns): the largest size
+/// up to `base` at which neighbouring labels do not touch (`line-k` is the
+/// line height the label needs, in em; 1.0 leaves room for descenders). The
+/// size shrinks to `floor` before anything is dropped; only if even `floor`
+/// does not fit does `stride` rise above 1, to the number of positions
+/// between labels (feed it to `thin-indices`).
+///
+/// - pitch (length): Distance between neighbouring label centres
+/// - base (length): Preferred size
+/// - floor (length): Smallest size worth printing
+/// - line-k (float): Line height needed, in em
+/// -> dictionary with `size` and `stride`
+#let fit-pitch(pitch, base, floor: 5pt, line-k: 1.0) = {
+  let s = calc.min(base, pitch / line-k)
+  if s >= floor { (size: s, stride: 1) } else {
+    (size: floor, stride: calc.max(2, int(calc.ceil(floor * line-k / pitch - 1e-9))))
+  }
+}
+
 /// Spreads labels along one axis so none overlaps another, moving each as
 /// little as possible and never reordering them.
 ///
