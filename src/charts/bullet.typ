@@ -3,10 +3,99 @@
 // with qualitative ranges (poor/satisfactory/good).
 
 #import "../theme.typ": _resolve-ctx, get-color, _is-dark, _shade
-#import "../util.typ": nonzero, nice-ticks, format-number
+#import "../util.typ": nonzero, nice-ticks
 #import "../validate.typ": validate-bullet-data, validate-bullet-charts-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/layout.typ": resolve-size, text-width, fit-font-size
+#import "../primitives/rows.typ": linear-x-ticks, draw-x-axis, x-axis-extent, tick-label-width
+
+// Qualitative band shades, darkest = poor, lightest = good
+#let _range-fills(t) = if _is-dark(t) {
+  (_shade(t, 15%), _shade(t, 25%), _shade(t, 35%))
+} else {
+  (t.text-color-light.transparentize(50%), t.text-color-light.transparentize(70%), t.text-color-light.transparentize(85%))
+}
+
+// Width of the title column for a set of (title, label) pairs. Bullets that
+// are stacked as separate calls should still line up, so the column has a
+// steady default width (90pt, or 35% of a narrow chart) and grows only when a
+// title, measured, would not fit it, up to 45% of the chart. 0 when nothing
+// has a title.
+#let _title-column(pairs, width, t) = {
+  let gap = t.axis-label-gap * 1.5
+  let natural = pairs.fold(0pt, (acc, p) => {
+    let (title, label) = p
+    let w = if title != none { text-width(title, t.axis-title-size, weight: "bold") } else { 0pt }
+    let lw = if label != none { text-width(label, t.axis-label-size) } else { 0pt }
+    calc.max(acc, w, lw)
+  })
+  if natural == 0pt { 0pt } else {
+    calc.min(calc.max(natural + gap, calc.min(90pt, width * 0.35)), width * 0.45)
+  }
+}
+
+// One bullet: title column, bands, value bar, target marker, scale. The box is
+// `height` of bar plus the scale below it, plus a trailing gap so a stack of
+// bullets reads as rows and each scale stays with its own bar.
+#let _bullet(value, target, ranges, width, height, title, label, show-target, t, title-w) = {
+  let bar-color = get-color(t, 0)
+  let range-fills = _range-fills(t)
+  let max-range = nonzero(ranges.last())
+  let gap = t.axis-label-gap * 1.5
+
+  let nt = nice-ticks(0, max-range, count: t.tick-count)
+  let tick-half = tick-label-width(linear-x-ticks(nt, 0, max-range, 0pt, 1pt, t), t) / 2
+  let x0 = title-w
+  let bar-width = width - title-w - tick-half
+  let scale-h = x-axis-extent(t, marks: true)
+
+  box(width: width, height: height + scale-h + t.axis-label-gap)[
+    // Title column, centred on the bar
+    #if title != none {
+      let avail = title-w - gap
+      let title-size = fit-font-size(title, avail, t.axis-title-size, min: 7pt, weight: "bold")
+      let label-size = if label != none { fit-font-size(label, avail, t.axis-label-size, min: 6pt) } else { t.axis-label-size }
+      place(left + top, box(width: avail, height: height, align(left + horizon, {
+        text(size: title-size, weight: "bold", fill: t.text-color)[#title]
+        if label != none {
+          linebreak()
+          text(size: label-size, fill: t.text-color-light)[#label]
+        }
+      })))
+    }
+
+    // Qualitative ranges, widest first so the narrower ones sit on top
+    #for k in (2, 1, 0) {
+      place(left + top, dx: x0, rect(
+        width: bar-width * (ranges.at(k) / max-range),
+        height: height,
+        fill: range-fills.at(k),
+        stroke: none,
+      ))
+    }
+
+    // Value bar (thinner, ~60% height, centred vertically)
+    #let bar-h = height * 0.6
+    #place(left + top, dx: x0, dy: (height - bar-h) / 2, rect(
+      width: bar-width * calc.min(1, calc.max(0, value / max-range)),
+      height: bar-h,
+      fill: bar-color,
+      stroke: none,
+    ))
+
+    // Target marker (short vertical line)
+    #if show-target {
+      let target-x = x0 + bar-width * calc.min(1, calc.max(0, target / max-range))
+      let marker-h = height * 0.85
+      place(left + top, dx: target-x - 1pt, dy: (height - marker-h) / 2,
+        rect(width: 2.5pt, height: marker-h, fill: t.text-color, stroke: none))
+    }
+
+    // Scale below the bar
+    #draw-x-axis(linear-x-ticks(nt, 0, max-range, x0, x0 + bar-width, t), height, t,
+      axis-line: false, marks: true)
+  ]
+}
 
 /// Renders a single bullet chart — a horizontal bar showing an actual value
 /// against a target marker, overlaid on qualitative range bands.
@@ -37,106 +126,15 @@
   let t = _resolve-ctx(theme)
   set text(size: 11pt)  // sized by the theme, not the document font
   let (width, height) = resolve-size(width, height, size, container: false)
-  let bar-color = get-color(t, 0)
-
-  let max-range = nonzero(ranges.last())
-
-  // Qualitative range shades (darkest = poor, lightest = good)
-  let range-fills = if _is-dark(t) {
-    (_shade(t, 15%), _shade(t, 25%), _shade(t, 35%))
-  } else {
-    (t.text-color-light.transparentize(50%), t.text-color-light.transparentize(70%), t.text-color-light.transparentize(85%))
-  }
-
-  // Title column width
-  let title-width = if title != none { calc.min(90pt, width * 0.35) } else { 0pt }
-  let bar-width = width - title-width
-
-  box(width: width, height: height)[
-    // Title area
-    #if title != none {
-      place(
-        left + top,
-        dy: if label != none { 0pt } else { height / 2 - 7pt },
-        box(width: title-width - 8pt)[
-          #text(size: t.axis-title-size, weight: "bold", fill: t.text-color)[#title]
-          #if label != none {
-            linebreak()
-            text(size: t.axis-label-size, fill: t.text-color-light)[#label]
-          }
-        ]
-      )
-    }
-
-    // Chart area
-    #let x0 = title-width
-
-    // Draw qualitative ranges (3 bands, full to partial)
-    #place(left + top, dx: x0, rect(
-      width: bar-width * (ranges.at(2) / max-range),
-      height: height,
-      fill: range-fills.at(2),
-      stroke: none,
-    ))
-    #place(left + top, dx: x0, rect(
-      width: bar-width * (ranges.at(1) / max-range),
-      height: height,
-      fill: range-fills.at(1),
-      stroke: none,
-    ))
-    #place(left + top, dx: x0, rect(
-      width: bar-width * (ranges.at(0) / max-range),
-      height: height,
-      fill: range-fills.at(0),
-      stroke: none,
-    ))
-
-    // Value bar (thinner, ~60% height, centered vertically)
-    #let bar-h = height * 0.6
-    #let bar-y = (height - bar-h) / 2
-    #let val-w = bar-width * calc.min(1, calc.max(0, value / max-range))
-    #place(left + top, dx: x0, dy: bar-y, rect(
-      width: val-w,
-      height: bar-h,
-      fill: bar-color,
-      stroke: none,
-    ))
-
-    // Target marker (short vertical line)
-    #if show-target {
-      let target-x = x0 + bar-width * calc.min(1, calc.max(0, target / max-range))
-      let marker-h = height * 0.85
-      let marker-y = (height - marker-h) / 2
-      place(
-        left + top,
-        dx: target-x - 1pt,
-        dy: marker-y,
-        rect(width: 2.5pt, height: marker-h, fill: t.text-color, stroke: none)
-      )
-    }
-
-    // X-axis tick labels along the bottom
-    #{
-      let b-nt = nice-ticks(0, max-range, count: t.tick-count)
-      let tick-size = t.axis-label-size
-      for tick-val in b-nt.ticks {
-        let frac = if max-range > 0 { tick-val / max-range } else { 0 }
-        if frac < -0.001 or frac > 1.001 { continue }
-        let tx = x0 + bar-width * frac
-        place(left + top, dx: tx, dy: height,
-          line(start: (0pt, 0pt), end: (0pt, 3pt), stroke: 0.4pt + t.text-color))
-        place(left + top,
-          dx: tx - 10pt,
-          dy: height + 3pt,
-          box(width: 20pt, align(center,
-            text(size: tick-size, fill: t.text-color)[#format-number(tick-val, digits: b-nt.digits, mode: t.number-format, step: b-nt.step)])))
-      }
-    }
-  ]
+  let title-w = if title != none { _title-column(((title, label),), width, t) } else { 0pt }
+  _bullet(value, target, ranges, width, height, title, label, show-target, t, title-w)
   })
 }
 
 /// Renders multiple bullet charts stacked vertically for KPI dashboards.
+///
+/// The bars share one title column (the widest title, measured), so they
+/// start at the same x.
 ///
 /// - data (dictionary): Must contain a `bullets` key with an array of bullet specs.
 ///   Each spec: `(value: ..., target: ..., ranges: ..., title: "...")`.
@@ -164,64 +162,38 @@
   let n = bullets.len()
 
   let bar-color = get-color(t, 0)
-  let range-fills = if _is-dark(t) {
-    (_shade(t, 15%), _shade(t, 25%), _shade(t, 35%))
-  } else {
-    (t.text-color-light.transparentize(50%), t.text-color-light.transparentize(70%), t.text-color-light.transparentize(85%))
-  }
+  let range-fills = _range-fills(t)
+  let title-w = _title-column(
+    bullets.map(b => (b.at("title", default: none), b.at("label", default: none))), width, t)
 
-  // Extra space for tick labels + legend
-  let tick-space = 18pt
-  let legend-space = 22pt
-  let total-height = n * (bar-height + tick-space) + (n - 1) * gap + legend-space + (if title != none { 25pt } else { 0pt })
+  let key-size = t.axis-label-size
+  let key(mark, name) = box(inset: (right: t.legend-gap), {
+    box(baseline: 1.5pt, mark)
+    h(3pt)
+    text(size: key-size, fill: t.text-color)[#name]
+  })
 
-  box(width: width, height: total-height)[
+  box(width: width)[
     #if title != none {
       align(center, text(size: t.title-size, weight: t.title-weight, fill: t.text-color)[#title])
-      v(8pt)
+      v(t.title-gap)
     }
 
     #for (i, b) in bullets.enumerate() {
-      bullet-chart(
-        b.value,
-        b.target,
-        b.ranges,
-        width: width,
-        height: bar-height,
-        title: if "title" in b { b.title } else { none },
-        label: if "label" in b { b.label } else { none },
-        show-target: true,
-        theme: theme,
-      )
-      v(tick-space)
-      if i < n - 1 {
-        v(gap)
-      }
+      _bullet(b.value, b.target, b.ranges, width, bar-height, b.at("title", default: none),
+        b.at("label", default: none), true, t, title-w)
+      if i < n - 1 { v(gap) }
     }
 
-    // Legend explaining the visual elements
-    #v(4pt)
-    #align(center)[
-      #box(baseline: 2pt, rect(width: 12pt, height: 6pt, fill: bar-color, stroke: none))
-      #h(2pt)
-      #text(size: t.axis-label-size, fill: t.text-color)[Actual]
-      #h(8pt)
-      #box(baseline: 2pt, rect(width: 2.5pt, height: 10pt, fill: t.text-color, stroke: none))
-      #h(2pt)
-      #text(size: t.axis-label-size, fill: t.text-color)[Target]
-      #h(8pt)
-      #box(baseline: 2pt, rect(width: 10pt, height: 8pt, fill: range-fills.at(0), stroke: none))
-      #h(2pt)
-      #text(size: t.axis-label-size, fill: t.text-color)[Poor]
-      #h(6pt)
-      #box(baseline: 2pt, rect(width: 10pt, height: 8pt, fill: range-fills.at(1), stroke: none))
-      #h(2pt)
-      #text(size: t.axis-label-size, fill: t.text-color)[Fair]
-      #h(6pt)
-      #box(baseline: 2pt, rect(width: 10pt, height: 8pt, fill: range-fills.at(2), stroke: none))
-      #h(2pt)
-      #text(size: t.axis-label-size, fill: t.text-color)[Good]
-    ]
+    // Key to the marks
+    #v(t.legend-gap)
+    #align(center, {
+      key(rect(width: 12pt, height: 6pt, fill: bar-color, stroke: none), [Actual])
+      key(rect(width: 2.5pt, height: 10pt, fill: t.text-color, stroke: none), [Target])
+      key(rect(width: 10pt, height: 8pt, fill: range-fills.at(0), stroke: none), [Poor])
+      key(rect(width: 10pt, height: 8pt, fill: range-fills.at(1), stroke: none), [Fair])
+      key(rect(width: 10pt, height: 8pt, fill: range-fills.at(2), stroke: none), [Good])
+    })
   ]
   })
 }
