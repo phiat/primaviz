@@ -1,5 +1,7 @@
 // dashboard.typ - Dashboard layout primitives (card, compact-table, alert, badge, separator)
 #import "../theme.typ": _resolve-ctx, get-color, _is-dark, _shade
+#import "../primitives/polar-labels.typ": label-ink, legible
+#import "../primitives/status.typ": status-colors
 
 /// Renders a themed card container with optional title and description.
 ///
@@ -38,10 +40,14 @@
 
 /// Renders a compact data table with themed header row and alternating fills.
 ///
+/// Rows are separated by hairlines only (no column rules), the header text is
+/// whichever of the theme's text colours reads on the header fill, and the
+/// first column is as wide as its content unless `col-widths` says otherwise.
+///
 /// - headers (array): Column header strings
-/// - rows (array): Array of row arrays (each row is an array of cell strings)
+/// - rows (array): Array of row arrays (each row is an array of cell strings); columns of numbers are right-aligned, others left
 /// - highlight-col (none, int): Column index to render in bold with primary color
-/// - col-widths (none, array): Custom column widths; defaults to equal `1fr` columns
+/// - col-widths (none, array): Custom column widths; defaults to the first column fitting its content, the others sharing the rest
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let compact-table(headers, rows, highlight-col: none, col-widths: none, theme: none) = context {
@@ -49,17 +55,23 @@
   let fill = if t.background != none { t.background } else { white }
   let alt-fill = if t.background != none { _shade(t, 5%) } else { t.text-color-light.transparentize(90%) }
   let header-fill = t.palette.at(1, default: t.palette.at(0))
-  let stroke = if t.border != none { t.border } else { 0.4pt + t.text-color-light }
-  let highlight-color = t.palette.at(0)
+  let rule = if t.border != none { t.border } else { 0.4pt + t.text-color-light }
+  let highlight-color = legible(t.palette.at(0), fill)
 
-  let cols = if col-widths != none { col-widths } else { range(headers.len()).map(_ => 1fr) }
+  // Numbers line up on the right; words read from the left
+  let number = regex("^[+−\\-$€£]?[0-9][0-9.,]*\\s?[%kKMB]?$")
+  let numeric(col) = rows.all(r => {
+    let cell = r.at(col, default: "")
+    cell == "" or (type(cell) == str and cell.match(number) != none)
+  })
+  let cols = if col-widths != none { col-widths } else { (auto, ..range(headers.len() - 1).map(_ => 1fr)) }
   table(
     columns: cols,
-    align: (left, ..range(headers.len() - 1).map(_ => right)),
-    stroke: stroke,
+    align: range(headers.len()).map(col => if col > 0 and numeric(col) { right } else { left }),
+    stroke: (x, y) => (bottom: rule),
     inset: (x: t.axis-label-gap * 0.8, y: t.axis-label-gap * 0.6),
     fill: (_, row) => if row == 0 { header-fill } else if calc.rem(row, 2) == 0 { alt-fill } else { fill },
-    ..headers.map(h => text(size: t.axis-label-size, weight: "bold", fill: t.text-color-inverse, upper(h))),
+    ..headers.map(h => text(size: t.axis-label-size, weight: "bold", fill: label-ink(header-fill, t), upper(h))),
     ..rows.flatten().enumerate().map(((i, cell)) => {
       let col = calc.rem(i, headers.len())
       text(
@@ -74,6 +86,10 @@
 
 /// Renders a themed alert block with left border accent, icon, and optional title.
 ///
+/// Colours carry the meaning in light and dark themes alike: info is the
+/// theme's first palette colour, warning amber, error red, success green
+/// (a theme can set `warning-color`, `negative-color`, `positive-color`).
+///
 /// - body (content): Alert body content
 /// - variant (str): One of `"info"`, `"warning"`, `"error"`, `"success"`
 /// - title (none, content, str): Optional alert title
@@ -81,21 +97,16 @@
 /// -> content
 #let alert(body, variant: "info", title: none, theme: none) = context {
   let t = _resolve-ctx(theme)
-  let has-dark-bg = _is-dark(t)
-  let pal = t.palette
-
-  // Map variants to palette indices and icons
-  // info=palette[0], warning=palette[1], error=palette[2], success=palette[3]
+  let sc = status-colors(t)
   let variants = (
-    info:    (idx: 0, icon: "ℹ"),
-    warning: (idx: 1, icon: "⚠"),
-    error:   (idx: 2, icon: "✕"),
-    success: (idx: 3, icon: "✓"),
+    info:    (accent: sc.info, icon: "ℹ"),
+    warning: (accent: sc.warning, icon: "!"),
+    error:   (accent: sc.negative, icon: "✕"),
+    success: (accent: sc.positive, icon: "✓"),
   )
   let vr = variants.at(variant, default: variants.info)
-  let accent = pal.at(calc.min(vr.idx, pal.len() - 1))
-
-  let bg = if has-dark-bg { accent.darken(80%) } else { accent.lighten(90%) }
+  let accent = vr.accent
+  let bg = if _is-dark(t) { accent.darken(80%) } else { accent.lighten(90%) }
 
   box(
     width: 100%,
@@ -104,7 +115,7 @@
     inset: (x: t.axis-label-gap, y: t.axis-label-gap),
   )[
     #if title != none {
-      text(size: t.axis-title-size, weight: "bold", fill: accent)[#vr.icon #h(3pt) #title]
+      text(size: t.axis-title-size, weight: "bold", fill: legible(accent, bg, min-ratio: 4.5))[#vr.icon #h(3pt) #title]
       v(2pt)
     }
     #text(size: t.value-label-size, fill: t.text-color, body)
@@ -126,12 +137,13 @@
   let success = if pal.len() > 3 { pal.at(3) } else { primary }
   let fill-bg = if t.background != none { t.background } else { white }
 
+  // Text on a coloured badge is whichever colour reads on it
   let styles = (
-    default: (bg: primary, fg: t.text-color-inverse),
-    secondary: (bg: secondary, fg: t.text-color-inverse),
-    destructive: (bg: destructive, fg: t.text-color-inverse),
+    default: (bg: primary, fg: label-ink(primary, t)),
+    secondary: (bg: secondary, fg: label-ink(secondary, t)),
+    destructive: (bg: destructive, fg: label-ink(destructive, t)),
     outline: (bg: fill-bg, fg: t.text-color),
-    success: (bg: success, fg: t.text-color-inverse),
+    success: (bg: success, fg: label-ink(success, t)),
   )
   let s = styles.at(variant, default: styles.default)
   box(
