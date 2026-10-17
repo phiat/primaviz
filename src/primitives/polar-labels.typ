@@ -250,73 +250,224 @@
   (x, y)
 }
 
-// Slides labels apart vertically until none overlaps another it shares
-// horizontal space with, each staying as near as it can to where it wanted
-// to be: pairwise relaxation (overlapping pair moves half each way), then an
-// exact sweep down and back up so nothing is left touching. Returns the new
-// `ly` of every label; what still cannot fit inside `bounds` stays
-// overlapping, for the caller to drop.
-// (fonts.typ's greedy-deconflict leaves clusters of three or more stacked on
-// the same row, so it is not used here.)
-#let _spread(props, bounds, gap) = {
-  let n = props.len()
-  let order = array.range(n).sorted(key: i => (props.at(i).ly, i))
-  let ys = props.map(p => p.ly)
-  let hit(a, b) = props.at(a).lx < props.at(b).lx + props.at(b).w and props.at(b).lx < props.at(a).lx + props.at(a).w
-  let clamp(i) = calc.max(bounds.top, calc.min(bounds.bottom - props.at(i).h, ys.at(i)))
+// Fits `qs` with the nearest non-decreasing sequence (pool adjacent violators:
+// a run that runs backwards is replaced by its mean, until none does).
+#let _isotonic(qs) = {
+  let blocks = ()
+  for q in qs {
+    blocks.push((q, 1))
+    while blocks.len() > 1 {
+      let (a, b) = (blocks.at(blocks.len() - 2), blocks.at(blocks.len() - 1))
+      if a.at(0) / a.at(1) <= b.at(0) / b.at(1) { break }
+      blocks = blocks.slice(0, blocks.len() - 2) + ((a.at(0) + b.at(0), a.at(1) + b.at(1)),)
+    }
+  }
+  let out = ()
+  for b in blocks { out += (b.at(0) / b.at(1),) * b.at(1) }
+  out
+}
 
-  for _ in range(40) {
-    let moved = false
-    for ai in range(n) {
-      for bi in range(ai + 1, n) {
-        let (a, b) = (order.at(ai), order.at(bi))
-        let d = props.at(a).h + gap - (ys.at(b) - ys.at(a))
-        if d > 0pt and hit(a, b) {
-          ys.at(a) -= d / 2
-          ys.at(b) += d / 2
-          moved = true
+// Length of the vector (dx, dy)
+#let _dist(dx, dy) = calc.sqrt((dx / 1pt) * (dx / 1pt) + (dy / 1pt) * (dy / 1pt)) * 1pt
+
+// Whether two label rectangles come within `margin` of each other
+#let _touch(a, b, margin) = (
+  a.lx < b.lx + b.w + margin and b.lx < a.lx + a.w + margin
+    and a.ly < b.ly + b.h + margin and b.ly < a.ly + a.h + margin
+)
+
+// Top-left of mark `m`'s label when the mark is read as sitting at `phi`
+// degrees on its circle, though it really sits at `theta`, with the label on
+// row `lvl` (0: against the circle; each row beyond stands one label's depth
+// further out). A label slid along the circle also stands a little further
+// out the further it slid (up to 10pt), so the leader lines of a fan clear
+// the labels they pass.
+#let _rect(m, phi, theta, lvl, cx, cy, gap) = {
+  let (ax, ay) = polar-pt(cx, cy, m.ar, phi)
+  let slid = calc.abs(phi - theta) / 57.2958 * m.ar
+  let (c, s) = (calc.cos(phi * 1deg), calc.sin(phi * 1deg))
+  let lift = lvl * (m.w * calc.abs(c) + m.h * calc.abs(s) + 2pt)
+  let (lx, ly) = _slot(phi, m.w, m.h, ax, ay, gap + calc.min(10pt, 0.3 * slid) + lift)
+  (lx: lx, ly: ly)
+}
+
+// Lays out every label round its circle, keeping the order of the marks.
+//
+// Labels whose marks are close enough to collide are slid along the circle
+// until none comes within `sep` of another, each as near its own mark as it
+// can stay: a cluster at 12 or 6 o'clock fans out sideways, one at 3 or 9
+// o'clock up and down, one in between both. The room two neighbours need is
+// their extent along the circle's tangent (a w×h box seen along direction
+// `psi` measures w|sin| + h|cos|) as an angle at their distance from the
+// centre; the nearest layout that gives every neighbour that room is a
+// pool-adjacent-violators fit. Neighbours still touching afterwards (the
+// estimate is a little off at diagonals) are given more room and the fit is
+// repeated.
+//
+// When the crowd is too long for one row (a ring of labels is only so long),
+// the labels of each cluster take turns on two or three rows, stepping out
+// from the circle, and only labels on the same row need room along it.
+// The fewest rows that leave no label touching another, inside `bounds`
+// (none: no limit), and slid no further than a radius, win.
+//
+// Returns the marks, each with its final `lx`, `ly`, angle `phi` and row `lv`.
+#let _fan(marks, cx, cy, gap, sep, bounds) = {
+  let n = marks.len()
+  if n == 0 { return () }
+  // By angle, starting after the widest empty arc, so a cluster that
+  // straddles 3 o'clock is not cut in two
+  let norm = marks.map(m => calc.rem-euclid(m.angle, 360))
+  let by-angle = array.range(n).sorted(key: i => (norm.at(i), i))
+  let first = 0
+  let widest = -1.0
+  for k in range(n) {
+    let next = if k + 1 < n { norm.at(by-angle.at(k + 1)) } else { norm.at(by-angle.at(0)) + 360 }
+    if next - norm.at(by-angle.at(k)) > widest {
+      widest = next - norm.at(by-angle.at(k))
+      first = calc.rem(k + 1, n)
+    }
+  }
+  let seq = range(n).map(k => by-angle.at(calc.rem(first + k, n)))
+  let ms = seq.map(i => marks.at(i))
+  let th = ()
+  let wrapped = false
+  for (k, i) in seq.enumerate() {
+    if k > 0 and norm.at(i) < norm.at(seq.at(k - 1)) { wrapped = true }
+    let a = norm.at(i)
+    th.push(if wrapped { a + 360 } else { a })
+  }
+
+  let rects(phi, lv) = range(n).map(k => {
+    let at = _rect(ms.at(k), phi.at(k), th.at(k), lv.at(k), cx, cy, gap)
+    (: ..ms.at(k), ..at)
+  })
+  let fitted(phi, lv) = rects(phi, lv).enumerate().map(((k, p)) => {
+    let q = (: ..p, phi: phi.at(k), th: th.at(k), lv: lv.at(k))
+    if bounds == none { q } else {
+      (: ..q, lx: calc.max(bounds.left, calc.min(bounds.right - p.w, p.lx)),
+        ly: calc.max(bounds.top, calc.min(bounds.bottom - p.h, p.ly)))
+    }
+  })
+
+  // Where each label stands in the run of neighbours it touches (0: first or alone)
+  let home = rects(th, (0,) * n)
+  let pool = (0,) * n
+  for k in range(1, n) {
+    if _touch(home.at(k - 1), home.at(k), sep) { pool.at(k) = pool.at(k - 1) + 1 }
+  }
+
+  let limit = calc.max(..marks.map(m => m.ar))
+  let best = none
+  for rows in (1, 2, 3) {
+    let lv = pool.map(j => calc.rem(j, rows))
+    let phi = th
+    let grow = (1.0,) * n
+    for round in range(16) {
+      let rs = rects(phi, lv)
+      // Label k is squeezed when it, or a label on the same row after it,
+      // touches one before it
+      let tight = (false,) * n
+      for a in range(n) {
+        for b in range(a + 1, n) {
+          if lv.at(a) == lv.at(b) and _touch(rs.at(a), rs.at(b), sep) {
+            for c in range(a + 1, b + 1) { if lv.at(c) == lv.at(a) { tight.at(c) = true } }
+          }
+        }
+      }
+      if not tight.any(t => t) { break }
+
+      for row in range(rows) {
+        let idx = range(n).filter(k => lv.at(k) == row)
+        if idx.len() < 2 { continue }
+        let offs = (0.0,)
+        for j in range(1, idx.len()) {
+          let (ka, kb) = (idx.at(j - 1), idx.at(j))
+          if round > 0 and tight.at(kb) { grow.at(kb) *= 1.25 }
+          let (a, b) = (rs.at(ka), rs.at(kb))
+          let psi = (phi.at(ka) + phi.at(kb)) / 2 * 1deg
+          let along(m) = m.w * calc.abs(calc.sin(psi)) + m.h * calc.abs(calc.cos(psi))
+          let reach = calc.max(1pt, (_dist(a.lx + a.w / 2 - cx, a.ly + a.h / 2 - cy) + _dist(b.lx + b.w / 2 - cx, b.ly + b.h / 2 - cy)) / 2)
+          let need = ((along(a) + along(b)) / 2 + sep) / (2 * reach)
+          offs.push(offs.last() + 2 * calc.asin(calc.min(1.0, need)).deg() * grow.at(kb))
+        }
+        let fit = _isotonic(idx.enumerate().map(((j, k)) => th.at(k) - offs.at(j)))
+        for (j, k) in idx.enumerate() { phi.at(k) = fit.at(j) + offs.at(j) }
+      }
+    }
+
+    let placed = fitted(phi, lv)
+    let clashes = 0
+    for a in range(n) {
+      for b in range(a + 1, n) {
+        if _touch(placed.at(a), placed.at(b), 0pt) { clashes += 1 }
+      }
+    }
+    let slide = calc.max(..range(n).map(k => calc.abs(phi.at(k) - th.at(k)) / 57.2958 * ms.at(k).ar))
+    if best == none or (clashes, slide) < (best.clashes, best.slide) {
+      best = (placed: placed, clashes: clashes, slide: slide)
+    }
+    if clashes == 0 and slide <= limit { break }
+  }
+  best.placed
+}
+
+// Every label that can be shown without touching another or leaving
+// `bounds` (none: no limit), placed. When a crowd cannot be fitted, the label
+// of lowest priority among those still touching is dropped and the rest laid
+// out again.
+#let _layout-outside(marks, cx, cy, gap, bounds: none) = {
+  let live = marks
+  let out = ()
+  for _ in range(marks.len() + 1) {
+    let placed = _fan(live, cx, cy, gap, 1.5pt, bounds)
+    let weakest = none
+    for (a, p) in placed.enumerate() {
+      for q in placed.slice(a + 1) {
+        if _touch(p, q, 0pt) {
+          for c in (p, q) {
+            if weakest == none or (c.priority, -c.idx) < (weakest.priority, -weakest.idx) { weakest = c }
+          }
         }
       }
     }
-    for i in range(n) { ys.at(i) = clamp(i) }
-    if not moved { break }
-  }
-  for bi in range(n) {
-    for ai in range(bi) {
-      let (a, b) = (order.at(ai), order.at(bi))
-      if hit(a, b) { ys.at(b) = calc.max(ys.at(b), ys.at(a) + props.at(a).h + gap) }
+    if weakest == none {
+      out = placed
+      break
     }
+    live = live.filter(m => m.idx != weakest.idx)
   }
-  for bi in range(n - 1, -1, step: -1) {
-    let b = order.at(bi)
-    ys.at(b) = calc.min(ys.at(b), bounds.bottom - props.at(b).h)
-    for ai in range(bi) {
-      let a = order.at(ai)
-      if hit(a, b) { ys.at(a) = calc.min(ys.at(a), ys.at(b) - props.at(a).h - gap) }
-    }
-  }
-  ys.map(y => calc.max(y, bounds.top))
+  out
 }
 
-/// Half-width and half-height of the box, centred on the chart, that holds a
-/// circle of radius `r` and every outside label around it (see
-/// `place-outside-labels`).
+// Measured size (with a hair of slack) of every item's label
+#let _sizes(items) = items.map(it => {
+  let m = measure(it.body)
+  (m.width + 1pt, m.height)
+})
+
+#let _marks(items, sizes, r) = items.zip(sizes).enumerate().map(((i, (it, (w, h)))) => (
+  idx: i, angle: it.angle, ar: it.at("r", default: r), w: w, h: h,
+  priority: it.at("priority", default: 0), body: it.body))
+
+/// The box, centred on the chart, that holds a circle of radius `r` and every
+/// outside label around it (see `place-outside-labels`): `x` and `y` are its
+/// half-width and half-height; `left`, `right`, `top` and `bottom` how far
+/// the labels (or the circle) reach on each side, without `pad`.
 ///
 /// - items (array): Dictionaries with `angle` (degrees) and `body`
 /// - r (length): Circle radius
 /// - gap (length): Distance between circle and label
 /// - pad (length): Clearance beyond the labels
-/// -> dictionary with `x` and `y`
+/// -> dictionary
 #let polar-label-extent(items, r, gap: 4pt, pad: 1pt) = {
-  let (xs, ys) = ((r,), (r,))
-  for it in items {
-    let m = measure(it.body)
-    let (c, s) = (calc.cos(it.angle * 1deg), calc.sin(it.angle * 1deg))
-    let (lx, ly) = _slot(it.angle, m.width + 1pt, m.height, r * c, r * s, gap)
-    xs += (calc.abs(lx), calc.abs(lx + m.width + 1pt))
-    ys += (calc.abs(ly), calc.abs(ly + m.height))
+  let (left, right, top, bottom) = (r, r, r, r)
+  for p in _layout-outside(_marks(items, _sizes(items), r), 0pt, 0pt, gap) {
+    left = calc.max(left, -p.lx)
+    right = calc.max(right, p.lx + p.w)
+    top = calc.max(top, -p.ly)
+    bottom = calc.max(bottom, p.ly + p.h)
   }
-  (x: calc.max(..xs) + pad, y: calc.max(..ys) + pad)
+  (x: calc.max(left, right) + pad, y: calc.max(top, bottom) + pad, left: left, right: right, top: top, bottom: bottom)
 }
 
 /// Biggest circle radius at which every outside label (see
@@ -332,13 +483,12 @@
 /// - pad (length): Clearance from the box's edges
 /// -> length
 #let polar-fit-radius(items, cx, cy, box-w, box-h, gap: 4pt, pad: 1pt) = {
-  let sizes = items.map(it => { let m = measure(it.body); (m.width + 1pt, m.height) })
+  let sizes = _sizes(items)
   // How far the labels poke out of the box when the circle has radius r
   let over(r) = {
     let worst = r - (calc.min(cx, cy, box-w - cx, box-h - cy) - pad)
-    for (it, (w, h)) in items.zip(sizes) {
-      let (x, y) = _slot(it.angle, w, h, r * calc.cos(it.angle * 1deg), r * calc.sin(it.angle * 1deg), gap)
-      worst = calc.max(worst, cx + x + w - (box-w - pad), pad - (cx + x), cy + y + h - (box-h - pad), pad - (cy + y))
+    for p in _layout-outside(_marks(items, sizes, r), cx, cy, gap) {
+      worst = calc.max(worst, p.lx + p.w - (box-w - pad), pad - p.lx, p.ly + p.h - (box-h - pad), pad - p.ly)
     }
     worst
   }
@@ -353,10 +503,12 @@
   }
 }
 
-/// Labels around a circle: each label sits just beyond its own mark, labels
-/// that would collide are slid apart vertically, and a displaced label gets a
-/// leader line back to its mark. A label that still cannot be placed without
-/// touching another is dropped (lowest `priority` first).
+/// Labels around a circle: each label sits just beyond its own mark. Labels
+/// that would collide are slid round the circle (sideways at the top and
+/// bottom, up and down at the sides) until they clear each other, a label
+/// that moved gets a leader line back to its mark, and a label that still
+/// cannot be placed without touching another is dropped (lowest `priority`
+/// first).
 ///
 /// - items (array): Dictionaries with `angle` (degrees), `body` (content),
 ///   and optionally `r` (where the mark ends, default `r`) and `priority`
@@ -370,40 +522,12 @@
 /// - tol (length): How far a label may slide before it earns a leader
 /// -> content
 #let place-outside-labels(items, cx, cy, r, bounds, gap: 4pt, leader-stroke: 0.5pt + gray, tol: 1.5pt) = {
-  let props = ()
-  for (i, it) in items.enumerate() {
-    let m = measure(it.body)
-    let (w, h) = (m.width + 1pt, m.height)
-    let ar = it.at("r", default: r)
-    let (ax, ay) = polar-pt(cx, cy, ar, it.angle)
-    let (lx, ly) = _slot(it.angle, w, h, ax, ay, gap)
-    props.push((cx: ax, cy: ay, lx: lx, ly: ly, lx0: lx, ly0: ly, w: w, h: h, idx: i, angle: it.angle,
-      priority: it.at("priority", default: 0), body: it.body))
-  }
-
-  // More labels on a side than it has room for: keep the highest priority
-  let room = calc.max(1, calc.floor((bounds.bottom - bounds.top) / (calc.max(..props.map(p => p.h), 1pt) + 2pt)))
-  let kept = ()
-  for left-side in (true, false) {
-    let side = props.filter(p => (calc.cos(p.angle * 1deg) < 0) == left-side)
-    kept += side.sorted(key: p => (-p.priority, p.idx)).slice(0, calc.min(side.len(), room + 2))
-  }
-
-  let ys = _spread(kept, bounds, 2pt)
-  let placed = kept.enumerate().map(((i, p)) => (..p, ly: ys.at(i),
-    lx: calc.max(bounds.left, calc.min(bounds.right - p.w, p.lx))))
-
-  // Greedy deconfliction can leave a crowded cluster overlapping: drop those
-  let shown = ()
-  for p in placed.sorted(key: p => (-p.priority, p.idx)) {
-    let clash = shown.any(q => p.lx < q.lx + q.w and q.lx < p.lx + p.w and p.ly < q.ly + q.h and q.ly < p.ly + p.h)
-    if not clash { shown.push(p) }
-  }
-
-  for p in shown {
-    let c = calc.cos(p.angle * 1deg)
-    let moved = calc.abs(p.ly - p.ly0) > tol or calc.abs(p.lx - p.lx0) > tol
-    let (ax, ay) = (p.cx, p.cy)
+  let marks = _marks(items, _sizes(items), r)
+  for p in _layout-outside(marks, cx, cy, gap, bounds: bounds) {
+    let c = calc.cos(p.phi * 1deg)
+    let (ax, ay) = polar-pt(cx, cy, p.ar, p.angle)
+    let home = _rect(p, p.th, p.th, 0, cx, cy, gap)
+    let moved = calc.abs(p.ly - home.ly) > tol or calc.abs(p.lx - home.lx) > tol
     let h-align = if c < -0.3 { right } else if c > 0.3 { left } else { center }
     place(left + top, dx: p.lx, dy: p.ly,
       box(width: p.w, height: p.h, align(h-align + horizon, p.body)))

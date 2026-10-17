@@ -62,6 +62,67 @@
   ],
 )
 
+// Clusters of tiny slices at 12, 3, 6 and 9 o'clock: small labels bunch up wherever
+// the cluster sits, and near the top and bottom they have little vertical room.
+#let tiny5 = (("Alpha", 2), ("Beta", 1), ("Gamma", 1), ("Delta", 0.6), ("Epsilon", 0.4))
+#let tiny8 = (("T1", 1.6), ("T2", 1.2), ("T3", 1), ("T4", 0.8), ("T5", 0.8), ("T6", 0.6), ("T7", 0.5), ("T8", 0.5))
+#let cluster-sets = (
+  ("ends at 12", (("North", 30), ("East", 25), ("South", 25), ("West", 15), ..tiny5)),
+  ("straddles 12", (..tiny5.slice(0, 3), ("North", 30), ("East", 25), ("South", 25), ("West", 14), ..tiny5.slice(3))),
+  ("at 3", (("North", 22.5), ..tiny5, ("East", 30), ("South", 25), ("West", 17.5))),
+  ("at 6", (("North", 25), ("East", 22.5), ..tiny5, ("South", 25), ("West", 22.5))),
+  ("at 9", (("North", 30), ("East", 25), ("South", 17.5), ..tiny5, ("West", 22.5))),
+)
+
+= Pie: clusters of tiny slices
+
+#pagebreak()
+#cases(
+  ..cluster-sets.map(((name, d)) => pie-chart(d, size: 150pt, title: "cluster " + name)),
+  ..cluster-sets.map(((name, d)) => pie-chart(d, size: 150pt, title: "donut " + name, donut: true, donut-ratio: 0.5, theme: themes.dark)),
+)
+
+#pagebreak()
+#cases(
+  pie-chart((("North", 30), ("East", 25), ("South", 25), ("West", 12), ..tiny8), size: 150pt, title: "8 tiny, ends at 12"),
+  pie-chart((("North", 25), ("East", 22), ..tiny8, ("South", 25), ("West", 20)), size: 150pt, title: "8 tiny at 6", theme: themes.dark),
+  pie-chart((("North", 21), ..tiny8, ("East", 30), ("South", 25), ("West", 14)), size: 150pt, title: "8 tiny at 3", donut: true),
+  pie-chart((("North", 30), ("East", 25), ("South", 14), ..tiny8, ("West", 23)), size: 150pt, title: "8 tiny at 9", donut: true, theme: themes.dark),
+  pie-chart((("Big", 80), ..tiny8.slice(0, 4).map(((n, v)) => (n, v * 2.5)), ("Rest", 5)), size: 150pt, title: "one big, four small"),
+  pie-chart((("Big", 97), ("T1", 1), ("T2", 1), ("T3", 1)), size: 150pt, title: "97 + 1 + 1 + 1", theme: themes.dark),
+  pie-chart((("Big", 97), ("T1", 1), ("T2", 1), ("T3", 1)), size: 150pt, title: "97 + 1 + 1 + 1, no legend", show-legend: false),
+  pie-chart((("A", 1), ("B", 1), ("C", 1), ("D", 1), ("E", 1), ("F", 1), ("G", 1), ("H", 1), ("I", 1), ("J", 90)), size: 150pt, title: "nine at 1%, no legend", show-legend: false),
+  pie-chart((("Big", 95.8), ..range(14).map(i => ("S" + str(i + 1), 0.3))), size: 150pt, title: "fourteen at 0.3%, no legend", show-legend: false),
+  pie-chart((("North", 48), ..range(14).map(i => ("S" + str(i + 1), 0.3)), ("South", 47.8)), size: 150pt, title: "fourteen at 0.3% at 6, donut", show-legend: false, donut: true, theme: themes.dark),
+)
+
+// The same cluster at twelve places round the pie, as a pie and as a donut:
+// no start angle may leave two labels touching.
+#let at-place(k, tiny) = {
+  let used = tiny.map(t => t.at(1)).sum()
+  let before = k * (98 - used) / 11
+  (..(if k == 0 { () } else { (("Before", before),) }), ..tiny, ("After", 100 - used - before))
+}
+#let sweep(tiny, ..args) = grid(
+  columns: (1fr, 1fr, 1fr),
+  column-gutter: 6pt,
+  row-gutter: 10pt,
+  ..range(12).map(k => {
+    let d = at-place(k, tiny)
+    let deg = calc.round(k * (98 - tiny.map(t => t.at(1)).sum()) / 11 * 3.6)
+    align(center + top, pie-chart(d, size: 90pt, show-legend: false, title: "starts " + str(deg) + "°", ..args))
+  }),
+)
+
+#pagebreak()
+#sweep(tiny5)
+#pagebreak()
+#sweep(tiny5, donut: true, theme: themes.dark)
+#pagebreak()
+#sweep(tiny8)
+#pagebreak()
+#sweep(tiny8, donut: true, donut-ratio: 0.55, theme: themes.dark)
+
 = Radar
 
 #let axes6 = ("Pace", "Shooting", "Passing", "Dribbling", "Defense", "Physical")
