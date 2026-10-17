@@ -193,3 +193,174 @@
 /// - align (alignment): Alignment within the zero-height box
 /// -> content
 #let pin(body, width: auto, align: horizon) = box(width: width, height: 0pt, std.align(align, body))
+
+// ---------------------------------------------------------------------------
+// Measured label helpers
+//
+// The functions above estimate text width from a character count (0.6 em per
+// character). That is fine for coarse decisions but wrong for the cases that
+// matter: bold text, wide capitals, CJK, math. The helpers below measure the
+// real glyph run, so a label that "fits" does fit. They call `measure`, so
+// they must run inside `context` (every chart body already does).
+// ---------------------------------------------------------------------------
+
+/// Measured width of `body` set at `size`.
+///
+/// - body (content, str): Label
+/// - size (length): Font size
+/// - weight (str, int): Font weight
+/// -> length
+#let text-width(body, size, weight: "regular") = measure(text(size: size, weight: weight)[#body]).width
+
+/// Measured height of `body` set at `size` (one line, cap-height to baseline
+/// plus any descender the content carries).
+///
+/// - body (content, str): Label
+/// - size (length): Font size
+/// - weight (str, int): Font weight
+/// -> length
+#let text-height(body, size, weight: "regular") = measure(text(size: size, weight: weight)[#body]).height
+
+/// Widest of several labels, measured.
+///
+/// - labels (array): Labels
+/// - size (length): Font size
+/// - weight (str, int): Font weight
+/// -> length
+#let max-text-width(labels, size, weight: "regular") = {
+  labels.fold(0pt, (acc, l) => calc.max(acc, text-width(l, size, weight: weight)))
+}
+
+/// Largest font size, between `min` and `base`, at which `body` fits in
+/// `avail` (measured, not estimated). Glyph advances scale with the size, so
+/// one measurement at `base` is enough. When even `min` is too big the result
+/// is `min`: the caller decides whether to wrap, thin out or drop the label.
+///
+/// - body (content, str): Label
+/// - avail (length): Width the label has to fit into
+/// - base (length): Preferred size
+/// - min (length): Floor size
+/// - weight (str, int): Font weight
+/// -> length
+#let fit-font-size(body, avail, base, min: 5pt, weight: "regular") = {
+  let w = text-width(body, base, weight: weight)
+  if w <= avail or w <= 0pt { base } else { calc.max(min, base * (avail / w)) }
+}
+
+/// Every Nth label is enough when labels of width `label-w` are spaced
+/// `pitch` apart: returns that N (at least 1). This is the first resort when
+/// labels collide: thin them out, do not rotate them.
+///
+/// - label-w (length): Widest label
+/// - pitch (length): Distance between neighbouring label centres
+/// - gap (length): Clear space wanted between neighbouring labels
+/// -> int
+#let label-stride(label-w, pitch, gap: 4pt) = {
+  if pitch <= 0pt { return 1 }
+  calc.max(1, int(calc.ceil((label-w + gap) / pitch - 1e-9)))
+}
+
+/// Spreads labels along one axis so none overlaps another, moving each as
+/// little as possible and never reordering them.
+///
+/// Labels that collide are grouped and the group is centred on where its
+/// members wanted to be (pool-adjacent-violators); the result is clamped into
+/// `[lo, hi]`. If the labels cannot all fit, the spacing shrinks evenly.
+///
+/// - ys (array): Wanted centre of each label (lengths), in any order
+/// - sep (length): Minimum distance between neighbouring centres (label height + gap)
+/// - lo (none, length): Lowest allowed centre
+/// - hi (none, length): Highest allowed centre
+/// -> array of lengths, same order as `ys`
+#let spread-1d(ys, sep, lo: none, hi: none) = {
+  let n = ys.len()
+  if n == 0 { return () }
+  let sep = if lo != none and hi != none and n > 1 and (n - 1) * sep > hi - lo {
+    (hi - lo) / (n - 1)
+  } else { sep }
+  let order = array.range(n).sorted(key: i => ys.at(i))
+  let clamp-pos(pos, count) = {
+    let p = pos
+    if hi != none { p = calc.min(p, hi - (count - 1) * sep) }
+    if lo != none { p = calc.max(p, lo) }
+    p
+  }
+  // A block is a run of labels stacked `sep` apart; `sum` is the sum of its
+  // members' wanted positions less their offset inside the block, so the
+  // block's best position is sum / count.
+  let blocks = ()
+  for (k, i) in order.enumerate() {
+    let blk = (count: 1, sum: ys.at(i), pos: clamp-pos(ys.at(i), 1))
+    while blocks.len() > 0 {
+      let prev = blocks.last()
+      if prev.pos + prev.count * sep > blk.pos + 0.001pt {
+        let _ = blocks.pop()
+        let count = prev.count + blk.count
+        let sum = prev.sum + blk.sum - blk.count * prev.count * sep
+        blk = (count: count, sum: sum, pos: clamp-pos(sum / count, count))
+      } else { break }
+    }
+    blocks.push(blk)
+  }
+  let sorted-pos = ()
+  for blk in blocks {
+    for j in array.range(blk.count) { sorted-pos.push(blk.pos + j * sep) }
+  }
+  let out = array.range(n).map(_ => 0pt)
+  for (k, i) in order.enumerate() { out.at(i) = sorted-pos.at(k) }
+  out
+}
+
+/// Places `body` with its vertical centre on `y` and its left edge on `x`,
+/// whatever its height: the body is measured, so a wrapped or stacked
+/// multi-line label is centred as a block. (A zero-height `box` aligned to
+/// the horizon only works for one line; a stack inside one collapses.)
+///
+/// - x (length): Left edge of the label box
+/// - y (length): Vertical centre
+/// - body (content): Label
+/// - width (auto, length): Box width; text wraps inside it
+/// - align (alignment): Horizontal alignment inside the box
+/// -> content
+#let place-centered(x, y, body, width: auto, align: left) = {
+  let b = box(width: width, std.align(align, body))
+  let h = measure(b).height
+  place(left + top, dx: x, dy: y - h / 2, b)
+}
+
+/// Decides how to set a label, with an optional second (detail) line, inside
+/// a `w` × `h` cell: the largest size, from `base` down to `min`, at which the
+/// label fits *measured*: on one line, or wrapped at spaces when no word is
+/// wider than the cell. The detail line is added when it fits under the label.
+///
+/// Returns `none` when not even `min` fits: the caller then leaves the cell
+/// unlabelled (or labels it elsewhere) instead of printing past its edges.
+///
+/// - label (content, str): Main label
+/// - detail (none, content, str): Secondary line (a value, a share)
+/// - w (length): Cell width available to text
+/// - h (length): Cell height available to text
+/// - base (length): Preferred size
+/// - min (length): Smallest readable size
+/// - weight (str, int): Weight of the main label
+/// - detail-k (float): Detail size relative to the label
+/// - lead-k (float): Space between the lines, in em of the label
+/// -> none, dictionary with `size`, `wrapped` and `detail`
+#let fit-cell-label(label, detail, w, h, base, min: 6pt, weight: "bold", detail-k: 0.85, lead-k: 0.25) = {
+  if w <= 0pt or h <= 0pt { return none }
+  let words = if type(label) == str { label.split(" ") } else { (label,) }
+  let steps = int((base - min) / 0.5pt)
+  for k in range(calc.max(steps, 0) + 1) {
+    let s = base - k * 0.5pt
+    if s * 1.2 > h { continue }
+    let lw = text-width(label, s, weight: weight)
+    let main-h = if lw <= w { s * 1.2 } else if max-text-width(words, s, weight: weight) <= w {
+      measure(box(width: w, text(size: s, weight: weight)[#label])).height
+    } else { none }
+    if main-h == none or main-h > h { continue }
+    let det-h = s * (detail-k * 1.2 + lead-k)
+    let has-detail = detail != none and detail != "" and main-h + det-h <= h and text-width(detail, s * detail-k) <= w
+    return (size: s, wrapped: lw > w, detail: has-detail)
+  }
+  none
+}

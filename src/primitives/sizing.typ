@@ -21,22 +21,34 @@
 /// - n (none, int): Number of data categories (for auto-sizing)
 /// - theme (none, dictionary): Resolved theme (for auto-sizing)
 /// - container (bool): Whether to reserve space for chart-container inset
+/// - rows (bool): The chart has one row per datum (horizontal bars, dumbbells,
+///   funnels...), so its natural size grows with `n` *vertically*: a fixed
+///   natural width and a height of `n × row-pitch` plus the axis padding,
+///   instead of the column-chart rule above.
+/// - row-pitch (auto, length): Natural height of one row when `rows: true`
+///   (`auto` is the theme's `cell-size`)
 /// -> dictionary with `width` and `height` keys
-#let resolve-size(width, height, size, n: none, theme: none, container: true) = {
+#let resolve-size(width, height, size, n: none, theme: none, container: true, rows: false, row-pitch: auto) = {
   import "../primitives/container.typ": container-inset
   let ci = if theme != none { theme.at("container-inset", default: container-inset) } else { container-inset }
   let margin = if container { 2 * ci } else { 0pt }
 
   // Compute natural width from data count + theme
-  let natural-w = if n != none and theme != none {
+  let natural-w = if rows { 300pt } else if n != none and theme != none {
     let cs = theme.at("cell-size", default: 25pt)
     let pl = theme.at("axis-padding-left", default: 41pt)
     let pr = theme.at("axis-padding-right", default: 16pt)
     n * cs + pl + pr
   } else { 300pt }
 
-  // Natural height = golden-ratio proportion of width
-  let natural-h = natural-w / _phi
+  // Natural height = golden-ratio proportion of width; a row chart instead
+  // gives every row its pitch, plus room for the axis
+  let natural-h = if rows and n != none and theme != none {
+    let pitch = if row-pitch == auto { theme.at("cell-size", default: 25pt) } else { row-pitch }
+    let pt = theme.at("axis-padding-top", default: 16pt)
+    let pb = theme.at("axis-padding-bottom", default: 25pt)
+    calc.max(n, 2) * pitch + pt + pb
+  } else { natural-w / _phi }
 
   let resolve(val, avail, natural) = {
     let resolved = if val == auto { natural }
