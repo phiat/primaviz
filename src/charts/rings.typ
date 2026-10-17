@@ -5,7 +5,7 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/layout.typ": resolve-size
 #import "../primitives/polar.typ": place-arc-band, polar-pt
-#import "../primitives/radial.typ": split-width, title-slack
+#import "../primitives/radial.typ": split-width
 
 /// Concentric ring progress chart (fitness rings).
 /// Outermost ring = first entry, innermost = last.
@@ -69,7 +69,7 @@
   let body-h = calc.max(size, label-h)
   let (cx, cy) = (size / 2, body-h / 2)
 
-  align(center, chart-container(total-w, body-h, title, t, extra-height: title-slack(title, none, t, total-w))[
+  align(center, chart-container(total-w, body-h, title, t)[
     #box(width: total-w, height: body-h)[
       #for (i, e) in entries.enumerate() {
         let r = size / 2 - ring-width / 2 - i * (ring-width + gap)

@@ -5,7 +5,6 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/legend.typ": draw-legend-vertical
 #import "../primitives/layout.typ": resolve-size, max-text-width, text-height, spread-1d, place-centered
-#import "../primitives/reserve.typ": container-extra
 
 /// Renders a waffle chart — a grid of squares where each square represents
 /// a unit or percentage of the total. Commonly used in infographics to
@@ -153,8 +152,7 @@
     let lh = calc.max(sw, text-height("Mg", lsz)) + 3pt
     let ys = spread-1d(centres, lh, lo: lh / 2, hi: grid-height - lh / 2)
     let body-w = grid-width + 10pt + direct-w
-    let extra = container-extra(body-w, grid-height, title, wt, extra-legend-separation: extra-legend-separation)
-    align(center, chart-container(body-w, grid-height, title, wt, extra-height: extra, extra-legend-separation: extra-legend-separation)[
+    align(center, chart-container(body-w, grid-height, title, wt, extra-legend-separation: extra-legend-separation)[
       #box(width: body-w, height: grid-height)[
         #place(left + top, cells)
         #for k in range(n) {
@@ -167,9 +165,7 @@
     ])
   } else {
     let legend-content = if show-legend and n > 0 { draw-legend-vertical(legend-entries, wt, width: legend-w) } else { none }
-    let extra = container-extra(size, grid-height, title, wt, legend: legend-content, legend-width: legend-w,
-      extra-legend-separation: extra-legend-separation)
-    align(center, chart-container(size, grid-height, title, wt, extra-height: extra, legend: legend-content, legend-width: legend-w, extra-legend-separation: extra-legend-separation)[
+    align(center, chart-container(size, grid-height, title, wt, legend: legend-content, legend-width: legend-w, extra-legend-separation: extra-legend-separation)[
       #box(width: size, height: grid-height)[
         #align(center + top)[#cells]
       ]

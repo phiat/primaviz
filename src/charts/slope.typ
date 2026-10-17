@@ -5,7 +5,6 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/layout.typ": resolve-size, pin, text-width, text-height, fit-font-size, spread-1d
 #import "../primitives/rows.typ": value-str
-#import "../primitives/reserve.typ": container-extra
 
 /// Renders a slope chart showing changes between two time periods.
 ///
@@ -97,9 +96,8 @@
   let ly-end = spread-1d(ys-end, lh, lo: y-top, hi: y-bot)
 
   let axis-stroke = t.stroke-thin + t.text-color-light.transparentize(50%)
-  let extra = container-extra(width, height, title, t)
 
-  chart-container(width, height, title, t, extra-height: extra)[
+  chart-container(width, height, title, t)[
     #box(width: width, height: height)[
       // Headers
       #for (x, name) in ((axis-x-left, start-label), (axis-x-right, end-label)) {

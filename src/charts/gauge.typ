@@ -6,7 +6,7 @@
 #import "../primitives/title.typ": draw-title
 #import "../primitives/polar.typ": place-wedge, place-arc-band, separator-stroke
 #import "../primitives/polar-labels.typ": label-ink, fit-text-size
-#import "../primitives/radial.typ": title-for-size, title-slack
+#import "../primitives/radial.typ": title-for-size
 #import "../primitives/layout.typ": resolve-size
 
 // A theme with a background (a dark one) brings it behind these standalone
@@ -86,7 +86,7 @@
   let total-h = cy + below
 
   let ts = title-for-size(t, size)
-  chart-container(size, total-h, title, ts, extra-height: title-slack(title, none, ts, size))[
+  chart-container(size, total-h, title, ts)[
     #box(width: size, height: total-h)[
       // The dial: a flat track, then either the bands or the filled value
       #place-wedge(cx, cy, hole, r, -180, 0, _track(t, auto))

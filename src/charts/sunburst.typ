@@ -4,7 +4,6 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/polar.typ": place-wedge, separator-stroke
 #import "../primitives/polar-labels.typ": fit-wedge-label, label-ink, place-centred, place-outside-labels, polar-label-extent
-#import "../primitives/radial.typ": title-slack
 #import "../primitives/layout.typ": resolve-size
 
 /// Computes the depth of a hierarchical node tree.
@@ -229,7 +228,7 @@
   let (box-w, box-h) = (calc.max(chart-size, 2 * ext.x), calc.max(chart-size, 2 * ext.y))
   let (cx, cy) = (box-w / 2, box-h / 2)
 
-  align(center, chart-container(box-w, box-h, title, t, extra-height: title-slack(title, none, t, box-w))[
+  align(center, chart-container(box-w, box-h, title, t)[
     #box(width: box-w, height: box-h)[
       // Wedges first: placed content paints in order, so every label ends up
       // above every wedge, not under the next ring out

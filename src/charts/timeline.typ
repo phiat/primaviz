@@ -3,7 +3,6 @@
 #import "../validate.typ": validate-timeline-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/layout.typ": resolve-size
-#import "../primitives/reserve.typ": container-extra
 
 /// Renders a vertical event timeline — a series of dated events along a
 /// central vertical line, alternating left and right for visual variety.
@@ -81,9 +80,8 @@
     ys.push(y)
   }
   let chart-height = ys.last() + calc.max(blocks.last().h / 2, marker-size / 2) + 20pt
-  let extra = container-extra(width, chart-height, title, t)
 
-  chart-container(width, chart-height, title, t, extra-height: extra)[
+  chart-container(width, chart-height, title, t)[
     #box(width: width, height: chart-height)[
       // Central vertical line (spine)
       #place(left + top, dx: center-x, dy: 10pt,

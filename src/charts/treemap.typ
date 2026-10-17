@@ -5,7 +5,6 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/layout.typ": fit-cell-label, resolve-size
 #import "../primitives/rows.typ": value-str
-#import "../primitives/reserve.typ": container-extra
 
 /// Renders a treemap chart displaying hierarchical data as nested rectangles
 /// sized proportionally to their values.
@@ -169,8 +168,7 @@
   // Render
   let gap-val = gap / 1pt
 
-  let extra = container-extra(width, height, title, t)
-  chart-container(width, height, title, t, extra-height: extra)[
+  chart-container(width, height, title, t)[
     #box(width: width, height: height)[
       #for r in layout-rects {
         let i = r.idx

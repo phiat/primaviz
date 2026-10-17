@@ -4,7 +4,6 @@
 #import "../validate.typ": validate-sankey-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/layout.typ": resolve-size, text-width, place-centered, spread-1d, fit-font-size
-#import "../primitives/reserve.typ": container-extra
 
 /// Renders a Sankey (flow) diagram showing quantities flowing between nodes.
 ///
@@ -143,8 +142,7 @@
 
   // ── Render ────────────────────────────────────────────────────────────
   let page-bg = if t.background == none { white } else { t.background }
-  let extra = container-extra(width, height, title, t)
-  align(center, chart-container(width, height, title, t, extra-height: extra)[
+  align(center, chart-container(width, height, title, t)[
     #box(width: width, height: height)[
       // Draw flows first (behind nodes)
       #for f in sorted-flows {

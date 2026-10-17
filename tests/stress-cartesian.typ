@@ -15,6 +15,8 @@
 //   page 8  30 cities as vertical charts: tilt, shrink, stand upright, and only then thin (all themes, floor key)
 //   page 9  30 cities as horizontal charts: height auto, fixed heights, themes, negatives, annotations
 //   page 10 bump labels of tied ranks, long legend entries, annotations that would overlap
+//   page 11 container: title, subtitle and legend in each position, in a border (clipping or dead bands show)
+//   page 12 the same under set text(size: 14pt)
 #import "../src/lib.typ": *
 
 #set page(paper: "a3", flipped: true, margin: 14pt)
@@ -402,5 +404,47 @@
     scatter-plot((x: (1, 2, 3, 4, 5), y: (10, 25, 15, 30, 20)), width: W, height: H, title: "scatter, all kinds",
       annotations: ((type: "h-line", value: 20, label: "Threshold", color: red, dash: "dotted"), (type: "v-line", value: 3, label: "Midpoint", color: blue, dash: "dashed"), (type: "label", x: 4, y: 30, text: "Peak!", color: red), (type: "point", x: 4, y: 29, label: "pt", color: blue), (type: "h-band", from: 12, to: 18, label: "Band"))),
   )
+}
+)
+
+// ---- pages 11 and 12: the container measures its title, subtitle and legend ---------
+// Every chart sits in a red border so that a clipped title or legend, or a dead band
+// below the body, shows. Title (+ subtitle) with the legend above, below, left and right
+// of the body, in charts of the cartesian, row and radial kinds; page 12 repeats them
+// inside `set text(size: 14pt)`, which must change nothing. The last row of page 11 has a
+// heatmap whose key carries large numbers, and a gantt with a legend that needs clipping.
+#let framed(pos, ..rest) = (border: 0.6pt + red, legend-position: pos, ..rest.named())
+#let positions = ("top", "bottom", "left", "right")
+#let parts = simple(("Rent", "Food", "Savings", "Transport", "Leisure"), (1200, 800, 500, 400, 250))
+#let duel = (labels: ("Revenue", "Users", "NPS", "Uptime"), start-values: (45, 60, 68, 88), end-values: (78, 85, 72, 95), start-label: "Q1", end-label: "Q4")
+#let container-rows() = (
+  ..positions.map(p => pie-chart(parts, size: 110pt, title: "Pie, legend " + p, subtitle: "title, subtitle and legend", theme: framed(p))),
+  ..positions.map(p => grouped-bar-chart(series2(months.slice(0, 4)), width: W, height: 110pt, title: "Grouped bars, legend " + p, theme: framed(p))),
+  ..positions.map(p => dumbbell-chart(duel, width: 200pt, height: 110pt, title: "Dumbbell, legend " + p, theme: framed(p))),
+  ..positions.map(p => waffle-chart(parts, size: 110pt, title: "Waffle, legend " + p, theme: framed(p))),
+)
+#page({
+  text(weight: "bold")[Container: title, subtitle and legend in each position]
+  v(4pt)
+  rows(
+    ..container-rows(),
+    bar-chart(simple(months.slice(0, 5), wave(5)), width: W, height: 110pt, title: "Bar, title + subtitle", subtitle: "a subtitle under the title", theme: framed("bottom")),
+    line-chart(simple(months.slice(0, 5), wave(5)), width: W, height: 110pt, title: "Line, title + subtitle", subtitle: "a subtitle under the title", theme: framed("bottom")),
+    heatmap((rows: ("A", "B", "C"), cols: ("X", "Y", "Z"), values: ((1.5, 2, 3), (4, 5, 6), (7, 8, 9)).map(r => r.map(v => v * 250000))), cell-size: 30pt, title: "Heatmap, large key", subtitle: "key labels 375k to 2.3M", theme: framed("bottom")),
+    gantt-chart((tasks: (
+      (name: "Requirements", start: 0, end: 3, group: "Planning and discovery phase of the programme"),
+      (name: "Design", start: 2, end: 5, group: "Planning and discovery phase of the programme"),
+      (name: "Build", start: 4, end: 9, group: "Implementation"),
+      (name: "Test", start: 8, end: 11, group: "Quality assurance and acceptance"))),
+      width: 150pt, bar-height: 12pt, gap: 3pt, show-legend: true, title: "Gantt, long legend", theme: framed("right")),
+    cols: 4,
+  )
+}
+)
+#page({
+  set text(size: 14pt)
+  text(weight: "bold")[The same under #raw("set text(size: 14pt)")]
+  v(4pt)
+  rows(..container-rows(), cols: 4)
 }
 )

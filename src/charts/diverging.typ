@@ -5,7 +5,6 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/layout.typ": resolve-size, text-width, text-height, fit-font-size, max-text-width
 #import "../primitives/rows.typ": row-layout, row-y, end-label, row-value-size, value-str, linear-x-ticks, draw-x-axis, x-axis-extent, tick-label-width
-#import "../primitives/reserve.typ": container-extra
 
 /// Renders a horizontal diverging bar chart where bars extend left and right
 /// from a central vertical axis. Useful for survey results (agree/disagree),
@@ -103,8 +102,7 @@
     if tk.value > 0 { ticks.push((x: 2 * cx - tk.x, label: tk.label, value: -tk.value, k: k)) }
   }
 
-  let extra = container-extra(width, height, title, t, extra-legend-separation: extra-legend-separation)
-  chart-container(width, height, title, t, extra-height: extra, extra-legend-separation: extra-legend-separation)[
+  chart-container(width, height, title, t, extra-legend-separation: extra-legend-separation)[
     #box(width: width, height: height)[
       #draw-x-axis(ticks, lay.y1, t, x0: x0, x1: x1, grid-top: lay.y0, title: x-label)
       #place(left + top, line(start: (cx, lay.y0), end: (cx, lay.y1), stroke: t.axis-stroke))

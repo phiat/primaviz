@@ -5,19 +5,18 @@
 
 #import "../theme.typ": get-color
 #import "legend.typ": draw-legend-vertical
-#import "container.typ": chart-container, container-inset
-#import "title.typ": draw-title
+#import "container.typ": container-inset
 
 /// A vertical legend sized to its entries, placed beside the chart by
-/// `chart-container`. Returns `(legend, width, height, theme)`: pass
-/// `theme` (with `legend-position` set to `position`) to the container, and
-/// `max(0, height - chart-height)` as its `extra-height` when the legend is
-/// taller than the chart.
+/// `chart-container`. Returns `(legend, width, height, theme)`: pass `legend`
+/// and `width` as the container's `legend` and `legend-width`, and `theme` (with
+/// `legend-position` set to `position`). The container grows to a legend taller
+/// than the chart; `height` is for charts that want to know.
 ///
 /// A legend taller than `max-height` flows into several columns (down each
 /// column, then across), as few as hold it, balanced, and no more than
 /// `max-total` of width allows; what still does not fit makes a taller
-/// legend, which the caller passes on as extra height. With `max-height`
+/// legend, and the container grows to hold it. With `max-height`
 /// left `auto` the legend is always one column. The result also has `cols`,
 /// the number of columns.
 ///
@@ -40,7 +39,7 @@
     let legend = draw-legend-vertical(entries, theme, width: w)
     let themed = theme
     themed.insert("legend-position", position)
-    let measured(c) = measure({ set text(size: 11pt); c }).height
+    let measured(c) = measure(c).height
     let (n, gutter) = (entries.len(), 10pt)
     let h1 = measured(legend)
     // Columns: as many as the height asks for, as many as the width allows
@@ -129,26 +128,5 @@
     let scaled = theme
     scaled.insert("title-size", s)
     scaled
-  }
-}
-
-/// Height the title block needs beyond what `chart-container` reserves for
-/// it, to pass as (part of) the container's `extra-height`. The container
-/// budgets a title from font size and gap alone, so a chart that sizes the
-/// container to its body would find the last line clipped by the border.
-/// Measured against the container itself, so it stays right if the
-/// container's budget changes (it is then 0).
-///
-/// - title (none, content): Chart title
-/// - subtitle (none, content): Chart subtitle
-/// - theme (dictionary): Resolved theme
-/// - w (length): Width of the chart body
-/// -> length
-#let title-slack(title, subtitle, theme, w) = {
-  if title == none and subtitle == none { 0pt } else {
-    let claimed = measure(chart-container(w, 0pt, title, theme, subtitle: subtitle)[]).height
-    // (an empty body box after the title: the paragraph gap between them counts)
-    let need = measure(box(width: w)[#set text(size: 11pt); #draw-title(title, theme, subtitle: subtitle)#box(width: w, height: 0pt)]).height
-    calc.max(0pt, need + 2 * theme.at("container-inset", default: container-inset) - claimed)
   }
 }

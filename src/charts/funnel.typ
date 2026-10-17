@@ -5,7 +5,6 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/layout.typ": resolve-size, text-width, fit-font-size, spread-1d, place-centered, spread-indices
 #import "../primitives/rows.typ": value-str
-#import "../primitives/reserve.typ": container-extra
 
 /// Renders a funnel chart for visualizing process or conversion stages.
 ///
@@ -197,8 +196,7 @@
     keep.map(j => mid-y(outs.at(j))), sep,
     lo: h-out / 2, hi: height - h-out / 2)
 
-  let extra = container-extra(width, height, title, t)
-  chart-container(width, height, title, t, extra-height: extra)[
+  chart-container(width, height, title, t)[
     #box(width: width, height: height)[
       #for (i, val) in values.enumerate() {
         let y-top = i * pitch

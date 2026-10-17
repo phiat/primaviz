@@ -5,8 +5,7 @@
 #import "../primitives/container.typ": chart-container, container-inset
 #import "../primitives/layout.typ": text-width, text-height, max-text-width, place-centered
 #import "../primitives/matrix.typ": matrix-layout, cell-label-size
-#import "../primitives/legend.typ": draw-gradient-legend
-#import "../primitives/reserve.typ": container-extra
+#import "../primitives/legend.typ": draw-gradient-legend, gradient-legend-width
 
 // A labelled grid of colour-coded cells with a gradient key: the body shared
 // by `heatmap` and `correlation-matrix`. Label gutters, cell size and the
@@ -28,9 +27,7 @@
 
   // The key: a gradient bar with its end labels, as wide as those labels need
   let key-bar-w = 15pt
-  let key-w = if show-legend {
-    calc.max(key-bar-w + 8pt, max-text-width((str(calc.round(lo, digits: 1)), str(calc.round(hi, digits: 1))), t.axis-label-size)) + t.legend-gap
-  } else { 0pt }
+  let key-w = if show-legend { gradient-legend-width(lo, hi, t, bar-width: key-bar-w) + t.legend-gap } else { 0pt }
 
   // Cells shrink to the room there is: row gutter (measured) + key + insets
   let avail-w = if type(avail.width) == length and avail.width > 0pt { avail.width } else { none }
@@ -54,8 +51,7 @@
     cell-label-size(values.flatten().map(v => str(calc.round(v, digits: digits))), cell, cell, t)
   } else { none }
 
-  let extra = container-extra(body-w, body-h, title, t, subtitle: subtitle)
-  chart-container(body-w, body-h, title, t, extra-height: extra, subtitle: subtitle, radius: radius)[
+  chart-container(body-w, body-h, title, t, subtitle: subtitle, radius: radius)[
     #box(width: body-w, height: body-h)[
       #lay.labels
 
@@ -213,8 +209,7 @@
   let x0 = (body-w - day-w - grid-w) / 2  // centres the grid
   let body-h = month-h + grid-h + key-gap + inner
 
-  let extra = container-extra(body-w, body-h, title, t)
-  align(center, chart-container(body-w, body-h, title, t, extra-height: extra)[
+  align(center, chart-container(body-w, body-h, title, t)[
     #box(width: body-w, height: body-h)[
       // Month names above the week that starts them, skipping any that would
       // touch the previous one
