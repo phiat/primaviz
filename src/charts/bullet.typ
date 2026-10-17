@@ -104,7 +104,7 @@
 /// - target (int, float): The target/comparative value shown as a vertical marker
 /// - ranges (array): Three ascending thresholds defining poor, satisfactory, and good zones
 /// - width (length): Chart width
-/// - height (length): Chart height (bar thickness)
+/// - height (auto, length): Chart height (bar thickness); `auto` scales with the theme's `base-size` (3.75x, 30pt in the default theme)
 /// - title (none, content, str): Optional label shown to the left
 /// - label (none, content, str): Optional secondary label below the title
 /// - show-target (bool): Whether to draw the target marker
@@ -115,7 +115,7 @@
   target,
   ranges,
   width: 250pt,
-  height: 30pt,
+  height: auto,
   title: none,
   label: none,
   show-target: true,
@@ -124,6 +124,7 @@
   layout(size => {
   validate-bullet-data((value: value, target: target, ranges: ranges), "bullet-chart")
   let t = _resolve-ctx(theme)
+  let height = if height == auto { 3.75 * t.base-size } else { height }
   set text(size: 11pt)  // sized by the theme, not the document font
   let (width, height) = resolve-size(width, height, size, container: false)
   let title-w = if title != none { _title-column(((title, label),), width, t) } else { 0pt }
@@ -140,22 +141,24 @@
 ///   Each spec: `(value: ..., target: ..., ranges: ..., title: "...")`.
 ///   Optional per-bullet keys: `label`.
 /// - width (length): Overall width for each bullet
-/// - bar-height (length): Height of each individual bullet bar
-/// - gap (length): Vertical spacing between bullets
+/// - bar-height (auto, length): Height of each individual bullet bar; `auto` scales with the theme's `base-size` (3.125x, 25pt in the default theme)
+/// - gap (auto, length): Vertical spacing between bullets; `auto` scales with the theme's `base-size` (1.875x, 15pt in the default theme)
 /// - title (none, content, str): Optional heading above all bullets
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let bullet-charts(
   data,
   width: 300pt,
-  bar-height: 25pt,
-  gap: 15pt,
+  bar-height: auto,
+  gap: auto,
   title: none,
   theme: none,
 ) = context {
   layout(size => {
   validate-bullet-charts-data(data, "bullet-charts")
   let t = _resolve-ctx(theme)
+  let bar-height = if bar-height == auto { 3.125 * t.base-size } else { bar-height }
+  let gap = if gap == auto { 1.875 * t.base-size } else { gap }
   set text(size: 11pt)  // sized by the theme, not the document font
   let width = resolve-size(width, 0pt, size, container: false).width
   let bullets = data.bullets

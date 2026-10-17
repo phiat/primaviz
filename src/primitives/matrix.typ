@@ -75,8 +75,10 @@
   let mode = "horizontal"
   let c-kept = array.range(n-cols)
   if text-width(c-widest, c-size) > cell-w - slack {
-    let f45 = fit-pitch(0.7071 * cell-w, base, floor: c-floor)
-    let f90 = fit-pitch(cell-w, base, floor: c-floor)
+    // Rotated labels need 1.2 line heights between neighbours (across the slant
+    // for 45 degrees), or they read as a hatching
+    let f45 = fit-pitch(0.7071 * cell-w, base, floor: c-floor, line-k: 1.2)
+    let f90 = fit-pitch(cell-w, base, floor: c-floor, line-k: 1.2)
     if f45.stride == 1 {
       mode = "rotated"
       c-size = f45.size

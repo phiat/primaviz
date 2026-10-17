@@ -1,17 +1,47 @@
 // util.typ - Shared utilities for primaviz
 
-/// Returns white or black depending on the perceived luminance of a color.
-/// Uses the W3C relative luminance formula for good contrast.
+// sRGB channel (0..1) to linear light
+#let _lin(c) = if c <= 0.04045 { c / 12.92 } else { calc.pow((c + 0.055) / 1.055, 2.4) }
+
+/// WCAG relative luminance of a colour (0 = black, 1 = white).
 ///
-/// - c (color): Input color
+/// - c (color): Colour (alpha is ignored)
+/// -> float
+#let luminance(c) = {
+  let k = rgb(c).components()
+  0.2126 * _lin(k.at(0) / 100%) + 0.7152 * _lin(k.at(1) / 100%) + 0.0722 * _lin(k.at(2) / 100%)
+}
+
+/// WCAG contrast ratio between two colours (1 = identical, 21 = black on white).
+///
+/// - a (color): First colour
+/// - b (color): Second colour
+/// -> float
+#let contrast-ratio(a, b) = {
+  let (la, lb) = (luminance(a), luminance(b))
+  (calc.max(la, lb) + 0.05) / (calc.min(la, lb) + 0.05)
+}
+
+/// Text colour for a label drawn on a filled mark, chosen by WCAG contrast
+/// ratio rather than a luma guess (white on `#e15759` is 3.6:1, black 5.8:1).
+///
+/// Without a `theme` the answer is black or white, whichever has the higher
+/// contrast ratio against `c`. With a `theme` its own text colours are tried
+/// first, darker first, and the first with at least `min-ratio` contrast
+/// against the fill wins, so labels keep the theme's look (a dark theme's
+/// soft white, say); if neither reaches the ratio, black or white, whichever
+/// is stronger.
+///
+/// - c (color): The mark's fill
+/// - theme (none, dictionary): Resolved theme, to prefer its text colours
+/// - min-ratio (float): Contrast ratio worth keeping a theme colour for
 /// -> color
-#let contrast-text(c) = {
-  let comps = rgb(c).components()
-  let r = comps.at(0) / 100%
-  let g = comps.at(1) / 100%
-  let b = comps.at(2) / 100%
-  let lum = 0.299 * r + 0.587 * g + 0.114 * b
-  if lum > 0.55 { black } else { white }
+#let contrast-text(c, theme: none, min-ratio: 4.5) = {
+  let strongest = if contrast-ratio(black, c) >= contrast-ratio(white, c) { black } else { white }
+  if theme == none { return strongest }
+  let theirs = (theme.text-color-inverse, theme.text-color).sorted(key: k => luminance(k))
+  let ok = theirs.find(k => contrast-ratio(k, c) >= min-ratio)
+  if ok != none { ok } else { strongest }
 }
 
 /// Normalizes data input to a `(labels: array, values: array)` dictionary.

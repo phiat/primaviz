@@ -17,22 +17,24 @@
 ///   `date` (str), `title` (str), and optional `description` (str) and
 ///   `category` (str) for color coding.
 /// - width (length): Chart width
-/// - event-gap (length): Vertical spacing between events
+/// - event-gap (auto, length): Vertical spacing between events; `auto` scales with the theme's `base-size` (7.5x, 60pt in the default theme)
 /// - title (none, content): Optional chart title
-/// - marker-size (length): Diameter of event marker circles
+/// - marker-size (auto, length): Diameter of event marker circles; `auto` scales with the theme's `base-size` (1.5x, 12pt in the default theme)
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let timeline-chart(
   data,
   width: auto,
-  event-gap: 60pt,
+  event-gap: auto,
   title: none,
-  marker-size: 12pt,
+  marker-size: auto,
   theme: none,
 ) = context {
   layout(size => {
   validate-timeline-data(data, "timeline-chart")
   let t = _resolve-ctx(theme)
+  let event-gap = if event-gap == auto { 7.5 * t.base-size } else { event-gap }
+  let marker-size = if marker-size == auto { 1.5 * t.base-size } else { marker-size }
   let width = resolve-size(width, 0pt, size, n: 10, theme: t).width
   let events = data.events
 

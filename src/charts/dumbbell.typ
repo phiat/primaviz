@@ -5,7 +5,7 @@
 #import "../primitives/container.typ": chart-container
 #import "../primitives/legend.typ": draw-legend-auto
 #import "../primitives/layout.typ": resolve-size, max-text-width
-#import "../primitives/rows.typ": row-layout, row-y, end-reserves, end-label, value-str, linear-x-ticks, draw-x-axis, x-axis-extent, tick-label-width
+#import "../primitives/rows.typ": row-layout, row-y, end-reserves, end-label, row-value-size, value-str, linear-x-ticks, draw-x-axis, x-axis-extent, tick-label-width
 #import "../primitives/reserve.typ": container-extra
 
 /// Renders a dumbbell chart showing range or before/after comparisons.
@@ -19,7 +19,7 @@
 /// - width (length): Chart width
 /// - height (length): Chart height
 /// - title (none, content): Optional chart title
-/// - dot-size (length): Diameter of endpoint dots
+/// - dot-size (auto, length): Diameter of endpoint dots; `auto` scales with the theme's `base-size` (1.25x, 10pt in the default theme)
 /// - line-width (auto, length): Stroke width of connecting lines; `auto` uses the theme's `stroke-thick`
 /// - show-values (bool): Display numeric values next to dots
 /// - theme (none, dictionary): Theme overrides
@@ -30,7 +30,7 @@
   width: auto,
   height: auto,
   title: none,
-  dot-size: 10pt,
+  dot-size: auto,
   line-width: auto,
   show-values: false,
   theme: none,
@@ -58,9 +58,11 @@
   // Rows: measured label column, with the axis band below
   let axis-h = x-axis-extent(t)
   let probe = row-layout(width, height, labels, t, pad-bottom: axis-h)
-  let dot-d = calc.min(dot-size, probe.row-h * 0.7)
+  let dot-d = calc.min(if dot-size == auto { 1.25 * t.base-size } else { dot-size }, probe.row-h * 0.7)
   let dot-r = dot-d / 2
-  let v-size = calc.min(t.value-label-size, probe.row-h * 0.9)
+  let v-size = row-value-size(t, probe.row-h)
+  let show-values = show-values and v-size != none
+  let v-size = if v-size == none { 5pt } else { v-size }
   let v-gap = t.axis-label-gap / 2
 
   // Room beside the plot ends for the dots, their value labels and the

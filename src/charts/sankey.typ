@@ -142,6 +142,7 @@
   let sorted-flows = flows.sorted(key: f => layer.at(f.from) * 1000 + layer.at(f.to))
 
   // ── Render ────────────────────────────────────────────────────────────
+  let page-bg = if t.background == none { white } else { t.background }
   let extra = container-extra(width, height, title, t)
   align(center, chart-container(width, height, title, t, extra-height: extra)[
     #box(width: width, height: height)[
@@ -223,7 +224,17 @@
             col-nodes.map(i => node-y.at(i) + node-h.at(i) / 2), sep,
             lo: pad-y + sep / 2, hi: height - pad-y - sep / 2)
           for (k, i) in col-nodes.enumerate() {
-            let body = text(size: sizes.at(k), fill: t.text-color)[#label-of(i)]
+            let ink = text(size: sizes.at(k), fill: t.text-color)[#label-of(i)]
+            // Labels of middle columns sit on the flows: a halo in the page
+            // colour keeps them legible on any band
+            let body = if li > 0 and not is-last {
+              let halo = text(size: sizes.at(k), fill: page-bg,
+                stroke: (paint: page-bg, thickness: 0.35 * sizes.at(k), join: "round"))[#label-of(i)]
+              box(width: avail, {
+                place(top + left, box(width: avail, align(right, halo)))
+                align(right, ink)
+              })
+            } else { ink }
             if is-last {
               place-centered(node-x.at(i) + node-width + label-gap, ys.at(k), body, width: avail, align: left)
             } else {
