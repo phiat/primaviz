@@ -1,9 +1,10 @@
 // sunburst.typ - Multi-level pie/donut chart for hierarchical data
 #import "../theme.typ": _resolve-ctx, get-color
-#import "../util.typ": contrast-text
 #import "../validate.typ": validate-sunburst-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/polar.typ": annular-wedge-points, separator-stroke
+#import "../primitives/polar.typ": place-wedge, separator-stroke
+#import "../primitives/polar-labels.typ": fit-wedge-label, label-ink, place-centred, place-outside-labels, polar-label-extent
+#import "../primitives/radial.typ": title-slack
 #import "../primitives/layout.typ": resolve-size
 
 /// Computes the depth of a hierarchical node tree.
@@ -82,6 +83,11 @@
 /// Inner ring represents the root's children; outer rings represent deeper levels.
 /// Each segment's angular span is proportional to its value relative to siblings.
 ///
+/// A name is written inside its segment, as large as fits and in a colour
+/// readable on that fill; if only a narrow segment is left it is turned along
+/// the radius or the arc. An outermost segment that still cannot hold its name
+/// gets it outside, on a leader line.
+///
 /// - data (dictionary): Hierarchical data with `name`, `value`, and `children` keys
 /// - size (length): Diameter of the chart
 /// - inner-radius (length): Radius of the empty center hole
@@ -91,7 +97,7 @@
 /// - start-angle (angle): Angle at which the first segment starts
 /// - min-angle (angle): Minimum angle for a segment to be rendered
 /// - title (none, content): Optional chart title
-/// - show-labels (bool): Display name labels on segments large enough to fit them
+/// - show-labels (bool): Display name labels on segments
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let sunburst-chart(
@@ -119,10 +125,8 @@
   } else { total-depth }  // cap at max-depth
 
   // Adjust size if rings would overflow
-  let needed-diameter = 2 * (inner-radius + ring-width * total-depth)
-  let chart-size = calc.max(size, needed-diameter + 10pt)
-
-  let radius = chart-size / 2
+  let rim = inner-radius + ring-width * total-depth
+  let chart-size = calc.max(size, 2 * rim + 10pt)
 
   // Collect arc segments
   let segments = _collect-segments(
@@ -135,7 +139,7 @@
   )
 
   // Resolve geometry and color once per visible segment, so the wedges and the
-  // labels can be drawn in two separate passes below. Segments too thin to see
+  // labels can be drawn in separate passes below. Segments too thin to see
   // are dropped here rather than in each pass.
   let visible = segments
     .filter(seg => seg.end-angle - seg.start-angle >= min-angle.deg())
@@ -145,6 +149,8 @@
       let base-color = get-color(t, seg.color-index)
       (
         ..seg,
+        span: seg.end-angle - seg.start-angle,
+        mid: (seg.start-angle + seg.end-angle) / 2,
         r-inner: inner-radius + (depth - 1) * ring-width,
         r-outer: inner-radius + depth * ring-width,
         color: if depth == 1 {
@@ -159,80 +165,44 @@
       )
     })
 
-  align(center, chart-container(chart-size, chart-size, title, t, extra-height: 40pt)[
-    #box(width: chart-size, height: chart-size)[
-      #let cx = radius
-      #let cy = radius
-
-      // Pass 1 — every wedge. Placed content paints in order, so drawing all
-      // wedges before any label keeps an outer ring from covering the label of
-      // the ring beneath it.
-      #for seg in visible {
-        place(
-          left + top,
-          polygon(
-            fill: seg.color,
-            stroke: separator-stroke(t, thickness: 0.75pt),
-            ..annular-wedge-points(cx, cy, seg.r-inner, seg.r-outer, seg.start-angle, seg.end-angle),
-          )
-        )
-      }
-
-      // Pass 2 — labels, on top of every wedge
-      #if show-labels {
-        for seg in visible {
-          let angle-span = seg.end-angle - seg.start-angle
-          if angle-span < 5 { continue }
-
-          let mid-angle = (seg.start-angle + seg.end-angle) / 2
-          let mid-r = (seg.r-inner + seg.r-outer) / 2
-          // Locally the wedge is a rectangle rotated to mid-angle: `depth`
-          // along the radius, `arc` (arc length at mid-radius) across it. The
-          // 360 is the degrees-to-radians conversion, not the chart sweep.
-          let arc = (mid-r / 1pt) * angle-span / 360 * 2 * calc.pi * 1pt
-          let depth = seg.r-outer - seg.r-inner
-          let cos-a = calc.abs(calc.cos(mid-angle * 1deg))
-          let sin-a = calc.abs(calc.sin(mid-angle * 1deg))
-          let weight = if seg.depth == 1 { "bold" } else { "regular" }
-          // A horizontal w×h label fits that rotated rectangle iff both of
-          // its projections do. Near the left/right of the ring the label's
-          // width runs along the radius, so the ring depth is what limits it.
-          let fits(size) = {
-            let m = measure(text(size: size, weight: weight)[#seg.name])
-            let (w, h) = (m.width + 4pt, m.height + 3pt)
-            w * cos-a + h * sin-a <= depth and w * sin-a + h * cos-a <= arc
-          }
-          let size = t.value-label-size
-          while size > 5pt and not fits(size) { size -= 0.5pt }
-
-          if fits(size) {
-            let lx = cx + mid-r * calc.cos(mid-angle * 1deg)
-            let ly = cy + mid-r * calc.sin(mid-angle * 1deg)
-            // Readable on the pill whatever the ring's lightness
-            let label-color = contrast-text(seg.color)
-            // Measure actual text dimensions for tight-fitting pill
-            let label-content = text(
-              size: size,
-              fill: label-color,
-              weight: weight,
-            )[#seg.name]
-            let text-size = measure(label-content)
-            let label-w = text-size.width + 4pt
-            let pill-h = text-size.height + 3pt
-            // Semi-transparent background pill matching segment color
-            let pill-fill = seg.color.transparentize(20%)
-            place(
-              left + top,
-              dx: lx - label-w / 2,
-              dy: ly - pill-h / 2,
-              box(width: label-w, height: pill-h,
-                fill: pill-fill, radius: 2pt,
-                align(center + horizon,
-                  label-content))
-            )
-          }
+  // Labels: inside when they fit, else (outermost ring only) outside
+  let plan = {
+    let inside = ()
+    let outside = ()
+    if show-labels {
+      for seg in visible {
+        let weight = if seg.depth == 1 { "bold" } else { "regular" }
+        let ink = label-ink(seg.color, t)
+        let make(sz) = text(size: sz, weight: weight, fill: ink, top-edge: "cap-height", bottom-edge: "descender")[#seg.name]
+        let fit = fit-wedge-label(make, seg.mid, seg.span / 2, seg.r-inner, seg.r-outer, t.value-label-size, t.axis-label-size, rotate: true)
+        if fit != none {
+          inside.push((seg: seg, fit: fit, body: make(fit.size)))
+        } else if seg.r-outer >= rim - 0.01pt {
+          outside.push((angle: seg.mid, priority: seg.span,
+            body: text(size: t.axis-label-size, fill: t.text-color, top-edge: "cap-height", bottom-edge: "descender")[#seg.name]))
         }
       }
+    }
+    (inside: inside, outside: outside)
+  }
+  let ext = polar-label-extent(plan.outside, rim, gap: 4pt)
+  let (box-w, box-h) = (calc.max(chart-size, 2 * ext.x), calc.max(chart-size, 2 * ext.y))
+  let (cx, cy) = (box-w / 2, box-h / 2)
+
+  align(center, chart-container(box-w, box-h, title, t, extra-height: title-slack(title, none, t, box-w))[
+    #box(width: box-w, height: box-h)[
+      // Wedges first: placed content paints in order, so every label ends up
+      // above every wedge, not under the next ring out
+      #for seg in visible {
+        place-wedge(cx, cy, seg.r-inner, seg.r-outer, seg.start-angle, seg.end-angle, seg.color,
+          stroke: separator-stroke(t, thickness: 0.75pt))
+      }
+      #for l in plan.inside {
+        let (x, y) = (cx + l.fit.r * calc.cos(l.seg.mid * 1deg), cy + l.fit.r * calc.sin(l.seg.mid * 1deg))
+        place-centred(x, y, l.fit.w, l.fit.h, l.body, rot: l.fit.rot)
+      }
+      #place-outside-labels(plan.outside, cx, cy, rim, (left: 0pt, right: box-w, top: 0pt, bottom: box-h),
+        leader-stroke: 0.5pt + t.text-color-light)
     ]
   ])
   })
