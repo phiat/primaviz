@@ -46,10 +46,11 @@
   let total = nonzero(values.sum())
   let pcts = values.map(v => calc.round(v / total * 100, digits: 1))
 
-  // Each slice's angular span, resolved once for wedges and labels alike
+  // Each slice's angular span, resolved once for wedges and labels alike.
+  // Slices run clockwise from 12 o'clock (-90 in polar degrees, 0 = 3 o'clock).
   let slices = {
     let out = ()
-    let cur = 0
+    let cur = -90
     for (i, v) in values.enumerate() {
       let span = v / total * 360
       out.push((i: i, start: cur, span: span, mid: cur + span / 2, pct: pcts.at(i)))

@@ -94,7 +94,8 @@
 /// - ring-width (length): Width of each concentric ring
 /// - max-depth (none, int): Maximum number of rings to render
 /// - total-angle (angle): Total angle swept by the rings
-/// - start-angle (angle): Angle at which the first segment starts
+/// - start-angle (angle): Angle at which the first segment starts, measured
+///   clockwise from 3 o'clock; the default `-90deg` starts at 12 o'clock
 /// - min-angle (angle): Minimum angle for a segment to be rendered
 /// - title (none, content): Optional chart title
 /// - show-labels (bool): Display name labels on segments
@@ -107,7 +108,7 @@
   ring-width: 35pt,
   max-depth: none,
   total-angle: 360deg,
-  start-angle: 0deg,
+  start-angle: -90deg,
   min-angle: 0.1deg,
   title: none,
   show-labels: true,
