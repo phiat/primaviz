@@ -10,6 +10,8 @@
 //   page 5  surrounding `#set text(size: 14pt)`
 //   page 6  bubble charts: overlapping labelled bubbles, extremes, short and narrow, dense, themes
 //   page 7  box-plot value labels on 12 and 24 boxes, markers of smooth lines with fill
+//   page 8  30 cities as vertical charts: tilt, shrink, stand upright, and only then thin (all themes, floor key)
+//   page 9  30 cities as horizontal charts: height auto, fixed heights, themes, negatives, annotations
 #import "../src/lib.typ": *
 
 #set page(paper: "a3", flipped: true, margin: 14pt)
@@ -282,5 +284,58 @@
     line-chart(simple(months, wave(8)), width: W, height: H, title: "catmull-rom + fill + markers", y-label: "Value", line-interpolation: "catmull-rom", fill-area: true, show-points: true),
     multi-line-chart(series2(months), width: W, height: H, title: "multi-line smooth + markers", y-label: "Value", line-interpolation: "smooth", show-points: true),
     multi-line-chart(series2(months), width: W, height: H, title: "multi-line smooth r=2", y-label: "Value", line-interpolation: "smooth", smooth-radius: 2, show-points: true, theme: themes.dark),
+  )
+})
+
+// ---- pages 8 and 9: every category named ------------------------------------
+// 30 cities: all the labels stay (flat, tilted, upright, and only at the very end thinned).
+// Vertical charts go through the ladder of the category axis; horizontal ones grow with
+// `height: auto`, and with a fixed height shrink their labels to the floor before thinning.
+#let cities30 = (
+  "Austin", "Boston", "Chicago", "Denver", "El Paso", "Fresno", "Galway", "Houston", "Irvine", "Juneau",
+  "Kansas", "Lisbon", "Madrid", "Nashville", "Oslo", "Paris", "Quito", "Rome", "Seoul", "Tokyo",
+  "Utrecht", "Vienna", "Warsaw", "Xian", "York", "Zurich", "Accra", "Berlin", "Cairo", "Dakar",
+)
+#let city-data(n) = simple(cities30.slice(0, n), range(n).map(i => 20 + calc.rem(i * 37, 71)))
+#let city-themes = (("default", themes.default), ("dark", themes.dark), ("compact", themes.compact), ("presentation", themes.presentation))
+#page({
+  text(weight: "bold")[30 cities, vertical: the labels tilt, shrink and stand up before any is dropped]
+  v(4pt)
+  rows(cols: 3,
+    bar-chart(city-data(30), width: 354pt, height: 150pt, title: "bar, 354 x 150", y-label: "Score"),
+    bar-chart(city-data(30), width: 354pt, height: 150pt, title: "bar, no axis title"),
+    bar-chart(city-data(30), width: 354pt, height: auto, title: "bar, height auto"),
+    bar-chart(city-data(30), width: 370pt, height: 150pt, title: "bar, 370 wide"),
+    lollipop-chart(city-data(30), width: 354pt, height: 150pt, title: "lollipop, 354 x 150"),
+    lollipop-chart(city-data(30), width: 354pt, height: 150pt, title: "lollipop, with axis title", y-label: "Score"),
+    grouped-bar-chart(series2(cities30.slice(0, 24), base: 50, amp: 30), width: 354pt, height: 150pt, title: "grouped-bar, 24 categories"),
+    stacked-bar-chart(series2(cities30.slice(0, 24), base: 30, amp: 10), width: 354pt, height: 150pt, title: "stacked-bar, 24 categories"),
+    line-chart(city-data(30), width: 354pt, height: 150pt, title: "line, 30 points"),
+    area-chart(city-data(30), width: 354pt, height: 150pt, title: "area, 30 points"),
+    line-chart(simple(range(100).map(i => str(i + 1)), wave(100)), width: 354pt, height: 150pt, title: "line, 100 points (thinned at the floor)"),
+    box-plot(boxes(24), width: 354pt, height: 150pt, title: "box-plot, 24 boxes"),
+    ..city-themes.map(((name, th)) => bar-chart(city-data(30), width: 354pt, height: 150pt, title: "bar, " + name, y-label: "Score", theme: th)),
+    ..city-themes.slice(1).map(((name, th)) => lollipop-chart(city-data(30), width: 354pt, height: 150pt, title: "lollipop, " + name, theme: th)),
+    bar-chart(city-data(30), width: 354pt, height: 150pt, title: "floor raised to 8pt", y-label: "Score", theme: (category-label-min-size: 8pt)),
+  )
+})
+
+#page(width: 1190pt, height: auto, flipped: false, {
+  text(weight: "bold")[30 cities, horizontal: height auto grows the rows, a fixed height shrinks the labels, then thins]
+  v(4pt)
+  rows(cols: 6,
+    horizontal-bar-chart(city-data(30), width: 250pt, height: auto, title: "bar, auto", x-label: "Score", y-label: "City"),
+    horizontal-bar-chart(city-data(30), width: 250pt, height: 330pt, title: "bar, 330pt"),
+    horizontal-bar-chart(city-data(30), width: 250pt, height: 150pt, title: "bar, 150pt (labels thinned)"),
+    horizontal-lollipop-chart(city-data(30), width: 250pt, height: auto, title: "lollipop, auto", x-label: "Score", y-label: "City"),
+    horizontal-lollipop-chart(city-data(30), width: 250pt, height: 330pt, title: "lollipop, 330pt"),
+    horizontal-lollipop-chart(city-data(30), width: 250pt, height: 150pt, title: "lollipop, 150pt (labels thinned)"),
+    ..city-themes.slice(1).map(((name, th)) => horizontal-bar-chart(city-data(30), width: 250pt, height: 330pt, title: "bar, 330pt, " + name, theme: th)),
+    ..city-themes.slice(1).map(((name, th)) => horizontal-lollipop-chart(city-data(30), width: 250pt, height: 330pt, title: "lollipop, 330pt, " + name, theme: th)),
+    horizontal-bar-chart((labels: ("A", "B", "C", "D"), values: (12, -5, 30, 18)), width: 250pt, title: "negatives", y-label: "Group", x-label: "Delta"),
+    horizontal-bar-chart((labels: ("Alpha", "Beta", "Gamma"), values: (12000, 54000, 31000)), width: 250pt, title: "10k+, v-line", annotations: ((type: "v-line", value: 30000, label: "target"),)),
+    horizontal-lollipop-chart((labels: ("A", "B", "C", "D"), values: (12, -5, 30, 18)), width: 250pt, title: "negatives", y-label: "Group", x-label: "Delta"),
+    horizontal-bar-chart((labels: ("Only",), values: (7,)), width: 250pt, title: "one row"),
+    horizontal-bar-chart((labels: ("Enterprise subscriptions", "Professional services and training", "Hardware maintenance contracts", "Self-serve"), values: (84, 61, 120, 47)), width: 250pt, title: "long labels"),
   )
 })

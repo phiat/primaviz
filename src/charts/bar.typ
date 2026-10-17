@@ -3,10 +3,11 @@
 #import "../util.typ": normalize-data, normalize-errors
 #import "../validate.typ": validate-simple-data, validate-series-data, validate-grouped-stacked-data
 #import "../primitives/frame.typ": cartesian-frame
-#import "../primitives/axes.typ": value-axis, category-axis, fit-label-size, fit-row-size, value-text
+#import "../primitives/axes.typ": value-axis, category-axis, fit-label-size, value-text
 #import "../primitives/legend.typ": draw-legend-auto
 #import "../primitives/polar.typ": separator-stroke
 #import "../primitives/layout.typ": resolve-size, pin
+#import "../primitives/row-chart.typ": row-chart
 
 // A vertical bar spanning the values v0..v1, `w` wide, centred on `cx`.
 #let _vbar(py, cx, w, v0, v1, fill, stroke: none) = {
@@ -22,13 +23,6 @@
 // A bar (or a group of bars) never grows past ten label heights: with one or
 // two categories the slots are huge, and a bar as wide as the plot says nothing.
 #let _slot-cap(t, w) = calc.min(w, 10 * t.axis-label-size)
-
-// A horizontal bar spanning the values v0..v1, `h` tall, centred on `cy`.
-#let _hbar(px, cy, h, v0, v1, fill, stroke: none) = {
-  let (xa, xb) = (px(v0), px(v1))
-  place(left + top, dx: calc.min(xa, xb), dy: cy - h / 2,
-    rect(width: calc.abs(xa - xb), height: h, fill: fill, stroke: stroke))
-}
 
 // The value axis of a bar chart: always includes the zero baseline.
 // `pad` is the room value labels past negative bar ends need below the axis start.
@@ -50,9 +44,13 @@
 
 /// Renders a horizontal bar chart with category labels on the y-axis.
 ///
+/// Every row is labelled: with `height: auto` the chart grows with the number of
+/// rows; with a fixed height the labels shrink to the theme's
+/// `category-label-min-size` (5pt unless set) and are thinned only below that.
+///
 /// - data (dictionary, array): Label-value pairs as dict or array of tuples
 /// - width (length): Chart width
-/// - height (length): Chart height
+/// - height (auto, length): Chart height; `auto` gives every row room for its label
 /// - bar-height (float): Bar thickness as fraction of slot (0 to 1)
 /// - title (none, content): Optional chart title
 /// - show-values (bool): Display value labels beside bars
@@ -79,33 +77,13 @@
   validate-simple-data(data, "horizontal-bar-chart")
   let t = _resolve-ctx(theme)
   let norm = normalize-data(data)
-  let (labels, values) = (norm.labels, norm.values)
-  let n = values.len()
-  let (width, height) = resolve-size(width, height, size, n: n, theme: t)
-  let strs = values.map(v => value-text(v, t))
-
-  cartesian-frame(width, height, t,
-    x: _bar-axis(calc.min(..values), calc.max(..values), x-label,
-      pad: if show-values { calc.max(..strs.map(s => measure(text(size: t.value-label-size)[#s]).width)) + t.label-offset } else { 0pt }),
-    y: category-axis(labels, title: y-label),
-    baseline: (x: 0), annotations: annotations,
-    title: title, extra-legend-separation: extra-legend-separation,
-    // a value label past the longest bar must stay inside the box
-    reserve: (right: if show-values { calc.max(..strs.map(s => measure(text(size: t.value-label-size)[#s]).width)) + t.label-offset } else { 0pt }),
-    p => {
-      let (px, py) = (p.px, p.py)
-      let bh = _slot-cap(t, p.Y.pitch * bar-height)
-      let vsize = fit-row-size(p.Y.pitch, t.value-label-size)
-      for (i, val) in values.enumerate() {
-        _hbar(px, py(i), bh, 0, val, get-color(t, i))
-        if show-values and vsize != none {
-          let end = px(val)
-          let after = val >= 0
-          place(left + top, dx: end + if after { t.label-offset } else { -t.label-offset - 200pt }, dy: py(i),
-            pin(width: 200pt, align: (if after { left } else { right }) + horizon,
-              text(size: vsize, fill: t.text-color)[#strs.at(i)]))
-        }
-      }
+  row-chart(norm.labels, norm.values, width, height, size, t,
+    title: title, x-label: x-label, y-label: y-label, annotations: annotations,
+    extra-legend-separation: extra-legend-separation, show-values: show-values,
+    (i, y, x-from, x-to, color, row-h) => {
+      let bh = _slot-cap(t, row-h * bar-height)
+      place(left + top, dx: calc.min(x-from, x-to), dy: y - bh / 2,
+        rect(width: calc.abs(x-to - x-from), height: bh, fill: color))
     },
   )
   })
