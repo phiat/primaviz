@@ -41,9 +41,9 @@
 /// `mode: "slots"` gives every category an equal slot and centres its mark in it
 /// (bars). `mode: "points"` spreads marks evenly with just enough room at the
 /// ends for the end labels (lines). Labels that do not fit flat are all kept
-/// as long as that is possible at a legible size: tilted 45 degrees (the type
-/// shrinking toward the theme's `category-label-min-size`, 6pt by default), then
-/// upright, and only then thinned (see `resolve-category-axis`). `overflow: "thin"`
+/// as long as that is possible at a legible size: tilted 45 degrees or upright,
+/// whichever keeps the larger type (down to the theme's `category-label-min-size`,
+/// 6pt by default), and only then thinned (see `resolve-category-axis`). `overflow: "thin"`
 /// skips the tilting and shows every k-th flat label; `rotate` and `auto` both tilt.
 ///
 /// - labels (array): Category labels (strings, numbers or content)
@@ -206,13 +206,13 @@
 
 /// Resolves a horizontal category axis over `len`: slot geometry and the label
 /// policy. Every label is shown whenever that is physically possible at a legible
-/// size, so the policy runs down a ladder and thins only at the very end:
+/// size, and thins only at the very end:
 ///
-/// 1. flat, at full size;
-/// 2. tilted 45 degrees, at full size;
-/// 3. tilted 45 degrees, the type shrinking toward a floor;
-/// 4. upright (90 degrees), at the largest size from the floor up that fits;
-/// 5. upright at the floor, thinned evenly (first and last always kept).
+/// 1. flat, at full size, when it fits;
+/// 2. otherwise the tilted layout (45 degrees, or upright) that holds every label in
+///    the largest type, down to a floor; at equal size the less rotated one;
+/// 3. when even the floor does not hold them all, upright at the floor, thinned
+///    evenly (first and last always kept).
 ///
 /// The floor is the theme key `category-label-min-size` (6pt unless set; never
 /// above the axis label size). `overflow: "thin"` skips the tilted steps and keeps
@@ -254,11 +254,14 @@
   let floor = calc.min(t.at("category-label-min-size", default: 6pt), size0)
   let fit-at(k) = calc.min(1, tilt-pitch / (k * lh0))
   let (k45, k90) = (1.6, 1.15)
+  // Of the layouts that hold every label, the one with the largest type wins; at (nearly)
+  // equal size the least rotation does. Only when none fits at the floor are labels thinned.
+  let (s45, s90) = (size0 * fit-at(k45), size0 * fit-at(k90))
   let (angle, size, skip) = if flat { (0, size0, 1) }
     else if ax.overflow == "thin" { (0, size0, thin-skip) }
-    else if fit-at(k45) * size0 >= floor { (45, size0 * fit-at(k45), 1) }
-    else if fit-at(k90) * size0 >= floor { (90, size0 * fit-at(k90), 1) }
-    else { (90, floor, calc.ceil(k90 * lh0 * (floor / size0) / tilt-pitch)) }
+    else if s90 < floor { (90, floor, calc.ceil(k90 * lh0 * (floor / size0) / tilt-pitch)) }
+    else if s45 >= floor and s45 >= s90 - 0.05pt { (45, s45, 1) }
+    else { (90, s90, 1) }
   let rotate = angle != 0
   let inset = if rotate { tilt-inset } else { flat-inset }
   let pitch = pitch-for(inset)
