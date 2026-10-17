@@ -4,10 +4,12 @@
 #import "../validate.typ": validate-simple-data, validate-series-data, validate-line-style
 #import "../primitives/frame.typ": cartesian-frame
 #import "../primitives/axes.typ": value-axis, category-axis, fit-label-size, value-text
-#import "../primitives/legend.typ": draw-legend-auto
+#import "../primitives/legend.typ": draw-legend-auto, legend-max-width
 #import "../primitives/layout.typ": resolve-size, pin
 #import "../primitives/paths.typ": round-stroke
 
+// Moving average of the y values over `smooth-radius` neighbours on each side. A radius
+// of 0 leaves every point where it is, so the curve through them interpolates the data.
 #let _smooth-points(points, smooth-radius) = {
   let smoothed = ()
   for i in array.range(points.len()) {
@@ -87,13 +89,6 @@
   )
 }
 
-// Where a series' markers, value labels and error bars sit. A smooth line passes
-// through the smoothed points, not the data points, so its markers go there too
-// (otherwise they float beside the line and its fill).
-#let _on-curve(points, line-interpolation, smooth-radius) = {
-  if line-interpolation == "smooth" { _smooth-points(points, smooth-radius) } else { points }
-}
-
 // A marker on a series point.
 #let _dot(pt, size, fill, t) = place(left + top, dx: pt.at(0) - size / 2, dy: pt.at(1) - size / 2,
   circle(radius: size / 2, fill: fill, stroke: t.marker-stroke))
@@ -110,8 +105,12 @@
 /// - show-points (bool): Draw data point markers
 /// - show-values (bool): Display value labels at data points
 /// - line-width (auto, length): Stroke width of the line; `auto` uses the theme's `stroke-thick`
-/// - line-interpolation (str): "linear", "smooth", or "catmull-rom"
-/// - smooth-radius (int): Moving average radius for smooth lines, 1 to 5
+/// - line-interpolation (str): "linear", "smooth", or "catmull-rom". Smooth and catmull-rom
+///   curves pass through every data point (smooth with level tangents at each point, so
+///   it never overshoots); markers, value labels and error bars always sit on the data
+/// - smooth-radius (int): For `"smooth"`: 0 draws the curve through the data points;
+///   1 to 5 draws a trend, the curve through a moving average of that radius, which
+///   no longer meets the points (they stay at their true values)
 /// - point-size (length): Diameter of point markers
 /// - fill-area (bool): Fill the area under the line
 /// - fill-opacity (ratio): Opacity of the filled area
@@ -137,7 +136,7 @@
   show-values: false,
   line-width: auto,
   line-interpolation: "linear",
-  smooth-radius: 1,
+  smooth-radius: 0,
   point-size: 4pt,
   fill-area: false,
   fill-opacity: 40%,
@@ -190,16 +189,11 @@
 
       draw-line-series(points, line-width + color, line-interpolation, smooth-radius)
 
-      // What sits on the line sits on the drawn curve
-      let raw = points
-      let points = _on-curve(points, line-interpolation, smooth-radius)
-
       // Error bars (under the points, so the marker sits on top)
       if errs != none {
         let err-stroke = t.stroke-thin + if error-color != auto { error-color } else { color }
         for (i, pt) in points.enumerate() {
-          let lift = pt.at(1) - raw.at(i).at(1)
-          let (y-low, y-high) = (py(values.at(i) - errs.at(i).low) + lift, py(values.at(i) + errs.at(i).high) + lift)
+          let (y-low, y-high) = (py(values.at(i) - errs.at(i).low), py(values.at(i) + errs.at(i).high))
           let cx = pt.at(0)
           place(left + top, line(start: (cx, y-low), end: (cx, y-high), stroke: err-stroke))
           for y in (y-low, y-high) {
@@ -230,8 +224,12 @@
 /// - title (none, content): Optional chart title
 /// - show-points (bool): Draw data point markers
 /// - show-legend (bool): Show series legend
-/// - line-interpolation (str): "linear", "smooth", or "catmull-rom"
-/// - smooth-radius (int): Moving average radius for smooth lines, 1 to 5
+/// - line-interpolation (str): "linear", "smooth", or "catmull-rom". Smooth and catmull-rom
+///   curves pass through every data point (smooth with level tangents at each point, so
+///   it never overshoots); markers, value labels and error bars always sit on the data
+/// - smooth-radius (int): For `"smooth"`: 0 draws the curve through the data points;
+///   1 to 5 draws a trend, the curve through a moving average of that radius, which
+///   no longer meets the points (they stay at their true values)
 /// - line-width (auto, length): Stroke width of each series line; `auto` uses the theme's `stroke-thick`
 /// - point-size (length): Diameter of point markers
 /// - x-label (none, content): X-axis title
@@ -249,7 +247,7 @@
   show-legend: true,
   line-width: auto,
   line-interpolation: "linear",
-  smooth-radius: 1,
+  smooth-radius: 0,
   point-size: 6pt,
   x-label: none,
   y-label: none,
@@ -271,7 +269,7 @@
     x: category-axis(labels, title: x-label, mode: "points", inset: inset),
     y: value-axis(calc.min(..all-values), calc.max(..all-values), title: y-label, inset: inset),
     title: title, extra-legend-separation: extra-legend-separation, annotations: annotations,
-    legend: draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, swatch-type: "line", fit-width: true),
+    legend: draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, swatch-type: "line", fit-width: true, max-width: legend-max-width(width, t)),
     p => {
       let (px, py) = (p.px, p.py)
       for (si, s) in series.enumerate() {
@@ -279,7 +277,7 @@
         let points = s.values.enumerate().map(((i, v)) => (px(i), py(v)))
         draw-line-series(points, line-width + color, line-interpolation, smooth-radius)
         if show-points {
-          for pt in _on-curve(points, line-interpolation, smooth-radius) { _dot(pt, point-size, color, t) }
+          for pt in points { _dot(pt, point-size, color, t) }
         }
       }
     },

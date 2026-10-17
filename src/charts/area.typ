@@ -4,7 +4,7 @@
 #import "../validate.typ": validate-simple-data, validate-series-data
 #import "../primitives/frame.typ": cartesian-frame
 #import "../primitives/axes.typ": value-axis, category-axis
-#import "../primitives/legend.typ": draw-legend-auto
+#import "../primitives/legend.typ": draw-legend-auto, legend-max-width
 #import "../primitives/layout.typ": resolve-size
 #import "../primitives/paths.typ": draw-polyline
 
@@ -139,7 +139,7 @@
     y: value-axis(calc.min(0, ..all-totals), calc.max(0, ..all-totals), title: y-label),
     baseline: (y: 0), annotations: annotations,
     title: title, extra-legend-separation: extra-legend-separation,
-    legend: draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, fit-width: true),
+    legend: draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, fit-width: true, max-width: legend-max-width(width, t)),
     p => {
       let (px, py) = (p.px, p.py)
       // Top series first, so the bottom series is drawn over its neighbour's edge

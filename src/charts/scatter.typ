@@ -5,7 +5,7 @@
 #import "../validate.typ": validate-scatter-data, validate-multi-scatter-data, validate-bubble-data, validate-multi-bubble-data
 #import "../primitives/frame.typ": cartesian-frame
 #import "../primitives/axes.typ": value-axis
-#import "../primitives/legend.typ": draw-legend-auto, draw-size-legend
+#import "../primitives/legend.typ": draw-legend-auto, draw-size-legend, legend-max-width
 
 // Both axes of an x-y chart. Small marks keep `inset` free at the ends of each
 // axis, so a mark centred on an extreme value stays inside the plot. With `radii`
@@ -175,7 +175,7 @@
 
   cartesian-frame(width, height, t, x: axes.x, y: axes.y,
     title: title, annotations: annotations, extra-legend-separation: extra-legend-separation,
-    legend: draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, swatch-type: "circle", fit-width: true),
+    legend: draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, swatch-type: "circle", fit-width: true, max-width: legend-max-width(width, t)),
     p => {
       for (si, s) in series.enumerate() {
         for pt in s.points {
@@ -355,7 +355,7 @@
   let r = _bubble-radii(max-radius, min-radius, width, height, t)
   let axes = _xy-axes(points, 0pt, x-label, y-label,
     radii: sizes.map(s => _bubble-radius(s, size-min, size-range, r) + 1pt))
-  let series-legend = draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, swatch-type: "circle", fit-width: true)
+  let series-legend = draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, swatch-type: "circle", fit-width: true, max-width: legend-max-width(width, t))
 
   cartesian-frame(width, height, t, x: axes.x, y: axes.y,
     title: title, annotations: annotations,

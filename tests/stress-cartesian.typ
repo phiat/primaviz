@@ -8,10 +8,13 @@
 //   page 3  negatives, a single point, all-equal values, 1e6 and 0.001 magnitudes
 //   page 4  legend positions: bottom, right, top, left
 //   page 5  surrounding `#set text(size: 14pt)`
-//   page 6  bubble charts: overlapping labelled bubbles, extremes, short and narrow, dense, themes
-//   page 7  box-plot value labels on 12 and 24 boxes, markers of smooth lines with fill
+//   page 6  bubble charts: overlapping labelled bubbles, extremes, short and narrow, dense, themes;
+//           axes that end on the first tick covering the bubbles
+//   page 7  box-plot value labels (12 and 24 boxes, decimals, thousands, wide boxes), smooth lines
+//           with markers on the data
 //   page 8  30 cities as vertical charts: tilt, shrink, stand upright, and only then thin (all themes, floor key)
 //   page 9  30 cities as horizontal charts: height auto, fixed heights, themes, negatives, annotations
+//   page 10 bump labels of tied ranks, long legend entries, annotations that would overlap
 #import "../src/lib.typ": *
 
 #set page(paper: "a3", flipped: true, margin: 14pt)
@@ -234,6 +237,9 @@
     bubble-chart(bubbles(12, scale: 40000, shift: 1000000), width: W, height: H, title: "1e6 magnitude", x-label: "x", y-label: "y"),
     bubble-chart(bubbles(12, scale: 0.0004, shift: 0.001), width: W, height: H, title: "0.001 magnitude", x-label: "x", y-label: "y"),
     bubble-chart((x: (3,), y: (7,), size: (5,)), width: W, height: 100pt, title: "one bubble, short"),
+    bubble-chart((x: (0, 50, 100), y: (0, 40, 100), size: (10, 12, 11)), width: W, height: H, title: "0..100, small bubbles", x-label: "x", y-label: "y"),
+    bubble-chart((x: (0, 50, 100), y: (0, 40, 100), size: (10, 12, 11)), width: 400pt, height: 200pt, title: "0..100, small bubbles, 400 x 200", x-label: "x", y-label: "y"),
+    bubble-chart((x: (0, 50, 100), y: (0, 40, 100), size: (10, 12, 11)), width: W, height: 100pt, title: "0..100, small bubbles, short"),
     multi-bubble-chart((series: (
       (name: "A", points: range(12).map(i => (calc.rem(i * 37 + 11, 97), calc.rem(i * 53 + 7, 89), 10 + calc.rem(i * 31, 90)))),
       (name: "B", points: range(12).map(i => (calc.rem(i * 41 + 3, 97), calc.rem(i * 29 + 17, 89), 10 + calc.rem(i * 17, 90)))),
@@ -255,8 +261,10 @@
 })
 
 // ---- page 7: value labels and markers --------------------------------------
-// Box plot value labels move aside or drop out where they would touch a neighbouring
-// box, whisker, outlier or label; markers of a smooth line sit on the drawn curve.
+// Box plot value labels: the richest set that fits at a legible size, in compact form
+// when needed (decimals, thousands), above or below the whiskers when there is no room
+// beside the boxes, never touching a box, whisker, outlier or label. Markers, values and
+// error bars of smooth lines sit on the data; a trend (smooth-radius > 0) does not meet them.
 #let boxes-out(n) = (
   labels: range(n).map(i => "G" + str(i + 1)),
   boxes: range(n).map(i => (
@@ -276,9 +284,15 @@
     box-plot(boxes(5), width: W, height: H, title: "5 boxes, show-values", y-label: "Value", show-values: true),
     box-plot(boxes(24), width: W, height: H, title: "24 boxes, show-values", y-label: "Value", show-values: true),
     box-plot(boxes(12, scale: 1000), width: W, height: H, title: "12 boxes, thousands", y-label: "Value", show-values: true),
+    box-plot(boxes(12, scale: 1.03711), width: W, height: H, title: "12 boxes, decimals", y-label: "Value", show-values: true),
+    box-plot(boxes(24, scale: 1.03711), width: W, height: H, title: "24 boxes, decimals", y-label: "Value", show-values: true),
+    box-plot(boxes(12, scale: 1037.11), width: W, height: H, title: "12 boxes, thousands and decimals", y-label: "Value", show-values: true),
+    box-plot(boxes(24, scale: 1000), width: W, height: H, title: "24 boxes, thousands (too tight: none)", y-label: "Value", show-values: true),
+    box-plot(boxes(12, scale: 1.03711), width: W, height: H, title: "12 boxes, decimals, dark", y-label: "Value", show-values: true, theme: themes.dark),
     box-plot(boxes(12), width: W, height: H, title: "12 boxes, dark", y-label: "Value", show-values: true, theme: themes.dark),
     box-plot(boxes(12), width: W, height: H, title: "12 boxes, wide boxes", y-label: "Value", show-values: true, box-width: 0.8),
-    line-chart(simple(months, wave(8)), width: W, height: H, title: "smooth + fill + markers", y-label: "Value", line-interpolation: "smooth", fill-area: true, show-points: true),
+    line-chart(simple(months, wave(8)), width: W, height: H, title: "smooth + fill + markers (through the data)", y-label: "Value", line-interpolation: "smooth", fill-area: true, show-points: true),
+    line-chart(simple(months, wave(8)), width: W, height: H, title: "smooth r=1: a trend, markers on the data", y-label: "Value", line-interpolation: "smooth", smooth-radius: 1, show-points: true, show-values: true),
     line-chart(simple(months, wave(8)), width: W, height: H, title: "smooth r=3, values", y-label: "Value", line-interpolation: "smooth", smooth-radius: 3, show-points: true, show-values: true, fill-area: true),
     line-chart(simple(months, wave(8)), width: W, height: H, title: "smooth, error bars", y-label: "Value", line-interpolation: "smooth", show-points: true, errors: range(8).map(i => 4 + i)),
     line-chart(simple(months, wave(8)), width: W, height: H, title: "catmull-rom + fill + markers", y-label: "Value", line-interpolation: "catmull-rom", fill-area: true, show-points: true),
@@ -339,3 +353,54 @@
     horizontal-bar-chart((labels: ("Enterprise subscriptions", "Professional services and training", "Hardware maintenance contracts", "Self-serve"), values: (84, 61, 120, 47)), width: 250pt, title: "long labels"),
   )
 })
+
+// ---- page 10: direct labels, legends, annotations --------------------------
+// Bump end labels of tied ranks move apart (with leaders); legend entries wider than their room
+// are cut with an ellipsis (side) or wrap onto further rows (top, bottom); annotation text that
+// would overlap moves aside.
+#let tied-ranks = (labels: ("2021", "2022", "2023", "2024"), series: (
+  (name: "Alpha", values: (1, 2, 2, 1)), (name: "Bravo", values: (2, 1, 2, 1)),
+  (name: "Charlie", values: (3, 3, 1, 3)), (name: "Delta", values: (4, 4, 4, 3)), (name: "Echo", values: (5, 5, 3, 5)),
+))
+#let crowd = (labels: ("2021", "2022", "2023", "2024"), series: range(14).map(i => (
+  name: "Team " + str(i + 1), values: (i + 1, calc.rem(i * 5, 14) + 1, calc.rem(i * 3, 14) + 1, 14 - i))))
+#let long-names = ("Enterprise subscriptions (annual)", "Professional services and training", "Hardware maintenance contracts", "Self-serve", "Partner channel resale")
+#let one-token = "Unbreakable_series_identifier_number_one_hundred_and_twenty_three"
+#let named(names) = (labels: ("Q1", "Q2", "Q3"), series: names.enumerate().map(((i, n)) => (name: n, values: (10 + 5 * i, 20 - 2 * i, 15 + i))))
+#let ann-data = simple(("Jan", "Feb", "Mar", "Apr", "May", "Jun"), (30, 45, 35, 60, 50, 70))
+#let (red, blue) = (rgb("#e15759"), rgb("#4e79a7"))
+#page({
+  text(weight: "bold")[Bump labels of tied ranks, long legend entries, overlapping annotations]
+  v(4pt)
+  rows(
+    bump-chart(tied-ranks, width: W, height: 160pt, title: "bump, ties"),
+    bump-chart(tied-ranks, width: W, height: 100pt, title: "bump, ties, short", theme: themes.dark),
+    bump-chart(crowd, width: W, height: 160pt, title: "bump, 14 series"),
+    bump-chart(crowd, width: W, height: 90pt, title: "bump, 14 series, no room"),
+    grouped-bar-chart(named(long-names), width: W, height: H, title: "legend bottom, long names"),
+    grouped-bar-chart(named(long-names), width: W, height: H, title: "legend right, long names", theme: (legend-position: "right")),
+    grouped-bar-chart(named(long-names), width: W, height: H, title: "legend left, long names", theme: (legend-position: "left")),
+    grouped-bar-chart(named((one-token, "B")), width: W, height: H, title: "legend bottom, one long token"),
+    grouped-bar-chart(named((one-token, "B")), width: W, height: H, title: "legend right, one long token", theme: (legend-position: "right")),
+    multi-line-chart(named(long-names), width: 150pt, height: H, title: "line, 150pt wide, bottom"),
+    multi-scatter-plot((series: ((name: one-token, points: ((1, 2), (3, 4))), (name: "B", points: ((2, 1), (4, 3))))), width: W, height: H, title: "multi-scatter, one long token"),
+    multi-bubble-chart((series: ((name: one-token, points: ((1, 2, 5), (3, 4, 9))), (name: "B", points: ((2, 1, 4), (4, 3, 7))))), width: W, height: H, title: "multi-bubble, right", size-label: "Size", theme: (legend-position: "right")),
+    line-chart(ann-data, width: W, height: H, title: "labels on one point",
+      annotations: ((type: "label", x: 3, y: 60, text: "Peak!", color: red), (type: "label", x: 3, y: 58, text: "Best month", color: blue), (type: "label", x: 3, y: 61, text: "Record", color: red))),
+    line-chart(ann-data, width: W, height: H, title: "label and content",
+      annotations: ((type: "label", x: 1, y: 45, text: "Launch", color: red), (type: "content", x: 1, y: 45, anchor: "left", dx: 3pt, dy: -6pt, body: text(size: 8pt, fill: blue)[Launch note]), (type: "content", x: 1, y: 46, body: box(fill: yellow.lighten(60%), inset: 2pt)[Boxed]))),
+    line-chart(ann-data, width: W, height: H, title: "h-lines close together",
+      annotations: ((type: "h-line", value: 50, label: "Target", color: red), (type: "h-line", value: 52, label: "Stretch", color: blue), (type: "h-line", value: 49, label: "Floor", color: red))),
+    line-chart(ann-data, width: W, height: H, title: "v-lines close together",
+      annotations: ((type: "v-line", value: 2, label: "Launch", color: red), (type: "v-line", value: 2.3, label: "Campaign start", color: blue), (type: "v-line", value: 2.6, label: "Rebrand", color: red))),
+    bar-chart(ann-data, width: W, height: H, title: "v-lines at the edges",
+      annotations: ((type: "v-line", value: 0, label: "Start of the very long first period", color: red), (type: "v-line", value: 5, label: "End", color: blue))),
+    bar-chart(ann-data, width: W, height: H, title: "v-line, compact", theme: themes.compact,
+      annotations: ((type: "v-line", value: 2, label: "Release", color: red),)),
+    horizontal-bar-chart((labels: ("Alpha", "Beta", "Gamma"), values: (12000, 54000, 31000)), width: W, title: "rows: v-lines close together",
+      annotations: ((type: "v-line", value: 30000, label: "target"), (type: "v-line", value: 31000, label: "stretch"))),
+    scatter-plot((x: (1, 2, 3, 4, 5), y: (10, 25, 15, 30, 20)), width: W, height: H, title: "scatter, all kinds",
+      annotations: ((type: "h-line", value: 20, label: "Threshold", color: red, dash: "dotted"), (type: "v-line", value: 3, label: "Midpoint", color: blue, dash: "dashed"), (type: "label", x: 4, y: 30, text: "Peak!", color: red), (type: "point", x: 4, y: 29, label: "pt", color: blue), (type: "h-band", from: 12, to: 18, label: "Band"))),
+  )
+}
+)

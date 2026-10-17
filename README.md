@@ -53,7 +53,7 @@ just demo       # Compile the comprehensive demo
 - **Annotations** — overlay reference lines, bands, labels, content, points, error bars, and rectangles on any Cartesian chart
 - **Error bars** — native `errors:` parameter on bar and line charts (symmetric or asymmetric)
 - **Outliers** — native `outliers:` field on box-plot boxes
-- **Line interpolation** — `line-interpolation:` ("linear", "smooth", "catmull-rom") and `smooth-radius:` on line and multi-line charts
+- **Line interpolation** — `line-interpolation:` ("linear", "smooth", "catmull-rom") and `smooth-radius:` (0 to 5, default 0: a "smooth" curve passes through the data points; 1 to 5 draw a moving-average trend; markers, values and error bars always sit on the data) on line and multi-line charts
 - **Relative widths** — use `width: 100%` for responsive charts inside containers and grids
 - **Dashboard primitives** — `card`, `compact-table`, `alert`, `badge`, `separator`, and `dashboard-layout` for report layouts
 - **Customizable** — colors, sizes, labels, legends
