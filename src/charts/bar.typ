@@ -19,6 +19,10 @@
 // bars, but never more than a quarter of the slot, so dense groups keep their bars.
 #let _grouped-width(t, w) = w - calc.min(t.bar-gap, w * 0.25)
 
+// A bar (or a group of bars) never grows past ten label heights: with one or
+// two categories the slots are huge, and a bar as wide as the plot says nothing.
+#let _slot-cap(t, w) = calc.min(w, 10 * t.axis-label-size)
+
 // A horizontal bar spanning the values v0..v1, `h` tall, centred on `cy`.
 #let _hbar(px, cy, h, v0, v1, fill, stroke: none) = {
   let (xa, xb) = (px(v0), px(v1))
@@ -90,7 +94,7 @@
     reserve: (right: if show-values { calc.max(..strs.map(s => measure(text(size: t.value-label-size)[#s]).width)) + t.label-offset } else { 0pt }),
     p => {
       let (px, py) = (p.px, p.py)
-      let bh = p.Y.pitch * bar-height
+      let bh = _slot-cap(t, p.Y.pitch * bar-height)
       let vsize = fit-row-size(p.Y.pitch, t.value-label-size)
       for (i, val) in values.enumerate() {
         _hbar(px, py(i), bh, 0, val, get-color(t, i))
@@ -172,7 +176,7 @@
     reserve: (top: if show-values { t.value-label-size + t.label-offset } else { 0pt }),
     p => {
       let (px, py) = (p.px, p.py)
-      let bw = p.X.pitch * bar-width
+      let bw = _slot-cap(t, p.X.pitch * bar-width)
       let vsize = fit-label-size(strs, p.X.pitch, t.value-label-size)
       let err-stroke = t.stroke-thin + if error-color != auto { error-color } else { t.text-color }
       for (i, val) in values.enumerate() {
@@ -247,7 +251,7 @@
     p => {
       let (px, py) = (p.px, p.py)
       // The bars of a group share 80% of its slot, centred on it
-      let bw = p.X.pitch * 0.8 / n-series
+      let bw = _slot-cap(t, p.X.pitch * 0.8) / n-series
       for gi in range(labels.len()) {
         for (si, s) in series.enumerate() {
           let cx = px(gi) + (si - (n-series - 1) / 2) * bw
@@ -301,7 +305,7 @@
       let (px, py) = (p.px, p.py)
       for (i, stack) in stacks.enumerate() {
         for (si, from, to) in stack.segs {
-          _vbar(py, px(i), p.X.pitch * 0.6, from, to, get-color(t, si), stroke: separator-stroke(t, thickness: t.stroke-thin))
+          _vbar(py, px(i), _slot-cap(t, p.X.pitch * 0.6), from, to, get-color(t, si), stroke: separator-stroke(t, thickness: t.stroke-thin))
         }
       }
     },
@@ -371,7 +375,7 @@
     p => {
       let (px, py) = (p.px, p.py)
       // The groups of a label share 85% of its slot, centred on it
-      let gw = p.X.pitch * 0.85 / n-groups
+      let gw = _slot-cap(t, p.X.pitch * 0.85) / n-groups
       for (li, row) in stacks.enumerate() {
         for (gi, stack) in row.enumerate() {
           for (ci, from, to) in stack.segs {
