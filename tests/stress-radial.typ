@@ -62,6 +62,15 @@
   ],
 )
 
+// Dozens of legend entries flow into columns when the container is wide enough
+// for them (in the narrow cells above one column is all that fits)
+#pagebreak()
+#pie-chart(many, size: 160pt, title: "26 slices, wide container: legend in columns")
+#v(10pt)
+#pie-chart(many, size: 200pt, title: "26 slices, donut, dark", donut: true, theme: themes.dark)
+#v(10pt)
+#parliament-chart(range(20).map(i => ("Party " + str(i + 1), 3 + calc.rem(i * 5, 9))), size: 230pt, title: "20 parties, legend right", theme: (legend-position: "right"))
+
 // Clusters of tiny slices at 12, 3, 6 and 9 o'clock: small labels bunch up wherever
 // the cluster sits, and near the top and bottom they have little vertical room.
 #let tiny5 = (("Alpha", 2), ("Beta", 1), ("Gamma", 1), ("Delta", 0.6), ("Epsilon", 0.4))

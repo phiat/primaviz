@@ -4,7 +4,7 @@
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/legend.typ": draw-legend
-#import "../primitives/radial.typ": side-legend, split-width, title-slack
+#import "../primitives/radial.typ": legend-room, side-legend, split-width, title-slack
 #import "../primitives/layout.typ": resolve-size
 
 /// Renders a parliament (hemicycle) chart — a semicircle of dots showing seat distribution.
@@ -56,7 +56,10 @@
   let lp = t.legend-position
   let legend-on = show-legend and lp != "none" and entries.len() > 0
   let beside = lp == "left" or lp == "right"
-  let side-lg = if legend-on and beside { side-legend(entries, t, position: lp) } else { none }
+  // (many parties flow into columns rather than one column far taller than the hemicycle)
+  let side-lg = if legend-on and beside {
+    side-legend(entries, t, position: lp, max-height: size * 0.65, max-total: legend-room(size, avail.width, t, margin: 0pt))
+  } else { none }
   let size = if side-lg != none { split-width(size, 10pt + side-lg.width, avail.width, t).first() } else { size }
 
   let radius = size / 2
