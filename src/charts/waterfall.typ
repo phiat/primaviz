@@ -1,11 +1,10 @@
 // waterfall.typ - Waterfall chart (bridge chart)
 #import "../theme.typ": _resolve-ctx, get-color, _is-dark
-#import "../util.typ": normalize-data, format-number, nonzero, nice-ticks
+#import "../util.typ": normalize-data
 #import "../validate.typ": validate-simple-data
-#import "../primitives/container.typ": chart-container
-#import "../primitives/axes.typ": cartesian-layout, draw-axis-lines, draw-grid, draw-axis-titles, draw-y-ticks, draw-x-category-labels, measure-y-tick-width, measure-x-tick-height
+#import "../primitives/frame.typ": cartesian-frame
+#import "../primitives/axes.typ": value-axis, category-axis, fit-label-size, value-text
 #import "../primitives/legend.typ": draw-legend
-#import "../primitives/annotations.typ": draw-annotations
 #import "../primitives/layout.typ": resolve-size, pin
 
 /// Renders a waterfall (bridge) chart showing cumulative effect of positive and negative values.
@@ -49,8 +48,7 @@
   validate-simple-data(data, "waterfall-chart")
   let t = _resolve-ctx(theme)
   let norm = normalize-data(data)
-  let labels = norm.labels
-  let values = norm.values
+  let (labels, values) = (norm.labels, norm.values)
   let n = values.len()
   let (width, height) = resolve-size(width, height, size, n: n, theme: t)
 
@@ -64,170 +62,58 @@
     else if has-dark-bg { rgb("#f87171") } else { rgb("#dc2626") }
   let tot-color = if total-color != none { total-color } else { get-color(t, 0) }
 
-  // Determine types: auto-detect if not provided
+  // Types: auto-detect if not provided (first and last bars are totals)
   let types = if type(data) == dictionary and "types" in data {
     data.types
   } else {
-    let result = ()
-    for i in array.range(n) {
-      if i == 0 or i == n - 1 {
-        result.push("total")
-      } else if values.at(i) >= 0 {
-        result.push("pos")
-      } else {
-        result.push("neg")
-      }
-    }
-    result
+    range(n).map(i => if i == 0 or i == n - 1 { "total" } else if values.at(i) >= 0 { "pos" } else { "neg" })
   }
+  let is-total(i) = types.at(i) == "total" or types.at(i) == "subtotal"
 
-  // Compute running totals and bar positions
-  // Each bar has a y-start and y-end
+  // Each bar runs from `starts` to `ends`: totals from zero, steps from the running total
+  let (starts, ends) = ((), ())
   let running = 0
-  let bar-starts = ()
-  let bar-ends = ()
-  for i in array.range(n) {
-    let tp = types.at(i)
-    if tp == "total" or tp == "subtotal" {
-      // Total/subtotal bars go from 0 to the current value
-      bar-starts.push(0)
-      bar-ends.push(values.at(i))
-      running = values.at(i)
-    } else {
-      // Incremental bars: start at running total, end at running + value
-      let start = running
-      let end = running + values.at(i)
-      bar-starts.push(start)
-      bar-ends.push(end)
-      running = end
-    }
+  for i in range(n) {
+    let from = if is-total(i) { 0 } else { running }
+    let to = if is-total(i) { values.at(i) } else { running + values.at(i) }
+    starts.push(from)
+    ends.push(to)
+    running = to
   }
+  let all-points = starts + ends + (0,)
 
-  // Find min and max across all bar boundaries
-  let all-points = bar-starts + bar-ends
-  all-points.push(0)
-  let min-val = calc.min(..all-points)
-  let max-val = calc.max(..all-points)
+  cartesian-frame(width, height, t,
+    x: category-axis(labels, title: x-label),
+    y: value-axis(calc.min(..all-points), calc.max(..all-points), title: y-label),
+    baseline: (y: 0), annotations: annotations,
+    title: title, extra-legend-separation: extra-legend-separation,
+    legend: if show-legend {
+      draw-legend(((name: "Increase", color: pos-color), (name: "Decrease", color: neg-color), (name: "Total", color: tot-color)), t)
+    },
+    reserve: (top: if show-values { t.value-label-size + t.label-offset } else { 0pt }),
+    p => {
+      let (px, py) = (p.px, p.py)
+      let bw = p.X.pitch * bar-width
+      let strs = values.map(v => value-text(v, t))
+      let vsize = fit-label-size(strs, p.X.pitch, t.value-label-size)
+      for i in range(n) {
+        let (top-y, bottom-y) = (py(calc.max(starts.at(i), ends.at(i))), py(calc.min(starts.at(i), ends.at(i))))
+        let fill-color = if is-total(i) { tot-color } else if values.at(i) >= 0 { pos-color } else { neg-color }
+        place(left + top, dx: px(i) - bw / 2, dy: top-y,
+          rect(width: bw, height: bottom-y - top-y, fill: fill-color, stroke: none))
 
-  let nt = nice-ticks(calc.min(0, min-val), max-val, count: t.tick-count)
-  let y-min = nt.min
-  let y-max = nt.max
-  let y-range = nonzero(y-max - y-min)
+        if show-values and vsize != none {
+          place(left + top, dx: px(i) - p.X.pitch / 2, dy: top-y - t.label-offset,
+            pin(width: p.X.pitch, align: center + bottom, text(size: vsize, fill: t.text-color)[#strs.at(i)]))
+        }
 
-  let cl = cartesian-layout(width, height, t)
-
-  // Extra height only for content outside the chart box (legend)
-  // Category labels + axis title fit within axis-padding-bottom
-  let extra-h = if show-legend { t.legend-size + t.legend-gap + t.legend-swatch-size } else { 0pt }
-
-  // Color key legend
-  let legend = none
-  if show-legend {
-     legend = draw-legend(
-      ((name: "Increase", color: pos-color), (name: "Decrease", color: neg-color), (name: "Total", color: tot-color)),
-      t,
-    )
-  }
-
-  chart-container(width, height, title, t, extra-height: extra-h, legend: legend, extra-legend-separation: extra-legend-separation)[
-    #let pad-top = cl.pad-top
-    #let chart-height = cl.chart-height
-    #let chart-width = cl.chart-width
-    #let origin-x = cl.origin-x
-    #let origin-y = cl.origin-y
-
-    #box(width: width, height: height)[
-      // Grid
-      #draw-grid(origin-x, pad-top, chart-width, chart-height, t, num-ticks: nt.ticks.len())
-
-      // Y-axis ticks
-      #draw-y-ticks(y-min, y-max, chart-height, pad-top, origin-x, t)
-
-      // Spacing per bar
-      #let spacing = chart-width / n
-      #let actual-bw = spacing * bar-width
-
-      // Helper: convert value to y-position
-      #let val-to-y(v) = {
-        pad-top + chart-height - ((v - y-min) / y-range) * chart-height
+        // Connector from this bar's end to the next step's start (totals start from zero instead)
+        if show-connectors and i < n - 1 and not is-total(i + 1) {
+          let y = py(ends.at(i))
+          place(left + top, line(start: (px(i) + bw / 2, y), end: (px(i + 1) - bw / 2, y), stroke: t.grid-stroke))
+        }
       }
-
-      // Draw connector lines, bars, and value labels
-      #for i in array.range(n) {
-        let tp = types.at(i)
-        let y-s = bar-starts.at(i)
-        let y-e = bar-ends.at(i)
-        let y-top = calc.max(y-s, y-e)
-        let y-bot = calc.min(y-s, y-e)
-
-        let x-pos = origin-x + i * spacing + (spacing - actual-bw) / 2
-        let bar-top-px = val-to-y(y-top)
-        let bar-bot-px = val-to-y(y-bot)
-        let bar-h = bar-bot-px - bar-top-px
-
-        // Pick color
-        let fill-color = if tp == "total" or tp == "subtotal" {
-          tot-color
-        } else if values.at(i) >= 0 {
-          pos-color
-        } else {
-          neg-color
-        }
-
-        // Draw bar
-        place(left + top, dx: x-pos, dy: bar-top-px,
-          rect(width: actual-bw, height: bar-h, fill: fill-color, stroke: none)
-        )
-
-        // Value label
-        if show-values {
-          let val = values.at(i)
-          place(left + top, dx: x-pos, dy: bar-top-px - t.label-offset,
-            pin(width: actual-bw, align: center + bottom,
-              text(size: t.value-label-size, fill: t.text-color)[#format-number(val, digits: nt.digits, mode: t.number-format)]))
-
-        }
-
-        // Connector line to next bar
-        if show-connectors and i < n - 1 {
-          let next-tp = types.at(i + 1)
-          // Connector goes from the end-value of this bar to the start of the next bar
-          let connector-y-val = y-e
-          // If next bar is total/subtotal, connector goes to its start (0), which is different
-          // We only draw connector if next bar is NOT a total (totals start from 0)
-          if next-tp != "total" and next-tp != "subtotal" {
-            let connector-y-px = val-to-y(connector-y-val)
-            let x-end = x-pos + actual-bw
-            let x-next-start = origin-x + (i + 1) * spacing + (spacing - actual-bw) / 2
-            place(left + top,
-              line(
-                start: (x-end, connector-y-px),
-                end: (x-next-start, connector-y-px),
-                stroke: t.grid-stroke,
-              )
-            )
-          }
-        }
-
-        // X-axis label — use full slot width for longer labels
-        let slot-x = origin-x + i * spacing
-        place(left + top, dx: slot-x, dy: origin-y + t.axis-label-size * 0.3,
-          box(width: spacing, height: t.axis-label-size * 1.8, align(center,
-            text(size: t.axis-label-size, fill: t.text-color)[#labels.at(i)])))
-
-      }
-
-      // Axes (drawn after bars so axis lines appear on top)
-      #draw-axis-lines(origin-x, origin-y, origin-x + chart-width, pad-top, t)
-
-      // Axis titles
-      #let y-tw = measure-y-tick-width(y-min, y-max, t)
-      #let x-th = measure-x-tick-height(labels, t, rotated: n>t.rotated-threshold)
-      #draw-axis-titles(x-label, y-label, origin-x + chart-width / 2, pad-top + chart-height / 2, t, origin-x: origin-x, origin-y: origin-y, y-tick-width: y-tw, x-tick-height: x-th)
-
-      // Annotations — x is bar index [-0.5, n-0.5], y is [y-min, y-max]
-      #draw-annotations(annotations, origin-x, pad-top, chart-width, chart-height, -0.5, n - 0.5, y-min, y-max, t)
-    ]
-  ]
+    },
+  )
   })
 }

@@ -1,13 +1,15 @@
 // area.typ - Area charts (single and stacked)
 #import "../theme.typ": _resolve-ctx, get-color
-#import "../util.typ": normalize-data, nonzero, nice-ticks
+#import "../util.typ": normalize-data
 #import "../validate.typ": validate-simple-data, validate-series-data
-#import "../primitives/container.typ": chart-container
-#import "../primitives/axes.typ": cartesian-layout, draw-axis-lines, draw-grid, draw-axis-titles, draw-y-ticks, draw-x-even-labels, measure-y-tick-width, measure-x-tick-height
+#import "../primitives/frame.typ": cartesian-frame
+#import "../primitives/axes.typ": value-axis, category-axis
 #import "../primitives/legend.typ": draw-legend-auto
-#import "../primitives/annotations.typ": draw-annotations
 #import "../primitives/layout.typ": resolve-size
 #import "../primitives/paths.typ": draw-polyline
+
+// Room the first and last point need at the ends of the x axis.
+#let _point-inset(show-points, size, line-width) = (if show-points { size } else { line-width }) / 2 + 1pt
 
 /// Renders a single-series area chart with a filled region below the line.
 ///
@@ -51,95 +53,34 @@
   let t = _resolve-ctx(theme)
   let line-width = if line-width == auto { t.stroke-thick } else { line-width }
   let norm = normalize-data(data)
-  let labels = norm.labels
-  let values = norm.values
+  let (labels, values) = (norm.labels, norm.values)
   let (width, height) = resolve-size(width, height, size, n: values.len(), theme: t)
+  let color = get-color(t, 0)
 
-  let nt = nice-ticks(calc.min(0, ..values), calc.max(0, ..values), count: t.tick-count)
-  let max-val = nt.max
-  let min-val = nt.min
-  let val-range = nonzero(max-val - min-val)
+  cartesian-frame(width, height, t,
+    x: category-axis(labels, title: x-label, mode: "points", inset: _point-inset(show-points, point-size, line-width)),
+    y: value-axis(calc.min(0, ..values), calc.max(0, ..values), title: y-label),
+    baseline: (y: 0), annotations: annotations,
+    title: title, show-ticks: show-ticks, show-minor-grid: show-minor-grid,
+    extra-legend-separation: extra-legend-separation,
+    p => {
+      let (px, py) = (p.px, p.py)
+      let points = values.enumerate().map(((i, v)) => (px(i), py(v)))
+      let base = py(0)
 
-  let n = values.len()
-
-  let cl = cartesian-layout(width, height, t)
-
-  chart-container(width, height, title, t, extra-height: 30pt, extra-legend-separation: extra-legend-separation)[
-    #let pad-top = cl.pad-top
-    #let chart-height = cl.chart-height
-    #let chart-width = cl.chart-width
-    #let origin-x = cl.origin-x
-    #let origin-y = cl.origin-y
-
-    #box(width: width, height: height)[
-      // Grid
-      #draw-grid(origin-x, pad-top, chart-width, chart-height, t, show-minor-grid: show-minor-grid, num-ticks: nt.ticks.len())
-
-      // Axes
-      #draw-axis-lines(origin-x, origin-y, origin-x + chart-width, pad-top, t, show-ticks: show-ticks)
-
-      // Y-axis ticks
-      #draw-y-ticks(min-val, max-val, chart-height, pad-top, origin-x, t)
-
-      // Calculate points
-      #let points = ()
-      #for (i, val) in values.enumerate() {
-        let x = if n == 1 { origin-x + chart-width / 2 } else { origin-x + (i / (n - 1)) * chart-width }
-        let y = pad-top + chart-height - ((val - min-val) / val-range) * chart-height
-        points.push((x, y))
-      }
-
-      // Build polygon for filled area (include baseline)
-      #let baseline-y = pad-top + chart-height - ((0 - min-val) / val-range) * chart-height
-      #let area-pts = {
-        let pts = ()
-        pts.push((points.at(0).at(0), baseline-y))
+      place(left + top, polygon(
+        fill: color.transparentize(100% - fill-opacity), stroke: none,
+        (points.first().at(0), base), ..points, (points.last().at(0), base),
+      ))
+      if show-line { draw-polyline(points, line-width + color) }
+      if show-points {
         for pt in points {
-          pts.push(pt)
-        }
-        pts.push((points.at(n - 1).at(0), baseline-y))
-        pts
-      }
-
-      // Draw filled area
-      #place(
-        left + top,
-        polygon(
-          fill: get-color(t, 0).transparentize(100% - fill-opacity),
-          stroke: none,
-          ..area-pts.map(p => (p.at(0), p.at(1)))
-        )
-      )
-
-      // Draw line on top
-      #if show-line {
-        draw-polyline(points, line-width + get-color(t, 0))
-      }
-
-      // Draw points
-      #if show-points {
-        for pt in points {
-          place(
-            left + top,
-            dx: pt.at(0) - point-size / 2,
-            dy: pt.at(1) - point-size / 2,
-            circle(radius: point-size / 2, fill: get-color(t, 0), stroke: t.marker-stroke)
-          )
+          place(left + top, dx: pt.at(0) - point-size / 2, dy: pt.at(1) - point-size / 2,
+            circle(radius: point-size / 2, fill: color, stroke: t.marker-stroke))
         }
       }
-
-      // X-axis labels — spread evenly across chart width
-      #draw-x-even-labels(labels, n, origin-x, chart-width, origin-y, t)
-
-      // Axis titles
-      #let y-tw = measure-y-tick-width(min-val, max-val, t)
-      #let x-th = measure-x-tick-height(labels, t, rotated: n>t.rotated-threshold)
-      #draw-axis-titles(x-label, y-label, origin-x + chart-width / 2, pad-top + chart-height / 2, t, origin-x: origin-x, origin-y: origin-y, y-tick-width: y-tw, x-tick-height: x-th)
-
-      // Annotations — x is point index [0, n-1], y is [min-val, max-val]
-      #draw-annotations(annotations, origin-x, pad-top, chart-width, chart-height, 0, calc.max(n - 1, 1), min-val, max-val, t)
-    ]
-  ]
+    },
+  )
   })
 }
 
@@ -179,92 +120,40 @@
   let t = _resolve-ctx(theme)
   let line-width = if line-width == auto { t.stroke-mid } else { line-width }
   let (width, height) = resolve-size(width, height, size, n: data.labels.len(), theme: t)
-  let labels = data.labels
-  let series = data.series
+  let (labels, series) = (data.labels, data.series)
   let n = labels.len()
-  let n-series = series.len()
 
-  // Calculate cumulative values for stacking
-  let cumulative = ()
-  for i in array.range(n) {
-    let cum = ()
-    let running = 0
+  // cumulative.at(i).at(si): running total of series 0..si at label i
+  let cumulative = range(n).map(i => {
+    let (running, cum) = (0, ())
     for s in series {
-      running = running + s.values.at(i)
+      running += s.values.at(i)
       cum.push(running)
     }
-    cumulative.push(cum)
-  }
+    cum
+  })
+  let all-totals = cumulative.flatten()
 
-  let nt = nice-ticks(0, nonzero(calc.max(..cumulative.map(c => c.at(n-series - 1)))), count: t.tick-count)
-  let max-val = nt.max
-
-  let cl = cartesian-layout(width, height, t)
-
-  let legend-content = draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend)
-  chart-container(width, height, title, t, extra-height: 50pt, legend: legend-content, extra-legend-separation: extra-legend-separation)[
-    #let pad-top = cl.pad-top
-    #let chart-height = cl.chart-height
-    #let chart-width = cl.chart-width
-    #let origin-x = cl.origin-x
-    #let origin-y = cl.origin-y
-
-    #box(width: width, height: height)[
-      // Grid
-      #draw-grid(origin-x, pad-top, chart-width, chart-height, t, num-ticks: nt.ticks.len())
-
-      // Axes
-      #draw-axis-lines(origin-x, origin-y, origin-x + chart-width, pad-top, t)
-
-      // Y-axis ticks
-      #draw-y-ticks(0, max-val, chart-height, pad-top, origin-x, t)
-
-      // Draw areas from top to bottom (reverse order so bottom series is on top visually)
-      #for si in array.range(n-series - 1, -1, step: -1) {
+  cartesian-frame(width, height, t,
+    x: category-axis(labels, title: x-label, mode: "points", inset: _point-inset(false, 0pt, line-width)),
+    y: value-axis(calc.min(0, ..all-totals), calc.max(0, ..all-totals), title: y-label),
+    baseline: (y: 0), annotations: annotations,
+    title: title, extra-legend-separation: extra-legend-separation,
+    legend: draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, fit-width: true),
+    p => {
+      let (px, py) = (p.px, p.py)
+      // Top series first, so the bottom series is drawn over its neighbour's edge
+      for si in range(series.len() - 1, -1, step: -1) {
         let color = get-color(t, si)
-
-        // Build polygon points
-        let area-pts = ()
-
-        // Top edge (current cumulative)
-        for i in array.range(n) {
-          let x = if n == 1 { origin-x + chart-width / 2 } else { origin-x + (i / (n - 1)) * chart-width }
-          let y = pad-top + chart-height - (cumulative.at(i).at(si) / max-val) * chart-height
-          area-pts.push((x, y))
-        }
-
-        // Bottom edge (previous cumulative or baseline)
-        for i in array.range(n - 1, -1, step: -1) {
-          let x = if n == 1 { origin-x + chart-width / 2 } else { origin-x + (i / (n - 1)) * chart-width }
-          let y = if si == 0 {
-            origin-y  // baseline
-          } else {
-            pad-top + chart-height - (cumulative.at(i).at(si - 1) / max-val) * chart-height
-          }
-          area-pts.push((x, y))
-        }
-
-        place(
-          left + top,
-          polygon(
-            fill: color.transparentize(100% - fill-opacity),
-            stroke: if show-lines { color + line-width } else { none },
-            ..area-pts.map(p => (p.at(0), p.at(1)))
-          )
-        )
+        let upper = range(n).map(i => (px(i), py(cumulative.at(i).at(si))))
+        let lower = range(n - 1, -1, step: -1).map(i => (px(i), py(if si == 0 { 0 } else { cumulative.at(i).at(si - 1) })))
+        place(left + top, polygon(
+          fill: color.transparentize(100% - fill-opacity),
+          stroke: if show-lines { color + line-width } else { none },
+          ..upper, ..lower,
+        ))
       }
-
-      // X-axis labels — spread evenly across chart width
-      #draw-x-even-labels(labels, n, origin-x, chart-width, origin-y, t)
-
-      // Axis titles
-      #let y-tw = measure-y-tick-width(0, max-val, t)
-      #let x-th = measure-x-tick-height(labels, t, rotated: n>t.rotated-threshold)
-      #draw-axis-titles(x-label, y-label, origin-x + chart-width / 2, pad-top + chart-height / 2, t, origin-x: origin-x, origin-y: origin-y, y-tick-width: y-tw, x-tick-height: x-th)
-
-      // Annotations — x is point index [0, n-1], y is [0, max-val]
-      #draw-annotations(annotations, origin-x, pad-top, chart-width, chart-height, 0, calc.max(n - 1, 1), 0, max-val, t)
-    ]
-  ]
+    },
+  )
   })
 }
