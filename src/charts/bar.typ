@@ -4,7 +4,7 @@
 #import "../validate.typ": validate-simple-data, validate-series-data, validate-grouped-stacked-data
 #import "../primitives/frame.typ": cartesian-frame
 #import "../primitives/axes.typ": value-axis, category-axis, fit-label-size, value-text
-#import "../primitives/legend.typ": draw-legend-auto
+#import "../primitives/legend.typ": draw-legend-auto, legend-max-width
 #import "../primitives/polar.typ": separator-stroke
 #import "../primitives/layout.typ": resolve-size, pin
 #import "../primitives/row-chart.typ": row-chart
@@ -225,7 +225,7 @@
     y: _bar-axis(calc.min(..all-values), calc.max(..all-values), y-label),
     baseline: (y: 0), annotations: annotations,
     title: title, extra-legend-separation: extra-legend-separation,
-    legend: draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, fit-width: true),
+    legend: draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, fit-width: true, max-width: legend-max-width(width, t)),
     p => {
       let (px, py) = (p.px, p.py)
       // The bars of a group share 80% of its slot, centred on it
@@ -278,7 +278,7 @@
     y: _bar-axis(calc.min(..stacks.map(s => s.lo)), calc.max(..stacks.map(s => s.hi)), y-label),
     baseline: (y: 0), annotations: annotations,
     title: title, extra-legend-separation: extra-legend-separation,
-    legend: draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, fit-width: true),
+    legend: draw-legend-auto(series.map(s => s.name), t, show-legend: show-legend, fit-width: true, max-width: legend-max-width(width, t)),
     p => {
       let (px, py) = (p.px, p.py)
       for (i, stack) in stacks.enumerate() {
@@ -349,7 +349,7 @@
     y: _bar-axis(calc.min(..all.map(s => s.lo)), calc.max(..all.map(s => s.hi)), y-label),
     baseline: (y: 0), annotations: annotations,
     title: title, extra-legend-separation: extra-legend-separation,
-    legend: draw-legend-auto(segment-names, t, show-legend: show-legend, fit-width: true),
+    legend: draw-legend-auto(segment-names, t, show-legend: show-legend, fit-width: true, max-width: legend-max-width(width, t)),
     p => {
       let (px, py) = (p.px, p.py)
       // The groups of a label share 85% of its slot, centred on it

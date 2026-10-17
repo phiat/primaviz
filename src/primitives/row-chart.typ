@@ -68,7 +68,7 @@
 
   // Rows: the measured label column, the axis band below, room above for annotation labels
   let ann = annotation-reserve(annotations, t)
-  let pad-top = if annotations != none { t.axis-padding-top } else { t.label-offset }
+  let pad-top = if annotations != none { calc.max(t.axis-padding-top, ann.top) } else { t.label-offset }
   let axis-h = x-axis-extent(t, title: x-label)
   let layout-with(inset-l, inset-r) = row-layout(inner-w, height, labels, t,
     label-frac: 0.38, pad-top: pad-top, pad-bottom: axis-h, inset-left: inset-l, inset-right: inset-r,

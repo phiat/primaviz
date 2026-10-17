@@ -3,7 +3,7 @@
 #import "../validate.typ": validate-dual-axis-data
 #import "../primitives/frame.typ": cartesian-frame
 #import "../primitives/axes.typ": value-axis, category-axis
-#import "../primitives/legend.typ": draw-legend-auto
+#import "../primitives/legend.typ": draw-legend-auto, legend-max-width
 #import "../primitives/layout.typ": resolve-size
 #import "../primitives/paths.typ": draw-polyline
 
@@ -66,7 +66,7 @@
     title: title, extra-legend-separation: extra-legend-separation, annotations: annotations,
     legend: draw-legend-auto(
       ((name: ls.name, color: l-color), (name: rs.name, color: r-color)),
-      t, swatch-type: "line", fit-width: true,
+      t, swatch-type: "line", fit-width: true, max-width: legend-max-width(width, t),
     ),
     p => {
       for (series, color, pos) in ((ls, l-color, p.py), (rs, r-color, p.py2)) {

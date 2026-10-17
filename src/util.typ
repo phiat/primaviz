@@ -377,8 +377,10 @@
 /// - data-min (number): Minimum data value
 /// - data-max (number): Maximum data value
 /// - count (int): Target number of ticks (actual count may vary slightly)
+/// - step (auto, number): Use this step instead of picking one from `count` (the ticks
+///   still snap outward to multiples of it)
 /// -> dictionary
-#let nice-ticks(data-min, data-max, count: 5) = {
+#let nice-ticks(data-min, data-max, count: 5, step: auto) = {
   // A flat series (all values equal) would snap to a single tick; give it a
   // band around the value so the axis still has a scale.
   if data-min == data-max {
@@ -395,7 +397,8 @@
   let base = calc.pow(10, exp)
   let error = raw-step / base
   // D3 thresholds: sqrt(50), sqrt(10), sqrt(2) partition [1, 10) into step tiers
-  let step = if error >= calc.sqrt(50) { base * 10 }
+  let step = if step != auto { step }
+    else if error >= calc.sqrt(50) { base * 10 }
     else if error >= calc.sqrt(10) { base * 5 }
     else if error >= calc.sqrt(2) { base * 2 }
     else { base }

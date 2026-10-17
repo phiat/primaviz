@@ -2,7 +2,7 @@
 #import "../theme.typ": _resolve-ctx, get-color
 #import "../validate.typ": validate-boxplot-data
 #import "../primitives/frame.typ": cartesian-frame
-#import "../primitives/axes.typ": value-axis, category-axis, spread-positions, value-text
+#import "../primitives/axes.typ": value-axis, category-axis, spread-apart, value-text, compact-text
 #import "../primitives/layout.typ": resolve-size
 
 /// Renders a box-and-whisker plot for comparing distributions.
@@ -88,59 +88,131 @@
         }
       }
 
-      // Five-number summary beside each box, nudged apart where values are close. The
-      // gap to the neighbouring box sets how much fits: all five values, else the median
-      // and the extremes, else the median alone, in the text size that fits the gap
-      // (down to a legible floor; nothing is drawn when even that is too wide). What
-      // is drawn is also checked against every box, whisker, outlier and label, and
-      // moves to the box's other side or drops out rather than touch one.
+      // Five-number summary next to each box. What is shown is the richest set that fits
+      // at a legible size: all five values, else the median and the extremes, else the
+      // median, else the extremes alone, else the maxima. Each set is tried in the values as given, then
+      // in 3 and in 2 significant digits (`15.35` -> `15.3` -> `15`, `85200` -> `85.2k`
+      // -> `85k`). Values sit beside their box, on the side that is free; a maximum or
+      // minimum with no room beside its box goes above or below the whisker instead. The
+      // type is as large as the room allows (down to a floor), and every label is checked
+      // against every box, whisker, outlier and other label, so none touches another. Only
+      // when not even the extremes fit on every box are they shown on every second (third)
+      // box, which have room for two (three) pitches.
       if show-values {
         let base = t.value-label-size
+        let floor = calc.min(5.5pt, base * 0.8)
         let sums = boxes.map(b => (b.max, b.q3, b.median, b.q1, b.min))
-        let gap-room = p.X.pitch - half-box * 2 - 3.5pt
-        let pick = none
-        for kinds in ((2, 0, 4, 1, 3), (2, 0, 4), (2,)) {
-          let w = kinds.map(k => sums.map(s => measure(text(size: base)[#value-text(s.at(k), t)]).width)).flatten().fold(0pt, calc.max)
-          let size = if w > 0pt { calc.min(base, base * (gap-room / w)) } else { base }
-          if size >= calc.min(5.5pt, base * 0.8) {
-            pick = (kinds: kinds, size: size)
-            break
+        let n = boxes.len()
+        let pitch = p.X.pitch
+        let hit(a, b) = a.x < b.x + b.w and b.x < a.x + a.w and a.y < b.y + b.h and b.y < a.y + a.h
+        let sw = stroke-width
+
+        // texts.at(level).at(box).at(kind), and their widths at the base size
+        let texts = (0, 1, 2).map(level => sums.map(vals => vals.map(v => {
+          if level > 0 { compact-text(v, t, sig: 4 - level) } else {
+            let tv = value-text(v, t)
+            if type(tv) == int or type(tv) == float { str(tv) } else { tv }
           }
-        }
-        if pick != none {
-          let lbl-size = pick.size
-          let lbl-h = lbl-size * 1.1
-          let hit(a, b) = a.x < b.x + b.w and b.x < a.x + a.w and a.y < b.y + b.h and b.y < a.y + a.h
-          let sw = stroke-width
-          let solids = ()  // what labels must stay clear of: boxes, whiskers with caps, outliers
-          for (i, b) in boxes.enumerate() {
-            let cx = px(i)
-            solids.push((x: cx - half-box, y: py(b.q3), w: half-box * 2, h: py(b.q1) - py(b.q3)))
-            solids.push((x: cx - sw / 2, y: py(b.max), w: sw, h: py(b.min) - py(b.max)))
-            for y in (py(b.min), py(b.max)) {
-              solids.push((x: cx - half-cap, y: y - sw / 2, w: half-cap * 2, h: sw))
-            }
-            for o in b.at("outliers", default: ()) {
-              solids.push((x: cx - outlier-radius, y: py(o) - outlier-radius, w: outlier-radius * 2, h: outlier-radius * 2))
-            }
+        })))
+        let widths = texts.map(lv => lv.map(row => row.map(tx => measure(text(size: base)[#tx]).width)))
+        let widest(level, kinds) = kinds.map(k => range(n).map(i => widths.at(level).at(i).at(k)).fold(0pt, calc.max)).fold(0pt, calc.max)
+
+        // What labels must stay clear of, box by box: the box, whiskers with caps, outliers
+        let solids = boxes.enumerate().map(((i, b)) => {
+          let cx = px(i)
+          let out = ((x: cx - half-box, y: py(b.q3), w: half-box * 2, h: py(b.q1) - py(b.q3)),
+            (x: cx - sw / 2, y: py(b.max), w: sw, h: py(b.min) - py(b.max)))
+          for y in (py(b.min), py(b.max)) { out.push((x: cx - half-cap, y: y - sw / 2, w: half-cap * 2, h: sw)) }
+          for o in b.at("outliers", default: ()) {
+            out.push((x: cx - outlier-radius, y: py(o) - outlier-radius, w: outlier-radius * 2, h: outlier-radius * 2))
           }
-          let ys = sums.map(vals => spread-positions(vals.map(py), lbl-h, p.y0, p.y1))
-          let placed = ()
-          for k in pick.kinds {
-            for (i, vals) in sums.enumerate() {
-              let v = vals.at(k)
-              let w = measure(text(size: lbl-size)[#value-text(v, t)]).width
-              let (cx, y) = (px(i), ys.at(i).at(k))
-              for x in (cx + half-box + 2.5pt, cx - half-box - 2.5pt - w) {
-                let r = (x: x - 0.5pt, y: y - lbl-h / 2, w: w + 1pt, h: lbl-h)
-                if r.x < p.x0 or r.x + r.w > width { continue }
-                if solids.any(o => hit(o, r)) or placed.any(o => hit(o, r)) { continue }
-                placed.push(r)
-                place(left + top, dx: x, dy: y,
-                  box(height: 0pt, align(horizon, text(size: lbl-size, fill: t.text-color)[#value-text(v, t)])))
+          out
+        })
+
+        // Tries to place the labels of `kinds` in `level` text at `size`, on every
+        // `stride`-th box
+        let attempt(kinds, level, size, stride) = {
+          let lbl-h = size * 1.1
+          let ratio = size / base
+          // Beside a box, the values of that box keep clear of each other
+          let ys = sums.map(vals => {
+            let ks = kinds.sorted()
+            let spread = spread-apart(ks.map(k => py(vals.at(k))), lbl-h, p.y0, p.y1)
+            let out = (:)
+            for (j, k) in ks.enumerate() { out.insert(str(k), spread.at(j)) }
+            out
+          })
+          let placed = range(n).map(_ => ())
+          let items = ()
+          for k in kinds {
+            for i in range(0, n, step: stride) {
+              let w = widths.at(level).at(i).at(k) * ratio
+              let cx = px(i)
+              let v-edge = if k == 0 { py(boxes.at(i).max) - sw / 2 - 1.2pt - lbl-h / 2 } else { py(boxes.at(i).min) + sw / 2 + 1.2pt + lbl-h / 2 }
+              // Beside on the right, then on the left, then (extremes) above or below the whisker
+              let spots = (
+                (cx + half-box + 2.5pt, ys.at(i).at(str(k)), "beside"),
+                (cx - half-box - 2.5pt - w, ys.at(i).at(str(k)), "beside"),
+              )
+              if k == 0 or k == 4 { spots.push((cx - w / 2, v-edge, if k == 0 { "above" } else { "below" })) }
+              for (x0, yc, pos) in spots {
+                // above or below a whisker the label may slide to stay inside the plot
+                let x = if pos == "beside" { x0 } else { calc.min(calc.max(x0, p.x0 + 1.5pt), width - w - 1.5pt) }
+                let r = (x: x - 0.5pt, y: yc - lbl-h / 2, w: w + 1pt, h: lbl-h)
+                if r.x < (if pos == "beside" { p.x0 } else { 0pt }) or r.x + r.w > width { continue }
+                if r.y < 0pt or (pos == "below" and r.y + r.h > p.y1) { continue }
+                let near = range(calc.max(i - 1, 0), calc.min(i + 2, n))
+                if near.any(j => solids.at(j).any(o => hit(o, r)) or placed.at(j).any(o => hit(o, r))) { continue }
+                placed.at(i).push(r)
+                items.push((x: x, y: yc, txt: texts.at(level).at(i).at(k), size: size))
                 break
               }
             }
+          }
+          (placed: items.len(), total: kinds.len() * calc.ceil(n / stride), items: items)
+        }
+
+        // Sets in order of richness. Within a set the values as given win unless a shorter
+        // form lets the type grow by a quarter or more; a set whose labels mostly (85%) find
+        // a place is taken, else the set that placed the largest share is drawn
+        let search(stride) = {
+          let best = none
+          for kinds in ((2, 0, 4, 1, 3), (2, 0, 4), (2,), (0, 4), (0,)) {
+            if best != none and best.placed >= 0.85 * best.total { continue }
+            let pick = none
+            let side = kinds.filter(k => k in (1, 2, 3))
+            for level in (0, 1, 2) {
+              if level > 0 and texts.at(level) == texts.at(level - 1) { continue }
+              // The type size the room gives this set: beside the boxes for the inner values,
+              // beside or above for extremes alone
+              let w-side = widest(level, kinds)
+              let gap = pitch * stride - half-box * 2 - 3.5pt
+              let room = if side.len() > 0 { gap } else { calc.max(gap, pitch * stride - 1pt) }
+              let size = if w-side > 0pt and room > 0pt { calc.min(base, base * (room / w-side)) } else { 0pt }
+              // (the extremes alone are the last resort: they may go a little below the floor)
+              if size < (if side.len() > 0 { floor } else { calc.min(5pt, floor) }) { continue }
+              let r = attempt(kinds, level, size, stride)
+              if r.placed < 0.85 * r.total {
+                if pick == none and (best == none or r.placed / r.total > best.placed / best.total) { best = r }
+                continue
+              }
+              if pick == none or size >= pick.size * 1.25 { pick = (..r, size: size) }
+            }
+            if pick != none { best = pick }
+          }
+          best
+        }
+        let best = search(1)
+        if best == none or best.placed == 0 {
+          for stride in (2, 3) {
+            let r = search(stride)
+            if r != none and r.placed > 0 { best = r; break }
+          }
+        }
+        if best != none {
+          for it in best.items {
+            place(left + top, dx: it.x, dy: it.y,
+              box(height: 0pt, align(horizon, text(size: it.size, fill: t.text-color)[#it.txt])))
           }
         }
       }

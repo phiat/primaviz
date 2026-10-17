@@ -3,6 +3,7 @@
 #import "../theme.typ": *
 #import "../util.typ": heat-color
 #import "fonts.typ": pin
+#import "axes.typ": _clip-label
 
 /// Side of a legend swatch. The theme's `legend-swatch-size` is an upper bound:
 /// a swatch is a key to the label beside it, so it stays smaller than the label's
@@ -42,14 +43,32 @@
   })
 }
 
+/// Widest a legend entry may be in a chart `width` wide: the room a side legend
+/// is given (40% of the width), or the full width for a legend above or below.
+/// Charts pass this as `max-width` to the legend they build.
+///
+/// - width (length): Chart width
+/// - theme (dictionary): Resolved theme
+/// -> length
+#let legend-max-width(width, theme) = if theme.legend-position == "right" or theme.legend-position == "left" {
+  0.4 * width
+} else { width }
+
+// The name of an entry as drawn: a string name that would make its entry wider
+// than `max-width` is cut and closed with an ellipsis (content names are kept).
+#let _entry-name(name, color, theme, swatch-type, max-width) = if max-width == none { name } else {
+  _clip-label(name, c => measure(_legend-entry(c, color, theme, swatch-type)).width <= max-width)
+}
+
 // Name and color of the i-th legend entry (a string or a dict with name/color).
 #let _entry-parts(entry, i, theme) = (
   if type(entry) == dictionary and "name" in entry { entry.name } else { entry },
   if type(entry) == dictionary and "color" in entry { entry.color } else { get-color(theme, i) },
 )
 
-// Horizontal legend (for bar, line, area charts).
-#let draw-legend(entries, theme, swatch-type: "box", title: none) = {
+// Horizontal legend (for bar, line, area charts). Entries flow onto further rows
+// when they do not fit side by side; with `max-width`, an entry wider than that is cut.
+#let draw-legend(entries, theme, swatch-type: "box", title: none, max-width: none) = {
   v(5pt)
   align(center, {
     _legend-title(title, theme)
@@ -57,18 +76,19 @@
       // Gaps go between entries, so the row stays centred
       if i > 0 { h(theme.legend-gap) }
       let (name, color) = _entry-parts(entry, i, theme)
-      _legend-entry(name, color, theme, swatch-type)
+      _legend-entry(_entry-name(name, color, theme, swatch-type, max-width), color, theme, swatch-type)
     }
   })
 }
 
-// Vertical legend (for pie, radar, side panels). `width: auto` fits the widest entry.
-#let draw-legend-vertical(entries, theme, width: 130pt, title: none, swatch-type: "box") = {
+// Vertical legend (for pie, radar, side panels). `width: auto` fits the widest entry;
+// with `max-width`, an entry wider than that is cut with an ellipsis.
+#let draw-legend-vertical(entries, theme, width: 130pt, title: none, swatch-type: "box", max-width: none) = {
   box(width: width, {
     _legend-title(title, theme)
     for (i, entry) in entries.enumerate() {
       let (name, color) = _entry-parts(entry, i, theme)
-      _legend-entry(name, color, theme, swatch-type)
+      _legend-entry(_entry-name(name, color, theme, swatch-type, max-width), color, theme, swatch-type)
       if i < entries.len() - 1 {
         linebreak()
         v(2pt)
@@ -87,16 +107,19 @@
 /// - swatch-type (str): `"box"`, `"line"`, or `"circle"`
 /// - title (none, str): Optional legend title displayed above entries
 /// - fit-width (bool): Size a side legend to its widest entry instead of the default column
+/// - max-width (none, length): Widest an entry may be (see `legend-max-width`): longer names
+///   are cut with an ellipsis, and a horizontal legend wraps onto further rows. `none` leaves
+///   entries as long as they are
 /// -> content, none
-#let draw-legend-auto(entries, theme, show-legend: true, swatch-type: "box", title: none, fit-width: false) = {
+#let draw-legend-auto(entries, theme, show-legend: true, swatch-type: "box", title: none, fit-width: false, max-width: none) = {
   if not show-legend { return }
   if theme.legend-position == "none" { return }
   if entries.len() == 0 { return }
 
   if theme.legend-position == "right" or theme.legend-position == "left" {
-    draw-legend-vertical(entries, theme, title: title, swatch-type: swatch-type, ..if fit-width { (width: auto) })
+    draw-legend-vertical(entries, theme, title: title, swatch-type: swatch-type, max-width: max-width, ..if fit-width { (width: auto) })
   } else {
-    draw-legend(entries, theme, swatch-type: swatch-type, title: title)
+    draw-legend(entries, theme, swatch-type: swatch-type, title: title, max-width: max-width)
   }
 }
 

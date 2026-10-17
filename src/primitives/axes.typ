@@ -101,17 +101,20 @@
   nt.ticks.map(v => format-number(v, digits: digits, mode: mode, step: nt.step))
 }
 
-// Distance needed between neighbouring tick labels so they stay clear of each other.
-#let _label-need(nt, vertical, t) = if vertical {
-  measure(text(size: t.axis-label-size)[0]).height * 2.6
+// Distance needed between neighbouring tick labels so they stay clear of each other
+// (`tight`: a little closer, still with a clear gap).
+#let _label-need(nt, vertical, t, tight: false) = if vertical {
+  measure(text(size: t.axis-label-size)[0]).height * if tight { 2.1 } else { 2.6 }
+} else if tight {
+  widest-label(_tick-labels(nt, t), t) * 1.2 + 0.7 * t.axis-label-size
 } else {
   widest-label(_tick-labels(nt, t), t) * 1.4 + t.axis-label-size
 }
 
 // Whether the ticks of `nt` spread over `room` leave their labels clear of each other.
-#let _ticks-fit(nt, room, vertical, t) = {
+#let _ticks-fit(nt, room, vertical, t, tight: false) = {
   let n = nt.ticks.len()
-  n < 2 or room / (n - 1) >= _label-need(nt, vertical, t)
+  n < 2 or room / (n - 1) >= _label-need(nt, vertical, t, tight: tight)
 }
 
 // Largest nice tick list (up to theme.tick-count targets) whose labels fit.
@@ -122,6 +125,63 @@
     if _ticks-fit(nt, room, vertical, t) { break }
   }
   nt
+}
+
+// Ticks for an axis whose marks (bubbles) reach past their values. For each nice step
+// (1, 2 or 5 times a power of ten) the range runs from the first tick below the data to
+// the first tick above it, then grows by single steps at whichever end a mark is still
+// short of room. The steps that hold every mark, with labels that stay clear of each
+// other and no more than `2 * tick-count + 3` ticks, compete on the length of the range
+// (labels set a little closer than usual count as 25% longer): the shortest wins, and
+// among near-equal ranges the one nearest the usual tick count. A range is only ever as
+// wide as its marks need, never a step more. `none` when no step manages.
+#let _cover-ticks(ax, room, vertical, t) = {
+  let (pad-lo, pad-hi) = (ax.pad.at("lo", default: 0pt), ax.pad.at("hi", default: 0pt))
+  let (lo, hi) = (ax.lo, ax.hi)
+  if lo == hi {
+    // A flat extent gets a band around the value, as `nice-ticks` does
+    let pad = if lo == 0 { 1 } else { calc.abs(lo) * 0.1 }
+    (lo, hi) = (lo - pad, hi + pad)
+  }
+  let cap = 2 * t.tick-count + 3
+  let e0 = calc.floor(calc.log(hi - lo, base: 10))
+  let found = ()
+  for e in range(e0 - 2, e0 + 2) {
+    for m in (1, 2, 5) {
+      let step = calc.round(m * calc.pow(10, e), digits: 12)
+      let a = calc.round(calc.floor(lo / step + 1e-9) * step, digits: 10)
+      let b = calc.round(calc.ceil(hi / step - 1e-9) * step, digits: 10)
+      if b == a { b = a + step }
+      let ok = false
+      for _ in range(2 * cap) {
+        let span = b - a
+        let (short-lo, short-hi) = (pad-lo - (ax.lo - a) / span * room, pad-hi - (b - ax.hi) / span * room)
+        for (v, r) in ax.marks {
+          short-lo = calc.max(short-lo, r - (v - a) / span * room)
+          short-hi = calc.max(short-hi, r - (b - v) / span * room)
+        }
+        if short-lo < 0.5pt and short-hi < 0.5pt {
+          ok = true
+          break
+        }
+        if short-lo >= 0.5pt { a = calc.round(a - step, digits: 10) }
+        if short-hi >= 0.5pt { b = calc.round(b + step, digits: 10) }
+        if (b - a) / step > cap { break }
+      }
+      let n = int(calc.round((b - a) / step)) + 1
+      if ok and n >= 2 and n <= cap {
+        let nt = nice-ticks(a, b, step: step)
+        let plain = nice-ticks(a, b, count: t.tick-count).step == step
+        if _ticks-fit(nt, room, vertical, t) { found.push((nt: nt, span: b - a, n: n, plain: plain)) }
+        else if n <= t.tick-count + 3 and _ticks-fit(nt, room, vertical, t, tight: true) {
+          found.push((nt: nt, span: 1.25 * (b - a), n: n, plain: plain))
+        }
+      }
+    }
+  }
+  if found.len() == 0 { return none }
+  let shortest = found.map(c => c.span).fold(found.first().span, calc.min)
+  found.filter(c => c.span <= shortest * 1.02).sorted(key: c => (not c.plain, calc.abs(c.n - t.tick-count))).first().nt
 }
 
 /// Resolves a value axis for `extent` of room: picks the tick list (once) and
@@ -157,10 +217,10 @@
     }
     (nt, ok)
   }
-  let nt = if ax.ticks == auto {
+  let covered = if ax.ticks == auto and ax.marks.len() > 0 { _cover-ticks(ax, room, vertical, t) }
+  let nt = if covered != none { covered } else if ax.ticks == auto {
+    // (marks no step could hold fall back to widening the range until they fit)
     let (nt, ok) = widen(auto)
-    // Marks (bubbles) that need room on a coarse tick step would waste a whole step:
-    // a finer step (labels permitting) that holds them in a narrower range wins
     if ax.marks.len() > 0 {
       for most in (t.tick-count + 2, t.tick-count + 4) {
         let (alt, alt-ok) = widen(most)
@@ -343,6 +403,54 @@
   out
 }
 
+/// Like `spread-positions`, but a cluster of labels that sit too close is moved apart
+/// about its own centre (the least total movement that leaves every pair apart), so
+/// tied labels each move half as far. Order is kept; the result stays within `lo` to
+/// `hi` where room allows.
+///
+/// - ys (array): Label centres along one axis
+/// - gap (length): Least distance between neighbouring centres; with `sizes`, the
+///   least clear space between neighbouring labels
+/// - lo (length): Start of the room
+/// - hi (length): End of the room
+/// - sizes (none, array): Extent of each label along the axis, when labels differ in size
+/// -> array
+#let spread-apart(ys, gap, lo, hi, sizes: none) = {
+  let n = ys.len()
+  if n == 0 { return ys }
+  let order = range(n).sorted(key: i => ys.at(i))
+  let size-of(i) = if sizes == none { 0pt } else { sizes.at(i) }
+  // Distance each label needs from the first one's centre, once the others are in line
+  let offs = ()
+  let acc = 0pt
+  for (k, i) in order.enumerate() {
+    if k > 0 { acc += gap + (size-of(order.at(k - 1)) + size-of(i)) / 2 }
+    offs.push(acc)
+  }
+  // Pool adjacent violators on the positions less those offsets: blocks are (sum, count)
+  let blocks = ()
+  for (k, i) in order.enumerate() {
+    blocks.push((ys.at(i) - offs.at(k), 1))
+    while blocks.len() > 1 and blocks.at(-2).at(0) / blocks.at(-2).at(1) > blocks.at(-1).at(0) / blocks.at(-1).at(1) {
+      let (a, b) = (blocks.remove(-2), blocks.pop())
+      blocks.push((a.at(0) + b.at(0), a.at(1) + b.at(1)))
+    }
+  }
+  let out = ys
+  let k = 0
+  for (sum, count) in blocks {
+    for _ in range(count) {
+      out.at(order.at(k)) = sum / count + offs.at(k)
+      k += 1
+    }
+  }
+  let first = out.at(order.first())
+  let last = out.at(order.last())
+  let up = calc.max(0pt, lo + size-of(order.first()) / 2 - first)
+  let down = calc.min(calc.max(0pt, last + up - hi + size-of(order.last()) / 2), calc.max(0pt, first + up - lo - size-of(order.first()) / 2))
+  out.map(y => y + up - down)
+}
+
 /// Font size, at most `size`, for labels in rows `pitch` apart so neighbouring
 /// rows never touch; `none` when that would go below `min-size`.
 #let fit-row-size(pitch, size, min-size: 5.5pt) = {
@@ -358,6 +466,30 @@
     format-number(v, digits: 1, mode: "auto")
   } else { v }
 }
+/// A data value in as few characters as `sig` significant digits allow, for labels
+/// that are short of room: `12.3456` becomes `12.3` (3 digits) or `12` (2), `85200`
+/// becomes `85.2k` or `85k`, `0.012345` becomes `0.0123` or `0.012`. Whole numbers
+/// below 10 000 are kept whole, whatever `sig` says. Values that are not numbers
+/// are returned as they are.
+///
+/// - v (int, float, any): The value
+/// - t (dictionary): Resolved theme
+/// - sig (int): Significant digits to keep
+/// -> str, any
+#let compact-text(v, t, sig: 3) = {
+  if type(v) != int and type(v) != float { return v }
+  let a = calc.abs(v)
+  if a == 0 { return "0" }
+  let (scale, suffix) = if t.number-format != "auto" and t.number-format != "si" { (1, "") }
+    else if a >= 1000000000 { (1000000000, "B") }
+    else if a >= 1000000 { (1000000, "M") }
+    else if a >= 10000 { (1000, "k") }
+    else { (1, "") }
+  let x = v / scale
+  let digits = calc.max(0, sig - 1 - int(calc.floor(calc.log(calc.abs(x), base: 10) + 1e-9)))
+  str(calc.round(x, digits: digits)) + suffix
+}
+
 // ── For charts that lay out their own rows ──────────────────────────────────
 //
 // The row-oriented charts (dumbbell, diverging, gantt, bullet, ...) draw their
