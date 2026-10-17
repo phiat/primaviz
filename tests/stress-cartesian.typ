@@ -8,6 +8,7 @@
 //   page 3  negatives, a single point, all-equal values, 1e6 and 0.001 magnitudes
 //   page 4  legend positions: bottom, right, top, left
 //   page 5  surrounding `#set text(size: 14pt)`
+//   page 6  bubble charts: overlapping labelled bubbles, extremes, short and narrow, dense, themes
 #import "../src/lib.typ": *
 
 #set page(paper: "a3", flipped: true, margin: 14pt)
@@ -196,5 +197,56 @@
     box-plot(boxes(5), width: W, height: H, title: "box-plot", y-label: "Value"),
     lollipop-chart(simple(months, wave(8)), width: W, height: H, title: "lollipop", y-label: "Value"),
     area-chart(simple(months, wave(8)), width: W, height: H, title: "area", y-label: "Value"),
+  )
+})
+
+// ---- page 6: bubble charts -------------------------------------------------
+// The axis line, the ticks and the plot extent agree, no bubble clips, and no label
+// lands on another label or on another bubble.
+#let bubbles(n, scale: 1, shift: 0) = (
+  x: range(n).map(i => calc.rem(i * 37 + 11, 97) * scale + shift),
+  y: range(n).map(i => calc.rem(i * 53 + 7, 89) * scale + shift),
+  size: range(n).map(i => 10 + calc.rem(i * 31, 90)),
+)
+#let teams = ("Arsenal", "Liverpool", "Man City", "Chelsea", "Spurs", "Everton", "Brighton")
+#let close-bubbles = (
+  x: (68, 72, 65, 66, 48, 69, 70),
+  y: (58, 55, 62, 60, 45, 57, 56),
+  size: (850, 720, 950, 900, 420, 800, 760),
+  labels: teams,
+)
+#page({
+  text(weight: "bold")[Bubble charts]
+  v(4pt)
+  rows(
+    bubble-chart(close-bubbles, width: W, height: H, title: "7 overlapping, labelled", x-label: "Goals", y-label: "Possession %", show-labels: true, labels: teams),
+    bubble-chart(close-bubbles, width: W, height: H, title: "same, dark", x-label: "Goals", y-label: "Possession %", show-labels: true, labels: teams, theme: themes.dark),
+    bubble-chart(close-bubbles, width: W, height: 90pt, title: "same, 90pt tall", show-labels: true, labels: teams),
+    bubble-chart(close-bubbles, width: 150pt, height: H, title: "same, 150pt wide", show-labels: true, labels: teams),
+    bubble-chart((x: (0, 100, 0, 100), y: (0, 0, 100, 100), size: (90, 40, 20, 100), labels: ("SW", "SE", "NW", "NE")), width: W, height: H, title: "bubbles on the four corners", show-labels: true, labels: ("SW", "SE", "NW", "NE"), x-label: "x", y-label: "y"),
+    bubble-chart((x: (-40, -10, 25, 60), y: (-5, 12, -30, 4), size: (5, 25, 60, 15)), width: W, height: H, title: "negative coordinates", x-label: "x", y-label: "y", size-label: "Size"),
+    bubble-chart((x: (1, 2, 3), y: (5, 5, 5), size: (30, 30, 30), labels: ("A", "B", "C")), width: W, height: H, title: "equal sizes, one y", show-labels: true, labels: ("A", "B", "C")),
+    bubble-chart((x: (4, 4, 4), y: (7, 7, 7), size: (10, 30, 50)), width: W, height: H, title: "three on one spot"),
+    bubble-chart(bubbles(60), width: W, height: H, title: "60 bubbles", x-label: "x", y-label: "y", size-label: "ARR"),
+    bubble-chart(bubbles(12, scale: 40000, shift: 1000000), width: W, height: H, title: "1e6 magnitude", x-label: "x", y-label: "y"),
+    bubble-chart(bubbles(12, scale: 0.0004, shift: 0.001), width: W, height: H, title: "0.001 magnitude", x-label: "x", y-label: "y"),
+    bubble-chart((x: (3,), y: (7,), size: (5,)), width: W, height: 100pt, title: "one bubble, short"),
+    multi-bubble-chart((series: (
+      (name: "A", points: range(12).map(i => (calc.rem(i * 37 + 11, 97), calc.rem(i * 53 + 7, 89), 10 + calc.rem(i * 31, 90)))),
+      (name: "B", points: range(12).map(i => (calc.rem(i * 41 + 3, 97), calc.rem(i * 29 + 17, 89), 10 + calc.rem(i * 17, 90)))),
+      (name: "C", points: range(12).map(i => (calc.rem(i * 23 + 5, 97), calc.rem(i * 61 + 2, 89), 10 + calc.rem(i * 43, 90)))),
+    )), width: W, height: H, title: "multi-bubble, 3 x 12", x-label: "x", y-label: "y", size-label: "Size"),
+    multi-bubble-chart((series: (
+      (name: "A", points: ((0, 0, 50), (100, 100, 10))),
+      (name: "B", points: ((100, 0, 30), (0, 100, 70))),
+    )), width: W, height: H, title: "multi-bubble, corners", theme: themes.dark),
+    multi-bubble-chart((series: (
+      (name: "A", points: ((1, 2, 5), (2, 3, 25))),
+      (name: "B", points: ((3, 1, 60), (4, 4, 15))),
+    )), width: 150pt, height: 90pt, title: "multi-bubble, small"),
+    multi-bubble-chart((series: (
+      (name: "A", points: ((1, 2, 5), (2, 3, 25))),
+      (name: "B", points: ((3, 1, 60), (4, 4, 15))),
+    )), width: W, height: H, title: "multi-bubble, legend right", theme: (legend-position: "right")),
   )
 })
