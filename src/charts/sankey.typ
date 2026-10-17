@@ -1,9 +1,10 @@
 // sankey.typ - Sankey / flow diagrams
 #import "../theme.typ": _resolve-ctx, get-color
-#import "../util.typ": nonzero, label-len
+#import "../util.typ": nonzero, format-number
 #import "../validate.typ": validate-sankey-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/layout.typ": resolve-size, text-width, place-centered, spread-1d, fit-font-size
+#import "../primitives/frame.typ": container-extra
 
 /// Renders a Sankey (flow) diagram showing quantities flowing between nodes.
 ///
@@ -77,12 +78,22 @@
   }
 
   // ── Layout geometry ───────────────────────────────────────────────────
+  // Node labels: [name (value)]; the outer columns keep theirs in a gutter
+  // measured from the labels (first column on the left, last on the right)
   let label-size = calc.min(t.axis-label-size, calc.max(5pt, height / 25))
-  // Scale pad-x with chart width — enough room for labels
-  let max-label-len = nodes.fold(0, (acc, lbl) => calc.max(acc, label-len(lbl)))
-  let pad-x = calc.max(30pt, calc.min(60pt, label-size * 0.6 * max-label-len + 8pt))
+  let label-of(i) = if show-values { [#nodes.at(i) (#format-number(node-value.at(i)))] } else { [#nodes.at(i)] }
+  let label-gap = 4pt
+  let gutter-cap = width * 0.28
+  let first-col = layers.first()
+  let last-col = if num-layers > 1 { layers.last() } else { () }
+  let widest(col) = col.fold(0pt, (acc, i) => calc.max(acc, text-width(label-of(i), label-size)))
+  let gutter(col) = if not show-labels or col.len() == 0 { 0pt } else {
+    calc.min(widest(col) + label-gap, gutter-cap)
+  }
+  let pad-left = calc.max(8pt, gutter(first-col))
+  let pad-right = calc.max(8pt, gutter(last-col))
   let pad-y = 10pt    // vertical padding top/bottom
-  let chart-w = width - 2 * pad-x
+  let chart-w = width - pad-left - pad-right
   let chart-h = height - 2 * pad-y
 
   // Column x-positions (left edge of node rect)
@@ -114,7 +125,7 @@
     let col-h = hs.sum(default: 0pt) + node-gap * calc.max(col-nodes.len() - 1, 0)
     let y-cursor = pad-y + (chart-h - col-h) / 2
     for (k, i) in col-nodes.enumerate() {
-      node-x.at(i) = pad-x + col-spacing * layer.at(i)
+      node-x.at(i) = pad-left + col-spacing * layer.at(i)
       node-y.at(i) = y-cursor
       node-h.at(i) = hs.at(k)
       y-cursor = y-cursor + hs.at(k) + node-gap
@@ -131,7 +142,8 @@
   let sorted-flows = flows.sorted(key: f => layer.at(f.from) * 1000 + layer.at(f.to))
 
   // ── Render ────────────────────────────────────────────────────────────
-  align(center, chart-container(width, height, title, t)[
+  let extra = container-extra(width, height, title, t)
+  align(center, chart-container(width, height, title, t, extra-height: extra)[
     #box(width: width, height: height)[
       // Draw flows first (behind nodes)
       #for f in sorted-flows {
@@ -193,48 +205,29 @@
         )
       }
 
-      // Draw labels — deconflict per layer to prevent overlap
+      // Draw labels — spread apart per layer so none overlaps another. First
+      // and middle columns put theirs left of the node, the last column to its
+      // right; each is wrapped at the room it has, never clipped.
       #if show-labels {
-        let label-h = label-size * 1.4  // estimated label height
-        let label-gap = 1pt
         for li in array.range(num-layers) {
           let col-nodes = layers.at(li)
-          // Build label entries sorted by y
-          let entries = col-nodes.map(i => {
-            let lbl = nodes.at(i)
-            let val-text = if show-values { " (" + str(node-value.at(i)) + ")" } else { "" }
-            (idx: i, y: node-y.at(i) + node-h.at(i) / 2 - label-h / 2, text: [#lbl#val-text])
-          }).sorted(key: e => e.y)
-          // Nudge overlapping labels down (rebuild array for immutability)
-          let deconflicted = ()
-          let prev-bottom = -100pt
-          for e in entries {
-            let y = if e.y < prev-bottom { prev-bottom } else { e.y }
-            let y = calc.max(pad-y, calc.min(height - pad-y - label-h, y))
-            deconflicted.push((..e, y: y))
-            prev-bottom = y + label-h + label-gap
+          let is-last = num-layers > 1 and li == num-layers - 1
+          let avail = if is-last { pad-right - label-gap } else if li == 0 { pad-left - label-gap } else {
+            calc.max(20pt, col-spacing - node-width - 2 * label-gap)
           }
-          // Render — rightmost: label left, all others: label right
-          for e in deconflicted {
-            let i = e.idx
-            if layer.at(i) == max-layer and num-layers > 1 {
-              // Rightmost: label to the right of the node (into right padding)
-              place(left + top,
-                dx: node-x.at(i) + node-width + 4pt,
-                dy: e.y,
-                box(height: label-h,
-                  align(left + horizon,
-                    text(size: label-size, fill: t.text-color, e.text))),
-              )
+          let sizes = col-nodes.map(i => fit-font-size(label-of(i), avail, label-size, min: 6pt))
+          let heights = col-nodes.enumerate().map(((k, i)) =>
+            measure(box(width: avail, text(size: sizes.at(k))[#label-of(i)])).height)
+          let sep = heights.fold(0pt, calc.max) + 1pt
+          let ys = spread-1d(
+            col-nodes.map(i => node-y.at(i) + node-h.at(i) / 2), sep,
+            lo: pad-y + sep / 2, hi: height - pad-y - sep / 2)
+          for (k, i) in col-nodes.enumerate() {
+            let body = text(size: sizes.at(k), fill: t.text-color)[#label-of(i)]
+            if is-last {
+              place-centered(node-x.at(i) + node-width + label-gap, ys.at(k), body, width: avail, align: left)
             } else {
-              // Left/middle: label to the left of the node
-              place(left + top,
-                dx: 0pt,
-                dy: e.y,
-                box(width: node-x.at(i) - 4pt, height: label-h,
-                  align(right + horizon,
-                    text(size: label-size, fill: t.text-color, e.text))),
-              )
+              place-centered(node-x.at(i) - label-gap - avail, ys.at(k), body, width: avail, align: right)
             }
           }
         }

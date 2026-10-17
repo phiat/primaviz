@@ -1,11 +1,19 @@
 // funnel.typ - Funnel chart for process/conversion stages
 #import "../theme.typ": _resolve-ctx, get-color
-#import "../util.typ": normalize-data, format-number, label-len, nonzero
+#import "../util.typ": normalize-data, nonzero, contrast-text
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/layout.typ": label-fits-inside, try-fit-label, resolve-size
+#import "../primitives/layout.typ": resolve-size, text-width, fit-font-size, spread-1d, place-centered
+#import "../primitives/rows.typ": value-str
+#import "../primitives/frame.typ": container-extra
 
 /// Renders a funnel chart for visualizing process or conversion stages.
+///
+/// Each stage's name (and, optionally, its value and share of the first
+/// stage) is written inside its segment when it fits, in the segment's
+/// contrast colour. Segments too narrow for their label are labelled in a
+/// shared column to the right, in the same two-line style, joined by a thin
+/// horizontal leader.
 ///
 /// - data (dictionary, array): Label-value pairs as dict or array of tuples
 /// - width (length): Chart width
@@ -32,159 +40,119 @@
   let norm = normalize-data(data)
   let labels = norm.labels
   let values = norm.values
-  let (width, height) = resolve-size(width, height, size, n: values.len(), theme: t)
-
   let n = values.len()
+  let (width, height) = resolve-size(width, height, size, n: n, theme: t, rows: true, row-pitch: t.cell-size * 1.5)
+
   let max-val = nonzero(calc.max(..values))
   let first-val = nonzero(values.at(0))
+  let seg-h = (height - gap * (n - 1)) / n
+  let cx = width / 2
+  let half-of(v) = calc.max(0pt, v / max-val * width / 2)
 
-  // Usable drawing area inside the container (leave padding for title)
-  let padding-x = 10pt
-  let usable-width = width - 2 * padding-x
-  let usable-height = height - 30pt
-  let center-x = width / 2
+  // "value · share" under each name
+  let details = values.map(v => {
+    let parts = ()
+    if show-values { parts.push(value-str(v, t)) }
+    if show-percentages { parts.push(str(calc.round(v / first-val * 100, digits: 1)) + "%") }
+    if parts.len() > 0 { parts.join(" · ") } else { "" }
+  })
 
-  // Segment height accounting for gaps
-  let total-gap = gap * (n - 1)
-  let seg-height = (usable-height - total-gap) / n
+  let s0 = t.value-label-size
+  let detail-k = 0.85   // detail line size relative to the name
+  let lead-k = 0.3      // leading between the two lines, in em of the name
+  let pad = 4pt         // clear space between text and the segment edge
+  let s-min = calc.min(s0, 8pt)  // smallest size for a label set inside a segment
 
-  chart-container(width, height, title, t, extra-height: 20pt)[
-    #box(width: width, height: usable-height + 10pt)[
-      #v(5pt)
-      #let last-ext-bottom = -100pt
+  // Segment geometry: half widths at the top and bottom edge
+  let tops = values.map(half-of)
+  let bots = values.enumerate().map(((i, v)) => if i < n - 1 { half-of(values.at(i + 1)) } else { half-of(v) })
+  // Usable width at height `y` below the segment's top
+  let width-at(i, y) = 2 * (tops.at(i) + (bots.at(i) - tops.at(i)) * (y / seg-h))
+
+  // Decide how each label is set: the largest size (down to `s-min`) at which the
+  // richest variant fits inside the trapezoid, measured at the text's lowest
+  // edge; otherwise outside
+  let plan = values.enumerate().map(((i, v)) => {
+    let name = labels.at(i)
+    let det = details.at(i)
+    let found = none
+    for k in range(int(calc.max(0pt, s0 - s-min) / 1pt) + 1) {
+      if found != none { continue }
+      let s = s0 - k * 1pt
+      let w-name = text-width(name, s, weight: "bold")
+      let w-det = if det != "" { text-width(det, s * detail-k) } else { 0pt }
+      let stack-h = s * (1.2 + detail-k * 1.2 + lead-k)
+      let line-h = s * 1.2
+      if det != "" and stack-h <= seg-h - 2pt and calc.max(w-name, w-det) <= width-at(i, seg-h / 2 + stack-h / 2) - 2 * pad {
+        found = (mode: "stack", size: s)
+      } else if det != "" and line-h <= seg-h - 2pt and w-name + 0.4 * s + w-det <= width-at(i, seg-h / 2 + line-h / 2) - 2 * pad {
+        found = (mode: "inline", size: s)
+      } else if line-h <= seg-h - 2pt and w-name <= width-at(i, seg-h / 2 + line-h / 2) - 2 * pad {
+        found = (mode: "name", size: s)
+      }
+    }
+    if found == none { (mode: "out", size: s0 * 0.9) } else { found }
+  })
+
+  // Outside labels share one column, just clear of the widest outside segment.
+  // Each wraps at the room it has (a single word wider than that shrinks); the
+  // column is then spread vertically by the tallest label so none overlaps
+  let outs = array.range(n).filter(i => plan.at(i).mode == "out")
+  let s-out = s0 * 0.9
+  let out-x = if outs.len() > 0 { cx + calc.max(..outs.map(i => (tops.at(i) + bots.at(i)) / 2)) + 14pt } else { 0pt }
+  let out-w = calc.max(20pt, width - out-x)
+  let out-bodies = outs.map(i => {
+    let name = labels.at(i)
+    let det = details.at(i)
+    let words = if type(name) == str { name.split(" ") } else { (name,) }
+    let sz = calc.min(s-out, ..words.map(w => fit-font-size(w, out-w, s-out, min: 6pt, weight: "bold")))
+    let name-t = text(size: sz, weight: "bold", fill: t.text-color)[#name]
+    let body = if det != "" {
+      stack(dir: ttb, spacing: sz * lead-k, name-t, text(size: sz * detail-k, fill: t.text-color-light)[#det])
+    } else { name-t }
+    (body: body, h: measure(box(width: out-w, body)).height)
+  })
+  let out-sep = out-bodies.fold(0pt, (acc, b) => calc.max(acc, b.h)) + 2pt
+  let out-ys = spread-1d(
+    outs.map(i => i * (seg-h + gap) + seg-h / 2), out-sep,
+    lo: out-sep / 2, hi: height - out-sep / 2)
+
+  let extra = container-extra(width, height, title, t)
+  chart-container(width, height, title, t, extra-height: extra)[
+    #box(width: width, height: height)[
       #for (i, val) in values.enumerate() {
-        // Top edge width proportional to this segment's value
-        let top-width = (val / max-val) * usable-width
-        let top-half = top-width / 2
-
-        // Bottom edge width: next segment's value, or same as top for last segment
-        let bottom-width = if i < n - 1 {
-          (values.at(i + 1) / max-val) * usable-width
-        } else {
-          top-width
-        }
-        let bottom-half = bottom-width / 2
-
-        let y-top = i * (seg-height + gap)
-        let y-bottom = y-top + seg-height
-
+        let y-top = i * (seg-h + gap)
         let color = get-color(t, i)
+        place(left + top, dy: y-top, polygon(
+          fill: color,
+          stroke: t.marker-stroke,
+          (cx - tops.at(i), 0pt), (cx + tops.at(i), 0pt),
+          (cx + bots.at(i), seg-h), (cx - bots.at(i), seg-h),
+        ))
 
-        // Draw trapezoid using polygon with place
-        place(
-          left + top,
-          dy: y-top,
-          polygon(
-            fill: color,
-            stroke: t.marker-stroke,
-            (center-x - top-half, 0pt),
-            (center-x + top-half, 0pt),
-            (center-x + bottom-half, seg-height),
-            (center-x - bottom-half, seg-height),
-          )
-        )
-
-        // Text label on each segment (only if tall enough)
-        // Use count-based heuristic to avoid comparing relative lengths with absolute
-        if n <= 15 {
-          let label-text = labels.at(i)
-          let value-text = if show-values { format-number(val) } else { "" }
-          let pct-text = if show-percentages {
-            str(calc.round((val / first-val) * 100, digits: 1)) + "%"
-          } else { "" }
-
-          // Build display string
-          let detail-parts = ()
-          if show-values { detail-parts.push(value-text) }
-          if show-percentages { detail-parts.push(pct-text) }
-          let detail = if detail-parts.len() > 0 { detail-parts.join(" · ") } else { "" }
-
-          // Center the text on the segment — use inset width to avoid boundary overlap
-          let mid-y = y-top + seg-height / 2
-          let avg-half = (top-half + bottom-half) / 2
-          let inset-half = calc.max(10pt, avg-half - 6pt)
-          let label-size = if avg-half * 2 < 60pt { calc.max(5pt, t.value-label-size - 1pt) } else { t.value-label-size }
-
-          let lbl-len = label-len(label-text)
-          // Use actual narrowest width of trapezoid (bottom edge), not inflated inset
-          let min-half = calc.min(top-half, bottom-half)
-          let avail-w = calc.max(0pt, min-half * 2 - 12pt)  // 6pt padding each side
-          let avail-h = seg-height
-
-          // Check if label fits inside segment (try shrinking, but not below 6pt — unreadable)
-          let has-detail = n <= 9 and detail != ""
-          let fit = try-fit-label(avail-w, avail-h, label-size, lbl-len, shrink-min: 6pt)
-
-          if fit.fits {
-            let label-size = fit.size
-            let detail-size = label-size * 0.85
-            // Detail renders at segment midpoint where it's wider — use avg width
-            let avg-w = calc.max(0pt, avg-half * 2 - 12pt)
-            let detail-len = detail.len()
-            let detail-fit = if has-detail { try-fit-label(avg-w, avail-h, detail-size, detail-len) } else { (fits: false, size: detail-size) }
-            // Stack name over detail only when both lines fit the segment's
-            // height; otherwise put them on one line if that fits the width
-            let stacked-h = label-size + detail-size + 2pt
-            let show-detail = has-detail and detail-fit.fits and stacked-h <= avail-h
-            let inline-detail = has-detail and not show-detail and try-fit-label(
-              avg-w, avail-h, label-size, lbl-len + detail-len + 2, shrink-min: label-size).fits
-            let block-h = if show-detail { stacked-h } else { label-size + 2pt }
-            let start-y = mid-y - block-h / 2
-
-            place(
-              left + top,
-              dx: center-x - inset-half,
-              dy: start-y,
-              box(width: inset-half * 2, height: block-h, clip: true)[
-                #align(center + horizon)[
-                  #if show-detail {
-                    stack(dir: ttb, spacing: 1pt,
-                      text(size: label-size, fill: t.text-color-inverse, weight: "bold")[#label-text],
-                      text(size: detail-size, fill: t.text-color-inverse)[#detail],
-                    )
-                  } else if inline-detail {
-                    text(size: label-size, fill: t.text-color-inverse, weight: "bold")[#label-text]
-                    h(0.4em)
-                    text(size: detail-size, fill: t.text-color-inverse)[#detail]
-                  } else {
-                    text(size: label-size, fill: t.text-color-inverse, weight: "bold")[#label-text]
-                  }
-                ]
-              ]
-            )
-          } else {
-            // External label: place to the right with leader line
-            let ext-label-size = calc.max(5pt, label-size - 0.5pt)
-            let right-edge = center-x + top-half
-            let leader-start-x = right-edge + 2pt
-            let ext-label-x = leader-start-x + 10pt
-            let ext-label-w = width - ext-label-x - 4pt
-            if ext-label-w > 20pt {
-              let block-h = ext-label-size + 4pt
-              let label-y = calc.max(mid-y - block-h / 2, last-ext-bottom + 1pt)
-              last-ext-bottom = label-y + block-h
-              // Leader line
-              place(left + top,
-                line(start: (leader-start-x, mid-y),
-                     end: (ext-label-x - 1pt, label-y + block-h / 2),
-                     stroke: 0.5pt + t.text-color-light))
-              // Label
-              place(
-                left + top,
-                dx: ext-label-x,
-                dy: label-y,
-                box(width: ext-label-w, height: block-h)[
-                  #align(left + horizon)[
-                    #text(size: ext-label-size, fill: t.text-color, weight: "bold")[#label-text]
-                    #if has-detail {
-                      text(size: ext-label-size * 0.85, fill: t.text-color)[ #detail]
-                    }
-                  ]
-                ]
-              )
-            }
-          }
+        let p = plan.at(i)
+        let name = labels.at(i)
+        let det = details.at(i)
+        if p.mode != "out" {
+          let fg = contrast-text(color)
+          let name-t = text(size: p.size, weight: "bold", fill: fg)[#name]
+          let det-t = text(size: p.size * detail-k, fill: fg)[#det]
+          let body = if p.mode == "stack" {
+            stack(dir: ttb, spacing: p.size * lead-k, name-t, det-t)
+          } else if p.mode == "inline" {
+            [#name-t#h(0.4 * p.size)#det-t]
+          } else { name-t }
+          place-centered(cx - tops.at(i), y-top + seg-h / 2, body, width: 2 * tops.at(i), align: center)
         }
+      }
+
+      // Outside labels: same two-line style, in the text colour, one column
+      #for (k, i) in outs.enumerate() {
+        let mid = i * (seg-h + gap) + seg-h / 2
+        let edge = cx + (tops.at(i) + bots.at(i)) / 2 + 3pt
+        let ly = out-ys.at(k)
+        place(left + top, line(start: (edge, mid), end: (out-x - 3pt, ly), stroke: t.stroke-thin + t.text-color-light))
+        place-centered(out-x, ly, out-bodies.at(k).body, width: out-w, align: left)
       }
     ]
   ]

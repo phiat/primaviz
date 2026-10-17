@@ -3,8 +3,9 @@
 #import "../util.typ": normalize-data, nonzero
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/legend.typ": draw-legend-auto
-#import "../primitives/layout.typ": resolve-size
+#import "../primitives/legend.typ": draw-legend-vertical
+#import "../primitives/layout.typ": resolve-size, max-text-width
+#import "../primitives/frame.typ": container-extra
 
 /// Renders a waffle chart — a grid of squares where each square represents
 /// a unit or percentage of the total. Commonly used in infographics to
@@ -43,22 +44,37 @@
   let t = _resolve-ctx(theme)
   let size = resolve-size(size, size, avail).width
 
-  // Shrink grid size if total width (grid + legend + padding) exceeds available space
-  let legend-overhead = if show-legend { 120pt + 10pt } else { 0pt }
-  let pad2 = 16pt  // 2 * container-inset
-  let avail-w = if type(avail.width) == length and avail.width > 0pt { avail.width } else { none }
-  if avail-w != none and size + legend-overhead + pad2 > avail-w {
-    size = avail-w - legend-overhead - pad2
-  }
-
   let norm = normalize-data(data)
   let labels = norm.labels
   let values = norm.values
   let n = labels.len()
   let total-cells = rows * cols
+  let raw-sum = nonzero(values.sum())
+
+  // Legend entries, "name (share)": the legend is as wide as its longest
+  // entry, measured, and never more than 40% of the room
+  let percentages = values.map(v => calc.round(v / raw-sum * 100, digits: 1))
+  let legend-entries = ()
+  if show-legend {
+    for i in range(n) {
+      let pct = str(percentages.at(i)) + "%"
+      legend-entries.push(if show-values { labels.at(i) + " (" + pct + ")" } else { labels.at(i) })
+    }
+  }
+  let avail-w = if type(avail.width) == length and avail.width > 0pt { avail.width } else { none }
+  let legend-w = if show-legend and n > 0 {
+    let natural = t.legend-swatch-size + 3pt + max-text-width(legend-entries, t.legend-size) + 2pt
+    if avail-w != none { calc.min(natural, avail-w * 0.4) } else { natural }
+  } else { 0pt }
+
+  // Shrink the grid if grid + legend + container padding exceed the room
+  let legend-overhead = if show-legend { legend-w + 10pt } else { 0pt }
+  let pad2 = 2 * t.container-inset
+  if avail-w != none and size + legend-overhead + pad2 > avail-w {
+    size = calc.max(20pt, avail-w - legend-overhead - pad2)
+  }
 
   // Normalize values to percentages of total-cells
-  let raw-sum = nonzero(values.sum())
   let cell-counts = values.map(v => int(calc.round(v / raw-sum * total-cells)))
 
   // Adjust rounding so cell-counts sum to exactly total-cells
@@ -91,28 +107,17 @@
   let cell-size = calc.min(cell-w, cell-h)
   let radius = if rounded { 2pt } else { 0pt }
 
-  // Compute percentages for legend display
-  let percentages = values.map(v => calc.round(v / raw-sum * 100, digits: 1))
-
-  // Build legend entries — compact format
-  let legend-entries = ()
-  if show-legend {
-    for i in range(n) {
-      let pct = str(percentages.at(i)) + "%"
-      let label-text = if show-values { labels.at(i) + " (" + pct + ")" } else { labels.at(i) }
-      legend-entries.push(label-text)
-    }
-  }
-
   // Compute actual grid dimensions
   let grid-width = cell-size * cols + gap * (cols - 1)
   let grid-height = cell-size * rows + gap * (rows - 1)
 
   // Force legend to right side for waffle charts
   let wt = (..t, legend-position: "right")
-  let legend-content = draw-legend-auto(legend-entries, wt, show-legend: show-legend)
+  let legend-content = if show-legend and n > 0 { draw-legend-vertical(legend-entries, wt, width: legend-w) } else { none }
+  let extra = container-extra(size, grid-height, title, wt, legend: legend-content, legend-width: legend-w,
+    extra-legend-separation: extra-legend-separation)
 
-  align(center, chart-container(size, grid-height, title, wt, legend: legend-content, extra-legend-separation: extra-legend-separation)[
+  align(center, chart-container(size, grid-height, title, wt, extra-height: extra, legend: legend-content, legend-width: legend-w, extra-legend-separation: extra-legend-separation)[
     // Draw grid bottom-to-top, left-to-right
     #box(width: size, height: grid-height)[
       #align(center + top)[
@@ -127,14 +132,13 @@
               } else {
                 0
               }
-              let color = get-color(t, cat-idx)
               place(
                 dx: col * (cell-size + gap),
                 dy: visual-row * (cell-size + gap),
                 rect(
                   width: cell-size,
                   height: cell-size,
-                  fill: color,
+                  fill: get-color(t, cat-idx),
                   radius: radius,
                 ),
               )

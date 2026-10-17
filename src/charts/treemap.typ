@@ -1,9 +1,11 @@
 // treemap.typ - Treemap chart (squarified layout)
 #import "../theme.typ": _resolve-ctx, get-color
-#import "../util.typ": normalize-data, nonzero, contrast-text, label-len
+#import "../util.typ": normalize-data, nonzero, contrast-text
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/layout.typ": try-fit-label, resolve-size
+#import "../primitives/layout.typ": fit-cell-label, resolve-size
+#import "../primitives/rows.typ": value-str
+#import "../primitives/frame.typ": container-extra
 
 /// Renders a treemap chart displaying hierarchical data as nested rectangles
 /// sized proportionally to their values.
@@ -167,7 +169,8 @@
   // Render
   let gap-val = gap / 1pt
 
-  chart-container(width, height, title, t, extra-height: 10pt)[
+  let extra = container-extra(width, height, title, t)
+  chart-container(width, height, title, t, extra-height: extra)[
     #box(width: width, height: height)[
       #for r in layout-rects {
         let i = r.idx
@@ -190,43 +193,20 @@
           )
         )
 
-        // Label and value text — try shrinking font before hiding
+        // Label and value, measured: the largest size that fits the cell
+        // (wrapping at spaces if needed), the value only if it fits under it
         {
-          let cell-color = get-color(t, i)
-          let txt-color = contrast-text(cell-color)
-          let label-text = labels.at(i)
-          let value-text = str(values.at(i))
-          let avail-w = rw - 8pt
-          let avail-h = rh - 6pt
-          let lbl-len = label-len(label-text)
-          let fit = try-fit-label(avail-w, avail-h, t.value-label-size, lbl-len, shrink-min: 5pt)
-
-          if fit.fits {
-            place(
-              left + top,
-              dx: rx + 4pt,
-              dy: ry + 3pt,
-              box(width: avail-w, clip: true)[
-                #text(size: fit.size, fill: txt-color, weight: "bold")[#label-text]
-              ]
-            )
-
-            // Value text below label if it also fits
-            if show-values {
-              let val-len = value-text.len()
-              let remaining-h = avail-h - fit.size - 2pt
-              let val-fit = try-fit-label(avail-w, remaining-h, fit.size * 0.85, val-len, shrink-min: 4pt)
-              if val-fit.fits {
-                place(
-                  left + top,
-                  dx: rx + 4pt,
-                  dy: ry + 3pt + fit.size + 2pt,
-                  box(width: avail-w, clip: true)[
-                    #text(size: val-fit.size, fill: txt-color.transparentize(20%))[#value-text]
-                  ]
-                )
-              }
-            }
+          let txt-color = contrast-text(get-color(t, i))
+          let value-text = if show-values { value-str(values.at(i), t) } else { none }
+          let (pad-x, pad-y) = (4pt, 3pt)
+          let fit = fit-cell-label(labels.at(i), value-text, rw - 2 * pad-x, rh - 2 * pad-y, t.value-label-size, min: 5.5pt)
+          if fit != none {
+            let name-t = text(size: fit.size, fill: txt-color, weight: "bold")[#labels.at(i)]
+            let body = if fit.detail {
+              stack(dir: ttb, spacing: 0.25 * fit.size, name-t,
+                text(size: fit.size * 0.85, fill: txt-color.transparentize(20%))[#value-text])
+            } else { name-t }
+            place(left + top, dx: rx + pad-x, dy: ry + pad-y, box(width: rw - 2 * pad-x, body))
           }
         }
       }
