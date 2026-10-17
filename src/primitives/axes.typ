@@ -321,12 +321,49 @@
     format-number(v, digits: 1, mode: "auto")
   } else { v }
 }
-
+// ── For charts that lay out their own rows ──────────────────────────────────
+//
+// The row-oriented charts (dumbbell, diverging, gantt, bullet, ...) draw their
+// own axes. These three helpers keep their signatures; cartesian charts use
+// `cartesian-frame` instead.
 
 // Draw a single right-aligned y-axis category label in the left margin.
-// Used by horizontal charts that lay out their own rows (dumbbell, diverging).
 #let draw-y-label(label, y, margin-width, theme) = {
   place(left + top, dx: 0pt, dy: y, box(width: margin-width - theme.axis-label-gap, height: 0pt, align(right + horizon,
     text(size: theme.axis-label-size, fill: theme.text-color)[#label],
   )))
+}
+
+// Height of a row of x tick labels; rotated (45 degrees) labels take their
+// widest label's diagonal.
+#let measure-x-tick-height(values, theme, rotated: false) = {
+  if not rotated { return measure(text(size: theme.axis-label-size)[0]).height }
+  values.fold(0pt, (m, v) => calc.max(m, measure(text(size: theme.axis-label-size)[#v]).width * calc.sqrt(2) / 2))
+}
+
+// Axis titles: the x title below the tick labels (centred on `x-center`), the y
+// title rotated left of the tick labels (centred on `y-center`). `origin-x` and
+// `origin-y` are the axis corner; `y-tick-width` and `x-tick-height` the measured
+// tick label extents.
+#let draw-axis-titles(
+  x-label, y-label, x-center, y-center, theme,
+  origin-x: none, origin-y: none, y-tick-width: 0pt, x-tick-height: 0pt,
+) = {
+  let gap = theme.axis-label-gap
+  let title-gap = theme.at("axis-title-gap", default: gap)
+  let title(body) = text(size: theme.axis-title-size, fill: theme.text-color)[#body]
+  if x-label != none {
+    let lbl = title(x-label)
+    let tick-h = if x-tick-height != 0pt { x-tick-height } else { measure(text(size: theme.axis-label-size)[0]).height }
+    let ox-y = if origin-y != none { origin-y } else { y-center * 2 }
+    place(left + top, dx: x-center - measure(lbl).width / 2, dy: ox-y + gap + tick-h + title-gap, lbl)
+  }
+  if y-label != none {
+    // The rotated box is placed by its centre: measure() of a rotated box is the unrotated size
+    let lbl = title(y-label)
+    let (tw, th) = (measure(lbl).width, measure(lbl).height)
+    let ox-x = if origin-x != none { origin-x } else { theme.axis-padding-left }
+    let strip-x = ox-x - gap / 2 - y-tick-width - title-gap - th
+    place(left + top, dx: strip-x + th / 2 - tw / 2, dy: y-center - th / 2, rotate(-90deg, lbl))
+  }
 }
