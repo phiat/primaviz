@@ -73,7 +73,7 @@
           for (j, v) in row.enumerate() {
             place(left + top, dx: lay.gx + j * cell, dy: lay.gy + i * cell,
               box(width: cell, height: cell, align(center + horizon,
-                text(size: value-size, fill: contrast-text(fills.at(i).at(j)))[#calc.round(v, digits: digits)])))
+                text(size: value-size, fill: contrast-text(fills.at(i).at(j), theme: t))[#calc.round(v, digits: digits)])))
           }
         }
       }

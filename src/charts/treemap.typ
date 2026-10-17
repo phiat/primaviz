@@ -196,7 +196,7 @@
         // Label and value, measured: the largest size that fits the cell
         // (wrapping at spaces if needed), the value only if it fits under it
         {
-          let txt-color = contrast-text(get-color(t, i))
+          let txt-color = contrast-text(get-color(t, i), theme: t)
           let value-text = if show-values { value-str(values.at(i), t) } else { none }
           let (pad-x, pad-y) = (4pt, 3pt)
           let fit = fit-cell-label(labels.at(i), value-text, rw - 2 * pad-x, rh - 2 * pad-y, t.value-label-size, min: 5.5pt)

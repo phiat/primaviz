@@ -18,27 +18,8 @@
 
 // ── Colour ──────────────────────────────────────────────────────────────
 
-// sRGB channel (0..1) to linear light
-#let _lin(c) = if c <= 0.04045 { c / 12.92 } else { calc.pow((c + 0.055) / 1.055, 2.4) }
-
-/// WCAG relative luminance of a colour (0 = black, 1 = white).
-///
-/// - c (color): Colour (alpha is ignored)
-/// -> float
-#let luminance(c) = {
-  let k = rgb(c).components()
-  0.2126 * _lin(k.at(0) / 100%) + 0.7152 * _lin(k.at(1) / 100%) + 0.0722 * _lin(k.at(2) / 100%)
-}
-
-/// WCAG contrast ratio between two colours (1 = identical, 21 = black on white).
-///
-/// - a (color): First colour
-/// - b (color): Second colour
-/// -> float
-#let contrast-ratio(a, b) = {
-  let (la, lb) = (luminance(a), luminance(b))
-  (calc.max(la, lb) + 0.05) / (calc.min(la, lb) + 0.05)
-}
+// luminance and contrast-ratio live in util.typ (one WCAG implementation)
+#import "../util.typ": luminance, contrast-ratio, contrast-text
 
 /// Text colour for a label drawn on a filled mark.
 ///
@@ -51,12 +32,7 @@
 /// - theme (dictionary): Resolved theme
 /// - min-ratio (float): Contrast ratio worth keeping a theme colour for
 /// -> color
-#let label-ink(fill, theme, min-ratio: 4.5) = {
-  let pick(cands) = cands.sorted(key: c => -contrast-ratio(c, fill)).first()
-  let theirs = (theme.text-color-inverse, theme.text-color).sorted(key: c => luminance(c))
-  let ok = theirs.find(c => contrast-ratio(c, fill) >= min-ratio)
-  if ok != none { ok } else { pick((black, white)) }
-}
+#let label-ink(fill, theme, min-ratio: 4.5) = contrast-text(fill, theme: theme, min-ratio: min-ratio)
 
 /// The colour a mark is drawn in, nudged until text in it is readable on
 /// the page: pale palette colours (yellow, pink) vanish as text on white.
