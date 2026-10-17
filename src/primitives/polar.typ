@@ -1,4 +1,7 @@
 // polar.typ - Polar/radial drawing primitives for circular charts
+//
+// Geometry only: points, wedges, rings. Label placement lives in
+// polar-labels.typ, frame/legend sizing in radial.typ.
 
 /// Returns an array of (x, y) points approximating an arc.
 ///
@@ -17,6 +20,16 @@
     (cx + r * calc.cos(a), cy + r * calc.sin(a))
   })
 }
+
+/// The point at `r` from the centre in direction `deg`
+/// (0 = right, 90 = down, -90 = up).
+///
+/// - cx (length): Center x
+/// - cy (length): Center y
+/// - r (length): Distance from the centre
+/// - deg (float): Angle in degrees
+/// -> array
+#let polar-pt(cx, cy, r, deg) = (cx + r * calc.cos(deg * 1deg), cy + r * calc.sin(deg * 1deg))
 
 /// Returns polygon points for a pie slice (center + outer arc).
 ///
@@ -46,6 +59,64 @@
   let outer = arc-points(cx, cy, r-outer, start-deg, end-deg)
   let inner = arc-points(cx, cy, r-inner, end-deg, start-deg)
   outer + inner
+}
+
+/// Draws one wedge: a pie slice (`r-inner` = 0) or a donut/ring segment.
+///
+/// A sweep of a full turn is drawn as a circle or a thick-stroked circle,
+/// not a polygon, so it has no seam where its two ends meet. Nothing is
+/// drawn for an empty sweep, so a zero value leaves no stray hairline.
+///
+/// - cx (length): Center x
+/// - cy (length): Center y
+/// - r-inner (length): Inner radius (0 for a pie slice)
+/// - r-outer (length): Outer radius
+/// - start-deg (float): Start angle in degrees
+/// - end-deg (float): End angle in degrees
+/// - fill (color): Fill
+/// - stroke (stroke): Outline (the separator between neighbours)
+/// -> content
+#let place-wedge(cx, cy, r-inner, r-outer, start-deg, end-deg, fill, stroke: none) = {
+  let span = calc.abs(end-deg - start-deg)
+  if span < 0.01 or r-outer <= r-inner {
+    none
+  } else if span >= 359.99 and r-inner <= 0pt {
+    place(left + top, dx: cx - r-outer, dy: cy - r-outer,
+      circle(radius: r-outer, fill: fill, stroke: stroke))
+  } else if span >= 359.99 {
+    let rm = (r-inner + r-outer) / 2
+    place(left + top, dx: cx - rm, dy: cy - rm,
+      circle(radius: rm, fill: none, stroke: (r-outer - r-inner) + fill))
+  } else {
+    let pts = if r-inner <= 0pt { pie-slice-points(cx, cy, r-outer, start-deg, end-deg) }
+      else { annular-wedge-points(cx, cy, r-inner, r-outer, start-deg, end-deg) }
+    place(left + top, polygon(fill: fill, stroke: stroke, ..pts))
+  }
+}
+
+/// Draws a band along a circle (a progress ring, a gauge dial): a filled
+/// annular sector, optionally with round ends. A single filled shape, so
+/// unlike a chain of thick line segments it has no seams or ticks.
+///
+/// - cx (length): Center x
+/// - cy (length): Center y
+/// - r (length): Radius of the band's centre line
+/// - width (length): Band thickness
+/// - start-deg (float): Start angle in degrees
+/// - end-deg (float): End angle in degrees
+/// - fill (color): Fill
+/// - round (bool): Round both ends
+/// -> content
+#let place-arc-band(cx, cy, r, width, start-deg, end-deg, fill, round: false) = {
+  place-wedge(cx, cy, calc.max(0pt, r - width / 2), r + width / 2, start-deg, end-deg, fill)
+  let span = calc.abs(end-deg - start-deg)
+  if round and span > 0.01 and span < 359.99 {
+    for deg in (start-deg, end-deg) {
+      let (x, y) = polar-pt(cx, cy, r, deg)
+      place(left + top, dx: x - width / 2, dy: y - width / 2,
+        circle(radius: width / 2, fill: fill, stroke: none))
+    }
+  }
 }
 
 /// Places a label at polar coordinates with automatic quadrant-aware alignment.
