@@ -4,6 +4,14 @@
 #import "../util.typ": heat-color
 #import "fonts.typ": pin
 
+/// Side of a legend swatch. The theme's `legend-swatch-size` is an upper bound:
+/// a swatch is a key to the label beside it, so it stays smaller than the label's
+/// text and never dominates it.
+///
+/// - theme (dictionary): Resolved theme
+/// -> length
+#let legend-swatch-size(theme) = calc.min(theme.legend-swatch-size, theme.legend-size * 0.75)
+
 // Optional legend title rendered above entries.
 #let _legend-title(title, theme) = {
   if title != none {
@@ -12,60 +20,61 @@
   }
 }
 
-// Horizontal legend (for bar, line, area charts).
-#let draw-legend(entries, theme, swatch-type: "box", title: none) = {
-  let swatch-size = theme.legend-swatch-size
-  v(5pt)
-  align(center)[
-    #_legend-title(title, theme)
-    #for (i, entry) in entries.enumerate() {
-      let name = if type(entry) == dictionary and "name" in entry { entry.name } else { entry }
-      let color = if type(entry) == dictionary and "color" in entry {
-        entry.color
-      } else {
-        get-color(theme, i)
-      }
-
-      // Wrap each swatch+label as an atomic unit to prevent mid-entry line breaks
-      box(baseline: 2pt)[
-        #if swatch-type == "line" {
-          box(width: 15pt, height: 2pt, fill: color, baseline: -2pt)
-        } else if swatch-type == "circle" {
-          box(width: swatch-size, height: swatch-size, baseline: 2pt,
-            circle(radius: swatch-size / 2, fill: color, stroke: theme.marker-stroke))
-        } else {
-          box(width: swatch-size, height: swatch-size, fill: color, baseline: 2pt, radius: 2pt)
-        }
-        #h(3pt)
-        #text(size: theme.legend-size, fill: theme.text-color)[#name]
-      ]
-      h(theme.legend-gap)
+// One legend entry: a swatch centred on the label's cap height, then the label.
+// Swatch and label are one box so an entry never breaks across lines. It is
+// built in code mode, with no markup spaces, so its width does not depend on the
+// ambient text size (the legend is measured where it is made and drawn elsewhere).
+#let _legend-entry(name, color, theme, swatch-type) = {
+  let sz = legend-swatch-size(theme)
+  // Shift that centres a swatch of height `h` on the label's cap-height band
+  let centred(h) = (h - 0.66 * theme.legend-size) / 2
+  box({
+    if swatch-type == "line" {
+      box(width: 1.6 * sz, height: theme.stroke-thick, fill: color, baseline: centred(theme.stroke-thick))
+    } else if swatch-type == "circle" {
+      box(width: sz, height: sz, baseline: centred(sz),
+        circle(radius: sz / 2, fill: color, stroke: theme.marker-stroke))
+    } else {
+      box(width: sz, height: sz, fill: color, baseline: centred(sz), radius: sz * 0.2)
     }
-  ]
+    h(0.4 * sz)
+    text(size: theme.legend-size, fill: theme.text-color)[#name]
+  })
 }
 
-// Vertical legend (for pie, radar, side panels).
-#let draw-legend-vertical(entries, theme, width: 130pt, title: none) = {
-  let swatch-size = theme.legend-swatch-size
-  box(width: width)[
-    #_legend-title(title, theme)
-    #for (i, entry) in entries.enumerate() {
-      let name = if type(entry) == dictionary and "name" in entry { entry.name } else { entry }
-      let color = if type(entry) == dictionary and "color" in entry {
-        entry.color
-      } else {
-        get-color(theme, i)
-      }
+// Name and color of the i-th legend entry (a string or a dict with name/color).
+#let _entry-parts(entry, i, theme) = (
+  if type(entry) == dictionary and "name" in entry { entry.name } else { entry },
+  if type(entry) == dictionary and "color" in entry { entry.color } else { get-color(theme, i) },
+)
 
-      box(width: swatch-size, height: swatch-size, fill: color, baseline: 2pt, radius: 2pt)
-      h(3pt)
-      text(size: theme.legend-size, fill: theme.text-color)[#name]
+// Horizontal legend (for bar, line, area charts).
+#let draw-legend(entries, theme, swatch-type: "box", title: none) = {
+  v(5pt)
+  align(center, {
+    _legend-title(title, theme)
+    for (i, entry) in entries.enumerate() {
+      // Gaps go between entries, so the row stays centred
+      if i > 0 { h(theme.legend-gap) }
+      let (name, color) = _entry-parts(entry, i, theme)
+      _legend-entry(name, color, theme, swatch-type)
+    }
+  })
+}
+
+// Vertical legend (for pie, radar, side panels). `width: auto` fits the widest entry.
+#let draw-legend-vertical(entries, theme, width: 130pt, title: none, swatch-type: "box") = {
+  box(width: width, {
+    _legend-title(title, theme)
+    for (i, entry) in entries.enumerate() {
+      let (name, color) = _entry-parts(entry, i, theme)
+      _legend-entry(name, color, theme, swatch-type)
       if i < entries.len() - 1 {
         linebreak()
         v(2pt)
       }
     }
-  ]
+  })
 }
 
 /// Automatically picks horizontal or vertical legend based on
@@ -77,14 +86,15 @@
 /// - show-legend (bool): Master toggle; when false nothing is rendered
 /// - swatch-type (str): `"box"`, `"line"`, or `"circle"`
 /// - title (none, str): Optional legend title displayed above entries
+/// - fit-width (bool): Size a side legend to its widest entry instead of the default column
 /// -> content, none
-#let draw-legend-auto(entries, theme, show-legend: true, swatch-type: "box", title: none) = {
+#let draw-legend-auto(entries, theme, show-legend: true, swatch-type: "box", title: none, fit-width: false) = {
   if not show-legend { return }
   if theme.legend-position == "none" { return }
   if entries.len() == 0 { return }
 
   if theme.legend-position == "right" or theme.legend-position == "left" {
-    draw-legend-vertical(entries, theme, title: title)
+    draw-legend-vertical(entries, theme, title: title, swatch-type: swatch-type, ..if fit-width { (width: auto) })
   } else {
     draw-legend(entries, theme, swatch-type: swatch-type, title: title)
   }
@@ -136,22 +146,35 @@
 /// -> content
 #let draw-size-legend(sizes, max-radius, max-value, theme, title: none, max-legend-radius: 12pt) = {
   let cap = calc.min(max-radius, max-legend-radius)
-  v(3pt)
-  align(center)[
-    #if title != none {
-      text(size: theme.legend-size, fill: theme.text-color)[#title]
-      h(6pt)
-    }
-    #for (val, lbl) in sizes {
-      let r = calc.max(2pt, cap * calc.sqrt(val / calc.max(1, max-value)))
-      let d = r * 2
-      box(baseline: r - 1pt)[
-        #box(width: d, height: d,
-          circle(radius: r, fill: none, stroke: theme.text-color-light + 0.75pt))
-      ]
-      h(2pt)
-      text(size: theme.legend-size, fill: theme.text-color)[#lbl]
-      h(8pt)
-    }
-  ]
+  // One reference circle and its label, a single box (code mode: its width does
+  // not depend on the ambient text size)
+  let entry(val, lbl) = box({
+    let r = calc.max(2pt, cap * calc.sqrt(val / calc.max(1, max-value)))
+    box(baseline: r - 1pt, box(width: 2 * r, height: 2 * r,
+      circle(radius: r, fill: none, stroke: theme.text-color-light + 0.75pt)))
+    h(2pt)
+    text(size: theme.legend-size, fill: theme.text-color)[#lbl]
+  })
+  if theme.legend-position == "right" or theme.legend-position == "left" {
+    // Beside the chart: a column, like the series legend
+    box({
+      _legend-title(title, theme)
+      for (i, (val, lbl)) in sizes.enumerate() {
+        entry(val, lbl)
+        if i < sizes.len() - 1 { linebreak(); v(2pt) }
+      }
+    })
+  } else {
+    v(3pt)
+    align(center, {
+      if title != none {
+        text(size: theme.legend-size, fill: theme.text-color)[#title]
+        h(6pt)
+      }
+      for (i, (val, lbl)) in sizes.enumerate() {
+        if i > 0 { h(8pt) }
+        entry(val, lbl)
+      }
+    })
+  }
 }

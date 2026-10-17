@@ -1,10 +1,8 @@
 // boxplot.typ - Box-and-whisker plot
 #import "../theme.typ": _resolve-ctx, get-color
-#import "../util.typ": nonzero, nice-ticks
-#import "../primitives/annotations.typ": draw-annotations
 #import "../validate.typ": validate-boxplot-data
-#import "../primitives/container.typ": chart-container
-#import "../primitives/axes.typ": cartesian-layout, draw-axis-lines, draw-y-ticks, draw-x-category-labels, draw-grid, draw-axis-titles, measure-y-tick-width, measure-x-tick-height
+#import "../primitives/frame.typ": cartesian-frame
+#import "../primitives/axes.typ": value-axis, category-axis, spread-positions, value-text
 #import "../primitives/layout.typ": resolve-size
 
 /// Renders a box-and-whisker plot for comparing distributions.
@@ -47,159 +45,57 @@
   let t = _resolve-ctx(theme, overrides: grid-overrides)
   let stroke-width = if stroke-width == auto { t.stroke-mid } else { stroke-width }
   let (width, height) = resolve-size(width, height, size, n: data.labels.len(), theme: t)
+  let (labels, boxes) = (data.labels, data.boxes)
 
-  let labels = data.labels
-  let boxes = data.boxes
-  let n = labels.len()
+  // The axis covers every whisker and outlier. Box plots compare spreads, so by
+  // default it fits the data rather than stretching down to a zero baseline.
+  let extremes = boxes.map(b => (b.min, b.max, ..b.at("outliers", default: ()))).flatten()
+  let (lo, hi) = (calc.min(..extremes), calc.max(..extremes))
+  let (lo, hi) = if include-zero { (calc.min(0, lo), calc.max(0, hi)) } else { (lo, hi) }
 
-  // Find global min/max across all boxes for Y-axis scaling
-  // Include outliers so they fit within the chart area
-  let global-min = boxes.at(0).min
-  let global-max = boxes.at(0).max
-  for b in boxes {
-    if b.min < global-min { global-min = b.min }
-    if b.max > global-max { global-max = b.max }
-    if "outliers" in b {
-      for o in b.outliers {
-        if o < global-min { global-min = o }
-        if o > global-max { global-max = o }
-      }
-    }
-  }
-  // Box plots compare spreads, so by default the axis fits the data rather
-  // than stretching down to a zero baseline
-  let nt = if include-zero {
-    nice-ticks(calc.min(0, global-min), calc.max(0, global-max), count: t.tick-count)
-  } else {
-    nice-ticks(global-min, global-max, count: t.tick-count)
-  }
-  let y-min = nt.min
-  let y-max = nt.max
-
-  let cl = cartesian-layout(width, height, t)
-
-  chart-container(width, height, title, t, extra-height: 30pt)[
-    #let pad-top = cl.pad-top
-    #let chart-height = cl.chart-height
-    #let chart-width = cl.chart-width
-    #let origin-x = cl.origin-x
-    #let origin-y = cl.origin-y
-    #let y-start = pad-top
-
-    #box(width: width, height: height)[
-      // Grid lines behind everything
-      #draw-grid(origin-x, y-start, chart-width, chart-height, t, num-ticks: nt.ticks.len())
-
-      // Axes
-      #draw-axis-lines(origin-x, origin-y, origin-x + chart-width, y-start, t)
-
-      // Y-axis ticks
-      #draw-y-ticks(y-min, y-max, chart-height, y-start, origin-x, t)
-
-      // X-axis category labels
-      #let spacing = chart-width / n
-      #draw-x-category-labels(labels, origin-x, spacing, origin-y + t.label-offset, t)
-
-      // Axis titles
-      #let y-tw = measure-y-tick-width(y-min, y-max, t)
-      #let x-th = measure-x-tick-height(labels, t, rotated: n > t.rotated-threshold)
-      #draw-axis-titles(x-label, y-label, origin-x + chart-width / 2, pad-top + chart-height / 2, t, origin-x: origin-x, origin-y: origin-y, y-tick-width: y-tw, x-tick-height: x-th)
-
-      // Draw each box
-      #for (i, b) in boxes.enumerate() {
-        let center-x = origin-x + i * spacing + spacing / 2
-        let actual-box-w = spacing * box-width
-        let half-box = actual-box-w / 2
-        let cap-w = actual-box-w * 0.5
-        let half-cap = cap-w / 2
-
+  cartesian-frame(width, height, t,
+    x: category-axis(labels, title: x-label),
+    y: value-axis(lo, hi, title: y-label),
+    title: title, annotations: annotations,
+    p => {
+      let (px, py) = (p.px, p.py)
+      let half-box = p.X.pitch * box-width / 2
+      let half-cap = half-box / 2
+      for (i, b) in boxes.enumerate() {
+        let cx = px(i)
         let color = get-color(t, i)
-        let fill-color = color.transparentize(20%)
-        let whisker-stroke = stroke-width + t.text-color
-        let median-stroke = stroke-width * 2 + t.text-color-inverse
+        let whisker = stroke-width + color
+        let (y-min, y-q1, y-med, y-q3, y-max) = (b.min, b.q1, b.median, b.q3, b.max).map(py)
 
-        // Helper: map a data value to y-coordinate
-        // y = y-start + chart-height - ((val - y-min) / (y-max - y-min)) * chart-height
-        let y-range = nonzero(y-max - y-min)
-        let map-y(val) = {
-          y-start + chart-height - ((val - y-min) / y-range) * chart-height
+        // Whiskers (min to q1, q3 to max) with a cap at each end
+        place(left + top, line(start: (cx, y-min), end: (cx, y-q1), stroke: whisker))
+        place(left + top, line(start: (cx, y-q3), end: (cx, y-max), stroke: whisker))
+        for y in (y-min, y-max) {
+          place(left + top, line(start: (cx - half-cap, y), end: (cx + half-cap, y), stroke: whisker))
         }
 
-        let y-min-pos = map-y(b.min)
-        let y-q1-pos = map-y(b.q1)
-        let y-median-pos = map-y(b.median)
-        let y-q3-pos = map-y(b.q3)
-        let y-max-pos = map-y(b.max)
+        // Box from q1 to q3, with the median across it
+        place(left + top, dx: cx - half-box, dy: y-q3,
+          rect(width: half-box * 2, height: y-q1 - y-q3, fill: color.transparentize(20%), stroke: whisker))
+        place(left + top, line(start: (cx - half-box, y-med), end: (cx + half-box, y-med),
+          stroke: stroke-width * 2 + t.text-color-inverse))
 
-        // Lower whisker: vertical line from min to q1
-        place(left + top,
-          line(start: (center-x, y-min-pos), end: (center-x, y-q1-pos), stroke: whisker-stroke)
-        )
-
-        // Upper whisker: vertical line from q3 to max
-        place(left + top,
-          line(start: (center-x, y-q3-pos), end: (center-x, y-max-pos), stroke: whisker-stroke)
-        )
-
-        // Cap at min
-        place(left + top,
-          line(start: (center-x - half-cap, y-min-pos), end: (center-x + half-cap, y-min-pos), stroke: whisker-stroke)
-        )
-
-        // Cap at max
-        place(left + top,
-          line(start: (center-x - half-cap, y-max-pos), end: (center-x + half-cap, y-max-pos), stroke: whisker-stroke)
-        )
-
-        // Box: filled rectangle from q1 to q3
-        let box-top = y-q3-pos
-        let box-height = y-q1-pos - y-q3-pos
-        place(left + top,
-          dx: center-x - half-box,
-          dy: box-top,
-          rect(
-            width: actual-box-w,
-            height: box-height,
-            fill: fill-color,
-            stroke: stroke-width + color,
-          )
-        )
-
-        // Median line across the box
-        place(left + top,
-          line(
-            start: (center-x - half-box, y-median-pos),
-            end: (center-x + half-box, y-median-pos),
-            stroke: median-stroke,
-          )
-        )
-
-        // Outliers: dots at values outside the whiskers
-        if "outliers" in b {
-          for o in b.outliers {
-            let y-pos = map-y(o)
-            place(left + top,
-              dx: center-x - outlier-radius,
-              dy: y-pos - outlier-radius,
-              circle(radius: outlier-radius, fill: color, stroke: none)
-            )
-          }
+        for o in b.at("outliers", default: ()) {
+          place(left + top, dx: cx - outlier-radius, dy: py(o) - outlier-radius,
+            circle(radius: outlier-radius, fill: color, stroke: none))
         }
 
-        // Optional value labels
+        // Five-number summary beside the box, nudged apart where values are close
         if show-values {
-          let label-dx = center-x + half-box + 3pt
-          for (val, y-pos) in ((b.max, y-max-pos), (b.q3, y-q3-pos), (b.median, y-median-pos), (b.q1, y-q1-pos), (b.min, y-min-pos)) {
-            place(left + top, dx: label-dx, dy: y-pos - 5pt,
-              text(size: t.value-label-size, fill: t.text-color)[#val]
-            )
+          let vals = (b.max, b.q3, b.median, b.q1, b.min)
+          let ys = spread-positions(vals.map(py), t.value-label-size * 1.1, p.y0, p.y1)
+          for (v, y) in vals.zip(ys) {
+            place(left + top, dx: cx + half-box + 3pt, dy: y,
+              box(height: 0pt, align(horizon, text(size: t.value-label-size, fill: t.text-color)[#value-text(v, t)])))
           }
         }
       }
-
-      // Annotations — x-axis is category index [-0.5, n-0.5]
-      #draw-annotations(annotations, origin-x, y-start, chart-width, chart-height, -0.5, n - 0.5, y-min, y-max, t)
-    ]
-  ]
+    },
+  )
   })
 }
