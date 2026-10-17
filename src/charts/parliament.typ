@@ -3,7 +3,8 @@
 #import "../util.typ": normalize-data
 #import "../validate.typ": validate-simple-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/legend.typ": draw-legend-vertical
+#import "../primitives/legend.typ": draw-legend
+#import "../primitives/radial.typ": side-legend, split-width, title-slack
 #import "../primitives/layout.typ": resolve-size
 
 /// Renders a parliament (hemicycle) chart — a semicircle of dots showing seat distribution.
@@ -16,7 +17,7 @@
 /// - dot-size (length): Diameter of each seat dot
 /// - gap (length): Gap between dots
 /// - title (none, content): Optional chart title
-/// - show-legend (bool): Show party legend below the chart
+/// - show-legend (bool): Show the party legend (where the theme's `legend-position` puts it)
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let parliament-chart(
@@ -41,7 +42,16 @@
     return
   }
 
-  let n-parties = values.len()
+  // Legend where the theme puts it: beside the hemicycle (which then shrinks
+  // to leave room), or under/over it
+  let entries = labels.enumerate().filter(((i, _)) => values.at(i) > 0)
+    .map(((i, lbl)) => (name: [#lbl (#values.at(i))], color: get-color(t, i)))
+  let lp = t.legend-position
+  let legend-on = show-legend and lp != "none" and entries.len() > 0
+  let beside = lp == "left" or lp == "right"
+  let side-lg = if legend-on and beside { side-legend(entries, t, position: lp) } else { none }
+  let size = if side-lg != none { split-width(size, 10pt + side-lg.width, avail.width, t).first() } else { size }
+
   let radius = size / 2
   let dot-r = dot-size / 2
   let spacing = dot-size + gap
@@ -137,12 +147,19 @@
   }
 
   let chart-height = radius + dot-r
-  let swatch-size = t.legend-swatch-size
-  let legend-row-h = swatch-size + 8pt
-  let legend-height = if show-legend { calc.ceil(n-parties / 3) * legend-row-h + 10pt } else { 0pt }
 
-  align(center, chart-container(size, chart-height + legend-height, title, t, extra-height: 40pt)[
-    // Hemicycle
+  let lg = if side-lg != none {
+    side-lg
+  } else if legend-on {
+    let legend = draw-legend(entries, t)
+    // Measured as the container lays it out: a paragraph gap from the hemicycle
+    let height = measure(box(width: size)[#set text(size: 11pt); #box(width: size, height: 0pt)#legend]).height
+    (legend: legend, width: 120pt, height: height, theme: t)
+  } else { (legend: none, width: 0pt, height: 0pt, theme: t) }
+
+  align(center, chart-container(size, chart-height, title, lg.theme,
+    extra-height: title-slack(title, none, lg.theme, size) + if beside { calc.max(0pt, lg.height - chart-height) } else { lg.height },
+    legend: lg.legend, legend-width: lg.width)[
     #box(width: size, height: chart-height)[
       #for (i, pos) in dots.enumerate() {
         if i < dot-colors.len() {
@@ -155,23 +172,6 @@
         }
       }
     ]
-
-    // Legend below hemicycle — compact horizontal flow
-    #if show-legend {
-      set text(size: t.axis-label-size, fill: t.text-color)
-      box(width: size, inset: (top: 6pt))[
-        #set align(center)
-        #for (i, lbl) in labels.enumerate() {
-          if values.at(i) > 0 {
-            box(baseline: 2pt, inset: (x: 4pt, y: 1pt))[
-              #box(width: swatch-size, height: swatch-size, fill: get-color(t, i), radius: 2pt, baseline: 1pt)
-              #h(3pt)
-              #lbl (#{ str(values.at(i)) })
-            ]
-          }
-        }
-      ]
-    }
   ])
   })
 }
