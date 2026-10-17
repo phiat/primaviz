@@ -267,6 +267,9 @@
 #cases(
   progress-bars(targets, width: 250pt, title: "progress-bars"),
   progress-bars(targets, width: 250pt, title: "dark", theme: themes.dark),
+  progress-bars(targets, width: 250pt, title: "color: auto (a colour per bar)", color: auto),
+  progress-bars(targets, width: 250pt, title: "color: one colour", color: rgb("#c0392b")),
+  progress-bars(targets, width: 100%, title: "dark, width 100%", theme: themes.dark),
   progress-bars(targets, width: 130pt, title: "narrow"),
   progress-bars(long-names, width: 250pt, title: "long labels", max-val: 100),
   progress-bars((("Zero", 0), ("Full", 100), ("Over", 150)), width: 250pt, title: "0 / 100 / 150", max-val: 100),
@@ -397,6 +400,10 @@
 #cases(
   word-cloud(wc, width: 270pt, height: 200pt, title: "word-cloud default"),
   word-cloud(wc, width: 270pt, height: 200pt, title: "dark", theme: themes.dark),
+  word-cloud(wc, width: 270pt, height: 200pt, title: "color: auto (a colour per word)", color: auto),
+  word-cloud(wc, width: 270pt, height: 200pt, title: "color: one colour", color: rgb("#c0392b")),
+  word-cloud(wc, width: 270pt, height: 120pt, title: "all words, short canvas"),
+  word-cloud(wc, width: 270pt, height: 200pt, title: "min-size 12pt (shrinks to the floor)", min-size: 12pt),
   word-cloud(wc, width: 270pt, height: 200pt, title: "minimal", theme: themes.minimal),
   word-cloud(wc, width: 270pt, height: 200pt, title: "presentation", theme: themes.presentation),
   word-cloud(wc, width: 270pt, height: 200pt, title: "circle", shape: "circle"),

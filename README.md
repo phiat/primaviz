@@ -94,7 +94,7 @@ just demo       # Compile the comprehensive demo
 - `progress-bar` - Horizontal progress bar
 - `circular-progress` - Ring progress indicator
 - `ring-progress` - Concentric fitness rings (Apple Watch style)
-- `progress-bars` - Multiple comparison bars
+- `progress-bars` - Multiple comparison bars, one colour by default (`color: auto` gives each bar its own palette colour)
 
 ### Sparklines (inline)
 - `sparkline` - Tiny line chart for tables and text
@@ -144,7 +144,7 @@ just demo       # Compile the comprehensive demo
 - `badge` - Inline colored pill (default/secondary/destructive/outline/success)
 - `separator` - Themed horizontal rule
 - `dashboard-layout` - Grid layout helper for multi-row dashboard pages
-- `word-cloud` - Weighted text layout sized by importance
+- `word-cloud` - Weighted text layout sized by importance; shrinks to keep every word, one hue pale to full by weight (`color: auto` gives each word its own palette colour)
 
 ### Annotations
 Overlay extra elements on any cartesian chart (bar, line, area, scatter, bubble, box-plot, histogram, violin, waterfall, dual-axis, ...) via the `annotations:` parameter. All coordinates are in data space.
