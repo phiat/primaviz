@@ -19,7 +19,7 @@
 /// - width (length): Chart width
 /// - height (length): Chart height
 /// - title (none, content): Optional chart title
-/// - dot-size (length): Diameter of endpoint dots
+/// - dot-size (auto, length): Diameter of endpoint dots; `auto` scales with the theme's `base-size` (0.75x, 6pt in the default theme)
 /// - line-width (auto, length): Stroke width of connecting lines; `auto` uses the theme's `stroke-thick`
 /// - show-values (bool): Display numeric values next to dots
 /// - theme (none, dictionary): Theme overrides
@@ -29,7 +29,7 @@
   width: auto,
   height: auto,
   title: none,
-  dot-size: 6pt,
+  dot-size: auto,
   line-width: auto,
   show-values: true,
   theme: none,
@@ -37,6 +37,7 @@
   layout(size => {
   validate-slope-data(data, "slope-chart")
   let t = _resolve-ctx(theme)
+  let dot-size = if dot-size == auto { 0.75 * t.base-size } else { dot-size }
   let line-width = if line-width == auto { t.stroke-thick } else { line-width }
   let labels = data.labels
   let n = labels.len()

@@ -232,6 +232,20 @@
 /// -> length
 #let row-y(lay, i) = lay.y0 + (i + 0.5) * lay.row-h
 
+/// Size for value labels written beside marks in rows `row-h` apart: the
+/// theme's value size, shrunk to the row (digits have no descenders, so a row
+/// may be as tall as the size), but never under `floor`, the same floor the
+/// row labels use. `none` when the rows are so tight that even `floor` digits
+/// would touch (the chart then leaves the values out).
+///
+/// - theme (dictionary): Resolved theme
+/// - row-h (length): Distance between rows
+/// - floor (length): Smallest size worth printing
+/// -> none, length
+#let row-value-size(theme, row-h, floor: 5pt) = {
+  if row-h < floor * 0.75 { none } else { calc.max(floor, calc.min(theme.value-label-size, row-h)) }
+}
+
 // ---------------------------------------------------------------------------
 // Horizontal value axis
 // ---------------------------------------------------------------------------

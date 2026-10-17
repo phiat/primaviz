@@ -109,7 +109,7 @@ just demo       # Compile the comprehensive demo
 ### Statistical
 - `histogram` - Auto-binned frequency distribution
 - `waterfall-chart` - Bridge/waterfall chart with pos/neg/total segments
-- `funnel-chart` - Conversion funnel with percentages, auto external labels for narrow sections
+- `funnel-chart` - Conversion funnel with percentages, auto external labels for narrow sections (one colour; `color-by-stage: true` for a colour per stage)
 - `box-plot` - Box-and-whisker distribution plot
 - `treemap` - Nested rectangles for hierarchical data
 - `slope-chart` - Two-period comparison with connecting lines
@@ -117,7 +117,7 @@ just demo       # Compile the comprehensive demo
 - `bullet-charts` - Multiple bullet charts stacked vertically
 
 ### Proportional & Hierarchical
-- `waffle-chart` - 10×10 grid of colored squares for proportions
+- `waffle-chart` - 10×10 grid of colored squares for proportions (category names sit beside their squares; a legend when they do not fit)
 - `sunburst-chart` - Multi-level hierarchical pie with nested rings
 - `parliament-chart` - Semicircle dot layout for seat visualization
 
@@ -131,7 +131,7 @@ just demo       # Compile the comprehensive demo
 
 ### Flow & Timeline
 - `sankey-chart` - Flow diagram with curved bands between nodes
-- `gantt-chart` - Timeline bar chart for project scheduling
+- `gantt-chart` - Timeline bar chart for project scheduling (one colour, or one per `group`; `color-by-task: true` for a colour per task)
 - `timeline-chart` - Vertical event timeline with alternating layout
 - `chord-diagram` - Circular flow diagram with chord bands
 

@@ -26,7 +26,8 @@
 /// - title (none, content): Optional chart title
 /// - show-values (bool): Display numeric values on segments
 /// - show-percentages (bool): Display conversion percentages relative to the first stage
-/// - gap (length): Vertical gap between segments
+/// - gap (auto, length): Vertical gap between segments; `auto` scales with the theme's `base-size` (0.375x, 3pt in the default theme)
+/// - color-by-stage (bool): Give every stage its own palette colour. By default all stages share the first palette colour: the stage is named by its label and the share by its width, so a colour per stage would encode nothing
 /// - theme (none, dictionary): Theme overrides
 /// -> content
 #let funnel-chart(
@@ -36,12 +37,14 @@
   title: none,
   show-values: true,
   show-percentages: true,
-  gap: 3pt,
+  gap: auto,
+  color-by-stage: false,
   theme: none,
 ) = context {
   layout(size => {
   validate-simple-data(data, "funnel-chart")
   let t = _resolve-ctx(theme)
+  let gap = if gap == auto { 0.375 * t.base-size } else { gap }
   let norm = normalize-data(data)
   let labels = norm.labels
   let values = norm.values
@@ -199,7 +202,7 @@
     #box(width: width, height: height)[
       #for (i, val) in values.enumerate() {
         let y-top = i * pitch
-        let color = get-color(t, i)
+        let color = get-color(t, if color-by-stage { i } else { 0 })
         place(left + top, dy: y-top, polygon(
           fill: color,
           stroke: t.marker-stroke,
@@ -211,7 +214,7 @@
         let name = labels.at(i)
         let det = details.at(i)
         if p.mode != "out" {
-          let fg = contrast-text(color)
+          let fg = contrast-text(color, theme: t)
           let name-t = text(size: p.size, weight: "bold", fill: fg)[#name]
           let det-t = text(size: p.size * detail-k, fill: fg)[#det]
           let body = if p.mode == "stack" {

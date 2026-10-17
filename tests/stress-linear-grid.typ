@@ -297,3 +297,91 @@
   correlation-matrix((labels: range(20).map(i => "V" + str(i + 1)), values: range(20).map(i => range(20).map(j => if i == j { 1.0 } else { calc.round(calc.pow(0.85, calc.abs(i - j)), digits: 2) }))),
     cell-size: 9pt, title: "correlation 20 x 20"),
 ))
+
+#pagebreak()
+= Ink on fills (WCAG), colour defaults, direct labels
+
+// Labels on filled marks pick the text colour by WCAG contrast: light, dark,
+// accessible (pale yellow and orange fills) and print (greys).
+#let ink-themes = (("default", themes.default), ("dark", themes.dark), ("accessible", themes.accessible), ("print", themes.print))
+#two-col(ink-themes.map(((name, th)) => treemap(tm, width: 250pt, height: 170pt, title: "treemap " + name, theme: th)))
+#two-col(ink-themes.map(((name, th)) => funnel-chart(funnel-data, width: 250pt, height: 200pt, title: "funnel " + name + ", colour per stage", color-by-stage: true, theme: th)))
+#two-col(ink-themes.map(((name, th)) => heatmap(hm, cell-size: 34pt, title: "heatmap " + name, theme: th)))
+#two-col(ink-themes.map(((name, th)) => diverging-bar-chart(
+  (labels: ("Enterprise", "Growth", "Starter"), left-values: (60, 30, 45), right-values: (40, 70, 55), left-label: "No", right-label: "Yes"),
+  width: 250pt, height: 120pt, title: "diverging " + name, theme: th)))
+
+#pagebreak()
+// One colour unless colour says something: funnel stages and ungrouped tasks
+// share the first palette colour; groups keep one colour each. `color-by-stage`
+// and `color-by-task` opt back in.
+#two-col((
+  funnel-chart(funnel-data, width: 250pt, height: 200pt, title: "funnel, one colour"),
+  funnel-chart(funnel-data, width: 250pt, height: 200pt, title: "funnel, colour per stage", color-by-stage: true),
+  gantt-chart((tasks: tasks.tasks.map(tk => (name: tk.name, start: tk.start, end: tk.end))), width: 250pt, title: "gantt, ungrouped: one colour", today: 7),
+  gantt-chart((tasks: tasks.tasks.map(tk => (name: tk.name, start: tk.start, end: tk.end))), width: 250pt, title: "gantt, colour per task", color-by-task: true),
+  // Group names beside the first bar of each group; a legend where they do not fit
+  gantt-chart(tasks, width: 250pt, title: "gantt, group names beside bars", show-legend: true, today: 7, x-label: "Week"),
+  gantt-chart(tasks, width: 250pt, title: "gantt, dark", show-legend: true, theme: themes.dark),
+  gantt-chart((tasks: range(12).map(i => (name: "Task " + str(i + 1), start: calc.rem(i * 5, 10), end: calc.rem(i * 5, 10) + 14 - calc.rem(i * 5, 10), group: "A rather long group name " + str(calc.rem(i, 3) + 1)))),
+    width: 250pt, title: "gantt, bars span the plot: legend", show-legend: true),
+  gantt-chart((tasks: range(24).map(i => (name: "Task " + str(i + 1), start: calc.rem(i * 3, 20), end: calc.rem(i * 3, 20) + 4, group: ("Plan", "Build", "QA").at(calc.rem(i, 3))))),
+    width: 250pt, height: 150pt, title: "gantt, rows too tight for names: legend", show-legend: true),
+  // Names level with their bands
+  waffle-chart((labels: ("Rust", "C", "Python", "Go", "Other"), values: (35, 28, 18, 12, 7)), size: 150pt, title: "waffle, names beside bands"),
+  waffle-chart((labels: ("A", "B", "C", "D", "E", "F"), values: (30, 25, 20, 12, 8, 5)), size: 150pt, title: "waffle, thin bands spread", theme: themes.dark),
+  waffle-chart((labels: ("A long category name here", "Another quite long category name", "Short"), values: (50, 30, 20)), size: 150pt, title: "waffle, long names: legend"),
+  waffle-chart((labels: ("Yes", "No"), values: (72, 28)), size: 130pt, title: "waffle, two", show-values: false),
+))
+
+#pagebreak()
+// Sankey: labels of middle columns sit on flows, set on a halo
+#two-col((
+  sankey-chart((nodes: ("Organic", "Paid", "Referral", "Landing", "Pricing", "Docs", "Blog", "Signup", "Trial", "Churned", "Paid plan", "Free plan"),
+    flows: ((from: 0, to: 3, value: 80), (from: 0, to: 4, value: 40), (from: 1, to: 3, value: 60), (from: 1, to: 5, value: 30), (from: 2, to: 4, value: 25), (from: 2, to: 6, value: 35),
+            (from: 3, to: 7, value: 90), (from: 3, to: 8, value: 50), (from: 4, to: 7, value: 40), (from: 4, to: 8, value: 25), (from: 5, to: 8, value: 30), (from: 6, to: 7, value: 35),
+            (from: 7, to: 10, value: 70), (from: 7, to: 11, value: 95), (from: 8, to: 9, value: 40), (from: 8, to: 10, value: 65))),
+    width: 250pt, height: 260pt, title: "sankey, busy middle columns", show-values: true),
+  sankey-chart((nodes: ("Organic", "Paid", "Referral", "Landing", "Pricing", "Docs", "Blog", "Signup", "Trial", "Churned", "Paid plan", "Free plan"),
+    flows: ((from: 0, to: 3, value: 80), (from: 0, to: 4, value: 40), (from: 1, to: 3, value: 60), (from: 1, to: 5, value: 30), (from: 2, to: 4, value: 25), (from: 2, to: 6, value: 35),
+            (from: 3, to: 7, value: 90), (from: 3, to: 8, value: 50), (from: 4, to: 7, value: 40), (from: 4, to: 8, value: 25), (from: 5, to: 8, value: 30), (from: 6, to: 7, value: 35),
+            (from: 7, to: 10, value: 70), (from: 7, to: 11, value: 95), (from: 8, to: 9, value: 40), (from: 8, to: 10, value: 65))),
+    width: 250pt, height: 260pt, title: "sankey, dark", show-values: true, theme: themes.dark),
+))
+
+#pagebreak()
+= Compact theme: sizes follow the theme's base size
+
+// Dots, markers, bars and gaps default to multiples of `base-size`; the compact
+// theme (5pt) draws them smaller than the default (8pt), and an explicit size
+// still wins.
+#let cmp(f) = ((themes.default, "default"), (themes.compact, "compact")).map(((th, name)) => f(th, name))
+#two-col(cmp((th, name) => dumbbell-chart(
+  (labels: ("Revenue", "Users", "NPS", "Uptime"), start-values: (45, 60, 68, 88), end-values: (78, 85, 72, 95), start-label: "Q1", end-label: "Q4"),
+  width: 250pt, title: "dumbbell " + name, show-values: true, theme: th)))
+#two-col(cmp((th, name) => slope-chart(slope-data, width: 250pt, title: "slope " + name, theme: th)))
+#two-col(cmp((th, name) => timeline-chart((events: (
+    (date: "Jan 2024", title: "Kickoff", description: "Project started"),
+    (date: "Mar 2024", title: "Alpha", description: "Internal release"),
+    (date: "Jun 2024", title: "Beta", description: "Public beta"))), width: 250pt, title: "timeline " + name, theme: th)))
+#two-col(cmp((th, name) => gantt-chart(tasks, width: 250pt, title: "gantt " + name, theme: th)))
+#two-col(cmp((th, name) => bullet-charts(
+  (bullets: ((value: 275, target: 250, ranges: (150, 225, 300), title: "Revenue ($K)"), (value: 82, target: 90, ranges: (60, 80, 100), title: "Satisfaction"))),
+  width: 250pt, title: "bullet-charts " + name, theme: th)))
+#two-col((
+  dumbbell-chart((labels: ("A", "B"), start-values: (10, 40), end-values: (30, 20)), width: 250pt, title: "explicit dot-size: 14pt", dot-size: 14pt, theme: themes.compact),
+  slope-chart(slope-data, width: 250pt, title: "explicit dot-size: 10pt", dot-size: 10pt, theme: themes.compact),
+))
+
+#pagebreak()
+= Dense rows: value labels keep the label floor
+
+#let dense-d(n) = (labels: range(n).map(i => "Row " + str(i + 1)), left-values: range(n).map(i => calc.rem(i * 7, 23) + 5),
+  right-values: range(n).map(i => calc.rem(i * 11, 29) + 12), left-label: "Disagree", right-label: "Agree")
+#two-col((
+  diverging-bar-chart(dense-d(25), width: 354pt, height: 150pt, title: "diverging, 25 rows in 150pt"),
+  diverging-bar-chart(dense-d(30), width: 354pt, height: 150pt, title: "diverging, 30 rows in 150pt"),
+  diverging-bar-chart(dense-d(40), width: 354pt, height: 150pt, title: "diverging, 40 rows: values left out"),
+  dumbbell-chart((labels: range(30).map(i => "Row " + str(i + 1)), start-values: range(30).map(i => calc.rem(i * 7, 41) + 10), end-values: range(30).map(i => calc.rem(i * 11, 47) + 30)),
+    width: 354pt, height: 150pt, title: "dumbbell, 30 rows", show-values: true),
+))

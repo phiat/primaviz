@@ -4,7 +4,7 @@
 #import "../validate.typ": validate-diverging-data
 #import "../primitives/container.typ": chart-container
 #import "../primitives/layout.typ": resolve-size, text-width, text-height, fit-font-size, max-text-width
-#import "../primitives/rows.typ": row-layout, row-y, end-label, value-str, linear-x-ticks, draw-x-axis, x-axis-extent, tick-label-width
+#import "../primitives/rows.typ": row-layout, row-y, end-label, row-value-size, value-str, linear-x-ticks, draw-x-axis, x-axis-extent, tick-label-width
 #import "../primitives/reserve.typ": container-extra
 
 /// Renders a horizontal diverging bar chart where bars extend left and right
@@ -66,7 +66,9 @@
   let axis-h = x-axis-extent(t, title: x-label)
 
   let probe = row-layout(width, height, labels, t, pad-top: header-h, pad-bottom: axis-h)
-  let v-size = calc.min(t.value-label-size, probe.row-h * 0.9)
+  let v-size = row-value-size(t, probe.row-h)
+  let show-values = show-values and v-size != none
+  let v-size = if v-size == none { 5pt } else { v-size }
   let v-gap = t.axis-label-gap / 2
   let v-str(v) = value-str(v, t)
 
@@ -141,9 +143,9 @@
         if show-values {
           let lo-x = lay.label-w + lay.gap / 2
           end-label(v-str(data.left-values.at(i)), cx - l-w, y, "left", v-size, t.text-color,
-            lo: lo-x, hi: width, gap: v-gap, mark-len: l-w, inside-fill: contrast-text(left-color))
+            lo: lo-x, hi: width, gap: v-gap, mark-len: l-w, inside-fill: contrast-text(left-color, theme: t))
           end-label(v-str(data.right-values.at(i)), cx + r-w, y, "right", v-size, t.text-color,
-            lo: lo-x, hi: width, gap: v-gap, mark-len: r-w, inside-fill: contrast-text(right-color))
+            lo: lo-x, hi: width, gap: v-gap, mark-len: r-w, inside-fill: contrast-text(right-color, theme: t))
         }
       }
     ]
