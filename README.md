@@ -94,7 +94,7 @@ just demo       # Compile the comprehensive demo
 - `progress-bar` - Horizontal progress bar
 - `circular-progress` - Ring progress indicator
 - `ring-progress` - Concentric fitness rings (Apple Watch style)
-- `progress-bars` - Multiple comparison bars
+- `progress-bars` - Multiple comparison bars, one colour by default (`color: auto` gives each bar its own palette colour)
 
 ### Sparklines (inline)
 - `sparkline` - Tiny line chart for tables and text
@@ -119,7 +119,7 @@ just demo       # Compile the comprehensive demo
 ### Proportional & Hierarchical
 - `waffle-chart` - 10×10 grid of colored squares for proportions (category names sit beside their squares; a legend when they do not fit)
 - `sunburst-chart` - Multi-level hierarchical pie with nested rings
-- `parliament-chart` - Semicircle dot layout for seat visualization
+- `parliament-chart` - Semicircle dot layout for seat visualization; each party takes one wedge (`fill-order: "rows"` fills the concentric rows instead)
 
 ### Comparison & Ranking
 - `bump-chart` - Multi-period ranking chart
@@ -144,7 +144,7 @@ just demo       # Compile the comprehensive demo
 - `badge` - Inline colored pill (default/secondary/destructive/outline/success)
 - `separator` - Themed horizontal rule
 - `dashboard-layout` - Grid layout helper for multi-row dashboard pages
-- `word-cloud` - Weighted text layout sized by importance
+- `word-cloud` - Weighted text layout sized by importance; shrinks to keep every word, one hue pale to full by weight (`color: auto` gives each word its own palette colour)
 
 ### Annotations
 Overlay extra elements on any cartesian chart (bar, line, area, scatter, bubble, box-plot, histogram, violin, waterfall, dual-axis, ...) via the `annotations:` parameter. All coordinates are in data space.

@@ -2,12 +2,20 @@
 #import "../theme.typ": _resolve-ctx, get-color, _shade
 #import "../util.typ": nonzero, clamp, normalize-data
 #import "../validate.typ": validate-number, validate-simple-data
-#import "../primitives/container.typ": chart-container
+#import "../primitives/container.typ": chart-container, container-inset
 #import "../primitives/title.typ": draw-title
 #import "../primitives/polar.typ": place-wedge, place-arc-band, separator-stroke
 #import "../primitives/polar-labels.typ": label-ink, fit-text-size
 #import "../primitives/radial.typ": title-for-size, title-slack
 #import "../primitives/layout.typ": resolve-size
+
+// A theme with a background (a dark one) brings it behind these standalone
+// indicators, padded as a chart container pads a chart: their title and values
+// are in the theme's light text, which a white page swallows. A theme without
+// a background draws them bare, as they always were, to sit inline in a card.
+#let _backed(t, body) = if t.background == none { body } else {
+  box(fill: t.background, stroke: t.border, inset: t.at("container-inset", default: container-inset), body)
+}
 
 // The empty part of a progress indicator: a step off the background
 #let _track(t, background) = {
@@ -163,7 +171,7 @@
   validate-number(value, "progress-bar")
   let t = _resolve-ctx(theme)
   set text(size: 11pt)  // sized by the theme, not the document font
-  let (width, height) = resolve-size(width, height, size, container: false)
+  let (width, height) = resolve-size(width, height, size, theme: t, container: t.background != none)
   let progress = clamp(value / nonzero(max-val), 0, 1)
   let bar-color = if color != none { color } else { get-color(t, 0) }
   let corner = if rounded { height / 2 } else { 0pt }
@@ -180,7 +188,7 @@
   let pct-x = if inside { fill-w - pad - pct-w } else { calc.min(fill-w + pad, width - pad - pct-w) }
   let pct-ink = if inside { label-ink(bar-color, t) } else { t.text-color }
 
-  box(width: width)[
+  _backed(t, box(width: width)[
     #stack(dir: ttb, spacing: 3pt,
       if title != none { text(size: t.value-label-size, fill: t.text-color, bottom-edge: "descender")[#title] },
       box(width: width, height: height)[
@@ -192,7 +200,7 @@
           place(left + horizon, dx: pct-x, pct-text(pct-ink))
         }
       ])
-  ]
+  ])
   })
 }
 
@@ -223,7 +231,7 @@
   validate-number(value, "circular-progress")
   let t = _resolve-ctx(theme)
   set text(size: 11pt)  // sized by the theme, not the document font
-  let size = resolve-size(size, size, avail, container: false).width
+  let size = resolve-size(size, size, avail, theme: t, container: t.background != none).width
   let progress = clamp(value / nonzero(max-val), 0, 1)
   let bar-color = if color != none { color } else { get-color(t, 0) }
   let sw = calc.min(stroke-width, size * 0.3)
@@ -234,7 +242,7 @@
   let pct-text(sz) = text(size: sz, weight: "bold", fill: t.text-color, top-edge: "cap-height", bottom-edge: "baseline")[#calc.round(progress * 100, digits: 0)%]
   let pct-size = fit-text-size(pct-text, (ring-r - sw / 2) * 1.5, t.value-label-size, t.axis-label-size)
 
-  box(width: size)[
+  _backed(t, box(width: size)[
     #stack(dir: ttb, spacing: 3pt,
       if title != none { align(center, text(size: t.value-label-size, fill: t.text-color)[#title]) },
       box(width: size, height: size)[
@@ -244,7 +252,7 @@
           place(center + horizon, pct-text(pct-size))
         }
       ])
-  ]
+  ])
   })
 }
 
@@ -256,6 +264,7 @@
 /// - title (none, content): Optional title above the bars
 /// - show-values (bool): Display numeric values beside bars
 /// - max-val (auto, int, float): Maximum scale value; `auto` uses the data maximum
+/// - color (none, auto, color): Fill of the bars. `none` (default): the theme's first colour for every bar, the labels say which is which. A colour: that colour. `auto`: the next palette colour for each bar
 /// - background (color): Track background color
 /// - theme (none, dictionary): Theme overrides
 /// -> content
@@ -266,6 +275,7 @@
   title: none,
   show-values: true,
   max-val: auto,
+  color: none,
   background: auto,
   theme: none,
 ) = context {
@@ -273,17 +283,19 @@
   validate-simple-data(data, "progress-bars")
   let t = _resolve-ctx(theme)
   set text(size: 11pt)  // sized by the theme, not the document font
-  let width = resolve-size(width, 0pt, size, container: false).width
+  let width = resolve-size(width, 0pt, size, theme: t, container: t.background != none).width
   let norm = normalize-data(data)
   let (labels, values) = (norm.labels, norm.values)
   let actual-max = nonzero(if max-val == auto { calc.max(..values) } else { max-val })
+  // (a bar's colour does not say which bar it is: the label beside it does)
+  let fill-of(i) = if color == auto { get-color(t, i) } else if color != none { color } else { get-color(t, 0) }
 
   // Names are as wide as they are, up to 40% of the whole: past that they wrap
   // rather than squeeze the bars to stubs
   let name-w = calc.min(width * 0.4,
     calc.max(..labels.map(l => measure(text(size: t.value-label-size)[#l]).width)))
 
-  box(width: width)[
+  _backed(t, box(width: width)[
     #draw-title(title, t)
     #grid(
       columns: if show-values { (name-w, 1fr, auto) } else { (name-w, 1fr) },
@@ -296,13 +308,13 @@
           text(size: t.value-label-size, fill: t.text-color)[#lbl],
           box(width: 100%, height: bar-height)[
             #rect(width: 100%, height: 100%, fill: _track(t, background), radius: bar-height / 2)
-            #place(left + top, rect(width: 100% * progress, height: 100%, fill: get-color(t, i), radius: bar-height / 2))
+            #place(left + top, rect(width: 100% * progress, height: 100%, fill: fill-of(i), radius: bar-height / 2))
           ],
         )
         if show-values { row.push(text(size: t.value-label-size, fill: t.text-color, weight: "bold")[#values.at(i)]) }
         row
       }).flatten()
     )
-  ]
+  ])
   })
 }

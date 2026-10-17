@@ -62,6 +62,15 @@
   ],
 )
 
+// Dozens of legend entries flow into columns when the container is wide enough
+// for them (in the narrow cells above one column is all that fits)
+#pagebreak()
+#pie-chart(many, size: 160pt, title: "26 slices, wide container: legend in columns")
+#v(10pt)
+#pie-chart(many, size: 200pt, title: "26 slices, donut, dark", donut: true, theme: themes.dark)
+#v(10pt)
+#parliament-chart(range(20).map(i => ("Party " + str(i + 1), 3 + calc.rem(i * 5, 9))), size: 230pt, title: "20 parties, legend right", theme: (legend-position: "right"))
+
 // Clusters of tiny slices at 12, 3, 6 and 9 o'clock: small labels bunch up wherever
 // the cluster sits, and near the top and bottom they have little vertical room.
 #let tiny5 = (("Alpha", 2), ("Beta", 1), ("Gamma", 1), ("Delta", 0.6), ("Epsilon", 0.4))
@@ -258,6 +267,9 @@
 #cases(
   progress-bars(targets, width: 250pt, title: "progress-bars"),
   progress-bars(targets, width: 250pt, title: "dark", theme: themes.dark),
+  progress-bars(targets, width: 250pt, title: "color: auto (a colour per bar)", color: auto),
+  progress-bars(targets, width: 250pt, title: "color: one colour", color: rgb("#c0392b")),
+  progress-bars(targets, width: 100%, title: "dark, width 100%", theme: themes.dark),
   progress-bars(targets, width: 130pt, title: "narrow"),
   progress-bars(long-names, width: 250pt, title: "long labels", max-val: 100),
   progress-bars((("Zero", 0), ("Full", 100), ("Over", 150)), width: 250pt, title: "0 / 100 / 150", max-val: 100),
@@ -293,6 +305,24 @@
   (name: "Infrastructure and operations", value: 35, children: ((name: "Continuous integration", value: 20), (name: "Deployment tooling", value: 15))),
   (name: "Research & development of long-term bets", value: 25),
 ))
+
+// Many names, most of them several words, on narrow wedges of every ring: two
+// lines inside the wedge where that holds them at the theme's smallest type,
+// else a leader (no name is set below the smallest type)
+#let depts = ("Engineering", "Marketing", "Finance", "Legal", "Support", "Operations", "Design", "Research")
+#let busy = (name: "root", children: depts.enumerate().map(((i, d)) => (
+  name: d, value: 10 + calc.rem(i * 7, 9),
+  children: (
+    (name: d + " North", value: 6 + calc.rem(i * 3, 5)),
+    (name: d + " South", value: 4 + calc.rem(i * 5, 4)),
+    (name: "Other " + str(i), value: 2),
+  ))))
+
+// (their leaders reach out further than a half-page cell: one to a line)
+#pagebreak()
+#sunburst-chart(busy, size: 230pt, title: "8 x 3 names")
+#v(10pt)
+#sunburst-chart(busy, size: 230pt, title: "8 x 3 names, dark", theme: themes.dark)
 
 #pagebreak()
 #cases(
@@ -337,6 +367,21 @@
   ],
 )
 
+// Angular (party wedges, the default) and rows fill: few and many parties, a
+// 5-seat party, 600+ seats, a light and a dark theme.
+#let chamber(a, b, c, d, e) = (("A", a), ("B", b), ("C", c), ("D", d), ("E", e))
+#pagebreak()
+#cases(
+  parliament-chart(parties, size: 230pt, title: "fill-order: rows", fill-order: "rows"),
+  parliament-chart(parties, size: 230pt, title: "fill-order: rows, dark", fill-order: "rows", theme: themes.dark),
+  parliament-chart((("A", 60), ("B", 40)), size: 230pt, title: "2 parties"),
+  parliament-chart((("A", 60), ("B", 40)), size: 230pt, title: "2 parties, rows", fill-order: "rows"),
+  parliament-chart((chamber(30, 25, 20, 15, 10)), size: 230pt, title: "5 parties"),
+  parliament-chart((chamber(5, 5, 5, 5, 5)), size: 230pt, title: "5 parties of 5 seats", dot-size: 8pt, gap: 2pt),
+  parliament-chart((("A", 300), ("Tiny", 5), ("B", 200), ("C", 90), ("D", 12)), size: 250pt, dot-size: 3pt, title: "600+ seats, a 5-seat party mid-chamber"),
+  parliament-chart((("A", 300), ("B", 200), ("C", 90), ("D", 12), ("Tiny", 5)), size: 250pt, dot-size: 3pt, title: "600+ seats, dark", theme: themes.dark),
+)
+
 // ── Chord ────────────────────────────────────────────────────────────────
 
 = Chord
@@ -373,6 +418,10 @@
 #cases(
   word-cloud(wc, width: 270pt, height: 200pt, title: "word-cloud default"),
   word-cloud(wc, width: 270pt, height: 200pt, title: "dark", theme: themes.dark),
+  word-cloud(wc, width: 270pt, height: 200pt, title: "color: auto (a colour per word)", color: auto),
+  word-cloud(wc, width: 270pt, height: 200pt, title: "color: one colour", color: rgb("#c0392b")),
+  word-cloud(wc, width: 270pt, height: 120pt, title: "all words, short canvas"),
+  word-cloud(wc, width: 270pt, height: 200pt, title: "min-size 12pt (shrinks to the floor)", min-size: 12pt),
   word-cloud(wc, width: 270pt, height: 200pt, title: "minimal", theme: themes.minimal),
   word-cloud(wc, width: 270pt, height: 200pt, title: "presentation", theme: themes.presentation),
   word-cloud(wc, width: 270pt, height: 200pt, title: "circle", shape: "circle"),

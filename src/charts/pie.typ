@@ -3,10 +3,10 @@
 #import "../util.typ": normalize-data, nonzero
 #import "../primitives/layout.typ": resolve-size
 #import "../validate.typ": validate-simple-data
-#import "../primitives/container.typ": chart-container
+#import "../primitives/container.typ": chart-container, container-inset
 #import "../primitives/polar.typ": place-wedge, separator-stroke
 #import "../primitives/polar-labels.typ": label-ink, fit-wedge-label, place-centred, place-outside-labels, polar-label-extent
-#import "../primitives/radial.typ": side-legend, split-width, title-slack
+#import "../primitives/radial.typ": legend-left, legend-room, side-legend, split-width, title-slack
 
 /// Renders a pie or donut chart from label-value data.
 ///
@@ -62,11 +62,14 @@
   // Legend column; the pie shrinks first if the container is narrow
   let legend-entries = labels.enumerate().map(((i, lbl)) => [#lbl (#pcts.at(i)%)])
   let legend-on = show-legend and t.legend-position != "none"
-  let lg = side-legend(legend-entries, t, enabled: legend-on)
+  // (dozens of entries flow into columns instead of one column taller than the pie)
+  let lg = side-legend(legend-entries, t, enabled: legend-on, max-height: size * 1.3, max-total: legend-room(size, avail.width, t))
   let legend-side = if lg.legend != none { 10pt + lg.width } else { 0pt }
   let (size, side) = split-width(size, legend-side, avail.width, t)
+  let lg-widths = (:)
   if side != legend-side {
-    lg = side-legend(legend-entries, t, enabled: legend-on, min-width: side - 10pt, max-width: side - 10pt)
+    lg-widths = (min-width: side - 10pt, max-width: side - 10pt)
+    lg = side-legend(legend-entries, t, enabled: legend-on, ..lg-widths, max-height: size * 1.3, max-total: side - 10pt)
   }
 
   // Percentage labels: inside the slice when they fit, outside when not
@@ -122,6 +125,11 @@
   }
 
   let (box-w, box-h) = (size + 2 * pl.mx, size + pl.my-top + pl.my-bot)
+  // A legend flowed into columns before the labels were known: fewer columns
+  // if the chart and its labels left less room than that
+  if lg.cols > 1 and box-w + 10pt + lg.width > avail.width - 2 * t.at("container-inset", default: container-inset) {
+    lg = side-legend(legend-entries, t, enabled: legend-on, ..lg-widths, max-height: size * 1.3, max-total: legend-left(box-w, avail.width, t))
+  }
   let (cx, cy) = (box-w / 2, pl.my-top + size / 2)
   let pie-r = size / 2
   // A legend far taller than the pie (dozens of entries) starts level with

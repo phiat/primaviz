@@ -25,6 +25,27 @@
   return 1 + deepest
 }
 
+/// A name of several words as two lines, broken where they come out most
+/// alike in length; `none` for a name without a space (or not a string).
+///
+/// - name (str, content): A segment's name
+/// -> none, array of two strings
+#let _two-lines(name) = {
+  if type(name) != str or " " not in name { return none }
+  let words = name.split(" ").filter(w => w != "")
+  if words.len() < 2 { return none }
+  let best = 1
+  let best-gap = none
+  for k in range(1, words.len()) {
+    let gap = calc.abs(words.slice(0, k).join(" ").clusters().len() - words.slice(k).join(" ").clusters().len())
+    if best-gap == none or gap < best-gap {
+      best = k
+      best-gap = gap
+    }
+  }
+  (words.slice(0, best).join(" "), words.slice(best).join(" "))
+}
+
 /// Builds a flat list of arc segments from the hierarchical data.
 /// Each segment has: start-angle, end-angle, depth, color-index, name, value.
 ///
@@ -176,16 +197,24 @@
         let ink = label-ink(seg.color, t)
         let make(sz) = text(size: sz, weight: weight, fill: ink, top-edge: "cap-height", bottom-edge: "descender")[#seg.name]
         let fit = fit-wedge-label(make, seg.mid, seg.span / 2, seg.r-inner, seg.r-outer, t.value-label-size, t.axis-label-size, rotate: true)
-        // A sunburst has no legend to carry a name that does not fit. On the
-        // outermost ring it goes outside; on an inner ring (where outside
-        // means a leader across the rings beyond) it shrinks further first
-        // and only then goes outside, with a leader
-        let outer = seg.r-outer >= rim - 0.01pt
-        if fit == none and not outer {
-          fit = fit-wedge-label(make, seg.mid, seg.span / 2, seg.r-inner, seg.r-outer, t.axis-label-size, t.axis-label-size * 0.65, rotate: true)
+        // A sunburst has no legend to carry a name that does not fit, and
+        // type below the theme's smallest is not read. A name of several words
+        // that fits nowhere on one line is tried on two (still no smaller than
+        // that); a name that fits nowhere goes outside, with a leader from
+        // inside its segment unless it is on the outermost ring
+        let body-of = make
+        let lines = _two-lines(seg.name)
+        if fit == none and lines != none {
+          let make2(sz) = {
+            set par(leading: 0.3em)
+            text(size: sz, weight: weight, fill: ink, top-edge: "cap-height", bottom-edge: "descender")[#lines.at(0) #linebreak() #lines.at(1)]
+          }
+          fit = fit-wedge-label(make2, seg.mid, seg.span / 2, seg.r-inner, seg.r-outer, t.value-label-size, t.axis-label-size, rotate: true)
+          body-of = make2
         }
+        let outer = seg.r-outer >= rim - 0.01pt
         if fit != none {
-          inside.push((seg: seg, fit: fit, body: make(fit.size)))
+          inside.push((seg: seg, fit: fit, body: body-of(fit.size)))
         } else {
           // Inner rings first when there is no room for everything
           outside.push((angle: seg.mid, priority: seg.span + 20 * (total-depth - seg.depth),

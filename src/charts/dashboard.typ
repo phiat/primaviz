@@ -151,7 +151,8 @@
     stroke: if variant == "outline" { if t.border != none { t.border } else { 0.5pt + t.text-color-light } } else { none },
     inset: (x: t.axis-label-gap * 0.7, y: t.axis-label-gap * 0.25),
     radius: t.border-radius,
-    text(size: t.axis-label-size * 0.85, weight: "bold", fill: s.fg, upper(label)),
+    // (the theme's smallest type: a badge reads as text, not as a mark)
+    text(size: t.axis-label-size, weight: "bold", fill: s.fg, upper(label)),
   )
 }
 
