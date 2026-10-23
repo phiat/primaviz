@@ -10,7 +10,7 @@
 // would collide. Functions measure text, so call them inside `context`.
 
 #import "../theme.typ": *
-#import "fonts.typ": text-width, text-height, max-text-width, fit-font-size, thin-indices, fit-pitch, pin, place-centered
+#import "fonts.typ": text-width, text-height, max-text-width, fit-font-size, thin-indices, fit-pitch, place-centered
 
 /// Lays out the label gutters around a `cell-w` × `cell-h` grid.
 ///

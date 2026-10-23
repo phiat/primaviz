@@ -13,6 +13,7 @@
 /// - array of objects: `[{"label": "Jan", "value": 300}, ...]`
 /// - already-shaped: `{"labels": [...], "values": [...]}` (passed through)
 ///
+/// - raw (dictionary, array): Parsed JSON, as returned by `json()`
 /// -> dictionary
 #let load-simple(raw) = {
   if type(raw) == dictionary {
@@ -53,6 +54,8 @@
 /// - array of objects: `[{"period": "Q1", "A": 10, "B": 20}, ...]`
 ///   with `label-key` specifying which field holds labels (default: first string field)
 ///
+/// - raw (dictionary, array): Parsed JSON, as returned by `json()`
+/// - label-key (none, str): Field holding the labels when `raw` is an array of objects; `none` uses the first string field
 /// -> dictionary
 #let load-series(raw, label-key: none) = {
   if type(raw) == dictionary {
@@ -96,6 +99,7 @@
 /// - array of objects: `[{"x": 1, "y": 2}, ...]` or `[{"x": 1, "y": 2, "label": "A"}, ...]`
 /// - array of pairs/triples: `[[1, 2], [3, 4]]`
 ///
+/// - raw (dictionary, array): Parsed JSON, as returned by `json()`
 /// -> dictionary
 #let load-scatter(raw) = {
   if type(raw) == dictionary {
@@ -134,6 +138,7 @@
 /// - array of objects: `[{"x": 1, "y": 2, "size": 5}, ...]`
 /// - array of triples: `[[1, 2, 5], [3, 4, 8]]`
 ///
+/// - raw (dictionary, array): Parsed JSON, as returned by `json()`
 /// -> dictionary
 #let load-bubble(raw) = {
   if type(raw) == dictionary {
@@ -177,6 +182,7 @@
 /// - already-shaped: `{"name": "root", "value": 100, "children": [...]}` (passed through)
 /// - flat array with parent refs: `[{"name": "A", "value": 10, "parent": null}, {"name": "B", "value": 5, "parent": "A"}]`
 ///
+/// - raw (dictionary, array): Parsed JSON, as returned by `json()`
 /// -> dictionary
 #let load-hierarchy(raw) = {
   if type(raw) == dictionary {

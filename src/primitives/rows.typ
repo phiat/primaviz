@@ -18,7 +18,7 @@
 
 #import "../theme.typ": *
 #import "../util.typ": nice-ticks, format-number
-#import "fonts.typ": text-width, text-height, max-text-width, fit-font-size, label-stride, thin-indices, fit-pitch, pin, place-centered
+#import "fonts.typ": text-width, max-text-width, fit-font-size, label-stride, thin-indices, fit-pitch, pin, place-centered
 #import "axes.typ": draw-axis-titles, measure-x-tick-height
 
 // ---------------------------------------------------------------------------

@@ -5,7 +5,6 @@
 #import "../theme.typ": _resolve-ctx, get-color, _is-dark, _shade
 #import "../util.typ": nonzero, nice-ticks
 #import "../validate.typ": validate-bullet-data, validate-bullet-charts-data
-#import "../primitives/container.typ": chart-container
 #import "../primitives/layout.typ": resolve-size, text-width, fit-font-size
 #import "../primitives/rows.typ": linear-x-ticks, draw-x-axis, x-axis-extent, tick-label-width
 

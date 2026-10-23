@@ -1,9 +1,9 @@
 // heatmap.typ - Heatmap/matrix charts
-#import "../theme.typ": _resolve-ctx, get-color, _phi, _shade
+#import "../theme.typ": _resolve-ctx, _phi, _shade
 #import "../util.typ": heat-color, nonzero, contrast-text
 #import "../validate.typ": validate-heatmap-data, validate-calendar-data, validate-correlation-data
 #import "../primitives/container.typ": chart-container, container-inset
-#import "../primitives/layout.typ": text-width, text-height, max-text-width, place-centered
+#import "../primitives/layout.typ": text-width, text-height
 #import "../primitives/matrix.typ": matrix-layout, cell-label-size
 #import "../primitives/legend.typ": draw-gradient-legend, gradient-legend-width
 

@@ -425,15 +425,7 @@
 // ── For charts that lay out their own rows ──────────────────────────────────
 //
 // The row-oriented charts (dumbbell, diverging, gantt, bullet, ...) draw their
-// own axes. These three helpers keep their signatures; cartesian charts use
-// `cartesian-frame` instead.
-
-// Draw a single right-aligned y-axis category label in the left margin.
-#let draw-y-label(label, y, margin-width, theme) = {
-  place(left + top, dx: 0pt, dy: y, box(width: margin-width - theme.axis-label-gap, height: 0pt, align(right + horizon,
-    text(size: theme.axis-label-size, fill: theme.text-color)[#label],
-  )))
-}
+// own axes with the helpers below; cartesian charts use `cartesian-frame` instead.
 
 // Height of a row of x tick labels; rotated (45 degrees) labels take their
 // widest label's diagonal.
