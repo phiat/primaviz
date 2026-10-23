@@ -1,9 +1,8 @@
 // slope.typ - Slope chart (two-period comparison)
 #import "../theme.typ": _resolve-ctx, get-color
-#import "../util.typ": nonzero
 #import "../validate.typ": validate-slope-data
 #import "../primitives/container.typ": chart-container
-#import "../primitives/layout.typ": resolve-size, pin, text-width, text-height, fit-font-size, spread-labels
+#import "../primitives/layout.typ": resolve-size, text-width, text-height, fit-font-size, spread-labels
 #import "../primitives/rows.typ": value-str
 
 /// Renders a slope chart showing changes between two time periods.

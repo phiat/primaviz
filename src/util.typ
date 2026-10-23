@@ -69,7 +69,7 @@
 #let _named-palettes = (
   viridis: (rgb("#440154"), rgb("#3b528b"), rgb("#21918c"), rgb("#5ec962"), rgb("#fde725")),
   // Ordered, light to dark (ColorBrewer YlOrRd): more is always darker, so it
-  // reads as an amount. It used to run blue-green-red, a rainbow.
+  // reads as an amount.
   heat: (rgb("#ffffb2"), rgb("#fecc5c"), rgb("#fd8d3c"), rgb("#f03b20"), rgb("#bd0026")),
   blues: (rgb("#f7fbff"), rgb("#6baed6"), rgb("#08306b")),
   greens: (rgb("#f7fcf5"), rgb("#74c476"), rgb("#00441b")),
@@ -307,46 +307,6 @@
   (labels: data.labels, values: agg-values)
 }
 
-// Nice fractions of a power of ten, as used by nice-ceil / nice-floor.
-#let _nice-fracs = (1, 1.5, 2, 2.5, 3, 4, 5, 7, 10)
-
-// Rounds a positive value to a nice number, up or down. The fraction is
-// rounded before comparing and the result snapped, so float noise neither
-// bumps a value to the next step nor leaks out (1.5 × 0.1 = 0.15000000000000002).
-#let _nice-positive(val, up) = {
-  let exp = calc.floor(calc.log(val, base: 10))
-  let base = calc.pow(10, exp)
-  let frac = calc.round(val / base, digits: 9)
-  let nice = if up {
-    _nice-fracs.find(f => frac <= f)
-  } else {
-    _nice-fracs.rev().find(f => frac >= f)
-  }
-  let x = nice * base
-  if exp < 0 { calc.round(x, digits: -exp + 2) } else { x }
-}
-
-/// Rounds a value up to the next "nice" number for axis scaling.
-/// Uses the standard nice-number algorithm (similar to D3/matplotlib).
-///
-/// - val (int, float): Value to round up
-/// -> int, float
-#let nice-ceil(val) = {
-  if val == 0 { 0 }
-  else if val > 0 { _nice-positive(val, true) }
-  else { -_nice-positive(-val, false) }
-}
-
-/// Rounds a value down to the previous "nice" number for axis scaling.
-///
-/// - val (int, float): Value to round down
-/// -> int, float
-#let nice-floor(val) = {
-  if val == 0 { 0 }
-  else if val > 0 { _nice-positive(val, false) }
-  else { -_nice-positive(-val, true) }
-}
-
 /// Normalizes an `errors` parameter for bar/line/scatter charts into a uniform
 /// list of `(low, high)` dicts. Accepts either symmetric (single number per
 /// point) or asymmetric (two-tuple per point) specifications.
@@ -422,17 +382,6 @@
   let digits = int(calc.max(-calc.floor(calc.log(step, base: 10)), 0))
 
   (min: tick-min, max: tick-max, step: step, ticks: ticks, digits: digits)
-}
-
-/// Computes nice-rounded (min, max, range) for a numeric array.
-/// Returns a dictionary with `min`, `max`, and `range` (nonzero-guarded) keys.
-///
-/// - vals (array): Array of numbers
-/// -> dictionary
-#let numeric-range(vals) = {
-  let lo = nice-floor(calc.min(..vals))
-  let hi = nice-ceil(calc.max(..vals))
-  (min: lo, max: hi, range: nonzero(hi - lo))
 }
 
 /// Returns day-of-week for a "YYYY-MM-DD" string (0=Mon … 6=Sun).

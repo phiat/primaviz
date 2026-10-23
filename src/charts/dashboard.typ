@@ -1,5 +1,5 @@
 // dashboard.typ - Dashboard layout primitives (card, compact-table, alert, badge, separator)
-#import "../theme.typ": _resolve-ctx, get-color, _is-dark, _shade
+#import "../theme.typ": _resolve-ctx, _is-dark, _shade
 #import "../primitives/polar-labels.typ": label-ink, legible
 #import "../primitives/status.typ": status-colors
 

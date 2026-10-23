@@ -207,6 +207,7 @@
 /// - max-value (number): Maximum data value (for scaling)
 /// - theme (dictionary): Resolved theme
 /// - title (none, str): Optional title (e.g., "Market Value (£M)")
+/// - max-legend-radius (length): Largest reference circle drawn, so a chart with big bubbles does not get a big legend
 /// -> content
 #let draw-size-legend(sizes, max-radius, max-value, theme, title: none, max-legend-radius: 12pt) = {
   let cap = calc.min(max-radius, max-legend-radius)

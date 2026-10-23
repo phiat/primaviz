@@ -165,9 +165,6 @@
     rects
   }
 
-  // Render
-  let gap-val = gap / 1pt
-
   chart-container(width, height, title, t)[
     #box(width: width, height: height)[
       #for r in layout-rects {
